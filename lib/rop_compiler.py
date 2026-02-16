@@ -823,7 +823,6 @@ def handle_assignment_command(line):
     elif left.startswith("reg ") or (left[0] in 'rexq' and any(left.startswith(prefix) for prefix in ['r', 'er', 'xr', 'qr'])):
         register = left[4:].strip() if left.startswith("reg ") else left
         right = right.lower()
-        print(right)
         value = right.replace(',', ';')
         process_line(f'call pop {register}')
         l1 = len(result)
