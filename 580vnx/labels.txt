@@ -233,7 +233,6 @@ d_0D113		 cursor_noflash
 d_0DBD0		 magic_string
 d_083DA		 basen_keytable
 d_07B0E		 normal_keytable
-
 d_0F000		 hardware.dsr
 d_0F008		 d_0F008
 d_0F00A		 d_0F00A

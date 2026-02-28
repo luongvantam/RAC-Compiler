@@ -397,6 +397,9 @@ in_comment = False
 vars_dict = {}
 KEY_MAP = {}
 
+# name of the section currently being processed (from @set.<name>)
+current_section_name = None
+
 def handle_label_definition(line):
     """
     Syntax: lbl <label>
@@ -996,7 +999,56 @@ def finalize_processing():
     relocation_expressions.clear()
     pr_length_cmds.clear()
 
+
+
+def _split_into_sections(program_lines):
+    """Return list of (name, lines) tuples by splitting on @set.<name> directives.
+    Lines before the first @set are grouped under name None.  The directive
+    itself is not included in the section contents.
+    """
+    sections = []
+    current_name = None
+    current_lines = []
+    for raw_line in program_lines:
+        stripped = raw_line.strip()
+        if stripped.startswith('@set.'):
+            # begin a new section
+            if current_name is not None or current_lines:
+                sections.append((current_name, current_lines))
+            current_name = stripped[5:]
+            current_lines = []
+        else:
+            current_lines.append(raw_line)
+    # append last
+    if current_name is not None or current_lines:
+        sections.append((current_name, current_lines))
+    return sections
+
+
 def process_program(args, program_lines, overflow_initial_sp):
+    # split into sections and dispatch to helper for each
+    sections = _split_into_sections(program_lines)
+    # reorder so named sections come before unnamed to avoid warning prints
+    named = [(n, l) for n, l in sections if n is not None]
+    unnamed = [(n, l) for n, l in sections if n is None]
+    sections = named + unnamed
+
+    if len(sections) == 1:
+        # simple case, just process the single list of lines
+        return _process_program_core(args, sections[0][1], overflow_initial_sp)
+
+    # multiple sections: process each independently
+    global current_section_name
+    for name, lines in sections:
+        current_section_name = name
+        if name is not None:
+            print(f"\n=== section @{name} ===")
+        _process_program_core(args, lines, overflow_initial_sp)
+    current_section_name = None
+
+
+def _process_program_core(args, program_lines, overflow_initial_sp):
+    # original body moved here unchanged
     global result, labels, address_requests
     global relocation_expressions, pr_length_cmds, home
     global in_comment, note
@@ -1179,9 +1231,11 @@ def process_program(args, program_lines, overflow_initial_sp):
             home = overflow_initial_sp
             if 'home' in labels:
                 home -= labels['home']
-            if home + len(result) > 0x8E00:
-                note(f'Warning: Program length after home = {len(result)} bytes'
-                     f' > {0x8E00 - home} bytes\n')
+                if home + len(result) > 0x8E00:
+                    # suppress warning if section has a name (assuming named sections are handled first)
+                    if current_section_name is None:
+                        note(f'Warning: Program length after home = {len(result)} bytes'
+                            f' > {0x8E00 - home} bytes\n')
 
             min_home = home
             while min_home >= 0x8154 + 200:
@@ -1243,24 +1297,49 @@ def process_program(args, program_lines, overflow_initial_sp):
             hackstring_pos = (home + home_offset - 0x8154) % 100
             hackstring[hackstring_pos] = byte
 
+    # wrap output with section header/footer if needed
+    header_printed = False
+    def _print_header():
+        nonlocal header_printed
+        if header_printed:
+            return
+        header_printed = True
+        print(f"=== {home:#06x} -> {home + len(result):#06x} ===")
+    def _print_footer():
+        print('=====')
+        
+    if home == home+len(result) and current_section_name is None:
+        return
+
+    _print_header()
+
     if args.target == 'overflow' and args.format == 'hex':
-        print(''.join(f'{byte:0{2}x}' for byte in hackstring))
+        print(''.join(f'{byte:02x}' for byte in hackstring))
+
     elif args.target == 'none' and args.format == 'hex':
-        print('0x%04x:' % home, *map('%02x'.__mod__, result))
+        print(f'{home:#06x}:', ' '.join(f'{b:02x}' for b in result))
+
     elif args.target == 'none' and args.format == 'key':
-        print(f'{home:#06x}:', ' '.join(
-            byte_to_key(byte) for byte in result
-        ))
+        print(f'{home:#06x}:', ' '.join(byte_to_key(b) for b in result))
+
     elif args.target == 'loader' and args.format == 'key':
-        print('Address to load: %s %s' % (byte_to_key((home - home2) & 255), byte_to_key((home - home2) >> 8)))
-        for i in range(home2):
-            result.insert(0, 0)
+        addr = home - home2
+        print('Address to load:',
+            byte_to_key(addr & 0xff),
+            byte_to_key((addr >> 8) & 0xff))
+
+        result = [0] * home2 + result
+
         import keypairs
         print(keypairs.format(result))
+
     elif args.target == 'overflow' and args.format == 'key':
         print(' '.join(byte_to_key(x) for x in hackstring))
+
     else:
         raise ValueError('Unsupported target/format combination')
+
+    _print_footer()
 
 rom = None
 

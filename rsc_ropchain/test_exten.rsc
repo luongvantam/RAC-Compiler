@@ -1,4 +1,5 @@
-org 0xe9e0
+@section main at 0xe9e0
+hex 30 30 30 30
 
-lbl start
-    setup_loop(0xe9e0,0xd830,adr(start))
+@section launcher at 0xe9e0
+hex 20 20

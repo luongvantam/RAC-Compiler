@@ -58,6 +58,7 @@
 1893a	pop er0,pop er4
 16754	pop er4,pop er8
 1A104	pop er8,pop qr0
+0A1CA   pop lr
 
 # Some MOV gadgets:
 24008	er6 = er0,er0 = er8,pop qr8
@@ -104,6 +105,7 @@
 1edea	er0 = er6,pop er8,pop xr4,rt
 0c1e6	er2 = er4,er0 -= er2,pop er4,pop er8,rt
 208E8	er0 = ea,rt
+140E4   er0=er6,er2=er12
 
 # Some ST gadgets:
 16d9a	[er2] = er0,r2 = 0,pop er4,rt
@@ -121,6 +123,7 @@
 0D512	[er10] = er0,er0 = 0,pop er10
 10E78	[er4] = er0,er4 -= 2,pop ea,pop xr4
 09cbe   [er10] = er8,pop qr8,rt
+16614   [er2] = r0,r0 = 0
 
 # Some L gadgets:
 16d7a	er4 = [er8],pop er8,rt
@@ -129,6 +132,7 @@
 09e4a	r0 = [er2]
 18274	r0 = [er0]
 298dc	er0 = [er0],pop xr8,rt
+24BEC   er0 = [er0-2],pop er8,rt
 09fdc	r0 = [ea],rt
 21f72	sp = [er8],pop er8
 19F44	er8 = [ea+],rt
@@ -147,6 +151,8 @@
 19850	r0 += r4,rt
 1332a	[er4] += 1,rt
 13336	[er4] -= 1,rt
+0E254   [er8+5]+=1,pop er8
+2EB7C   [er8+5]-=1,pop er8
 
 # Some SUB gadgets:
 09e8a	er0 -= er2,rt
@@ -176,6 +182,9 @@
 0c790	er0 - er2_gt,r0 = 0|r0 = 1,rt
 09ae6	er0 - er2_eq,r0 = 1|r0 = 0,rt
 0c7a8	er2 - er0_gt,r0 = 0|r0 = 1,rt
+192c2   er0 - er2_gts,r0=0|r0=1,pop er4
+27e78   er0 - er4_le,r2=1,r0=r2,pop er4,pop er8,rt
+0c1e2   er8 - er2_lt,er2=er4|(er0=er4,er2=er8),r0-=r2,r1-=r3,pop er4,pop er8,rt
 2abda	er0 - er2_le,er0 = er2,rt
 19618	er4 - er2_ne,r0 = 0|r0 = 1
 10876	r0 - 01H_eq,r0 = 0|r0 = 1

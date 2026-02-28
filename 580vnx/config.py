@@ -1,6 +1,6 @@
 overflow_initial_sp=0xE9E0
 rom_file = "rom.bin"
-disassembly_file = "disas.txt"
+disassembly_file = "disas.asm"
 gadgets_file = "gadgets.txt"
 labels_file = "labels.txt"
 key_map_file = "key_map.txt"

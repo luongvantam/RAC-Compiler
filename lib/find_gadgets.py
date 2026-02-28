@@ -22,10 +22,10 @@ def expand_register_pattern(text, defined_vars):
         else:
             var = name
         if var in defined_vars:
-            return rf"er(?P={var})"
+            return rf"(?P={var})"
         defined_vars.add(var)
-        return rf"er(?P<{var}>{constraint_pattern})"
-    return re.sub(r"er\{([^}]+)\}", repl, text)
+        return rf"(?P<{var}>{constraint_pattern})"
+    return re.sub(r"\{([^}]+)\}", repl, text)
 
 def build_full_regex(instructions):
     line_prefix = r'^\s*'

@@ -211,7 +211,23 @@ Dùng {var} để nêu ra 1 biến giả định có giá trị từ 0 đến 15
 
 ---
 
-## 17. Hệ thống mở rộng (Extension)
+## 17. Section
+
+Section cho phép chia một file thành nhiều vùng độc lập.
+
+```rsc
+@set.main
+org 0xe9e0
+hex 30 30 30 30
+
+@set.launcher
+org 0xd180
+xr0 = hex 30 30 30 30
+```
+
+---
+
+## 18. Hệ thống mở rộng (Extension)
 
 Bạn có thể định nghĩa cú pháp mới, macro qua `extensions.txt`.
 
@@ -228,7 +244,7 @@ call print
 
 ---
 
-## 18. Ví dụ hoàn chỉnh
+## 19. Ví dụ hoàn chỉnh
 
 ```rsc
 org 0xe9e0

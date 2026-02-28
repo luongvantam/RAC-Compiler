@@ -119,3 +119,11 @@ pop{reg}({value})
 pop {reg}
 {value}
 ---
+
+---syntax---
+@section {section} at {org}
+---logic---
+---output---
+@set.{section}
+org {org}
+---

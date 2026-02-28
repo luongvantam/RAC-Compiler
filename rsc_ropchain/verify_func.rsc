@@ -36,6 +36,8 @@ lbl verify
 
 lbl text_1
     "True"
+    hex 00
 
 lbl text_2
     "False"
+    hex 00

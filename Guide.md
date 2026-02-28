@@ -213,7 +213,23 @@ Use {var} to specify a hypothetical variable with a value from 0 to 15, {var[1]}
 
 ---
 
-## 17. Extension System
+## 17. Section
+
+Sections allow you to divide a file into multiple independent areas.
+
+```rsc
+@set.main
+org 0xe9e0
+hex 30 30 30 30
+
+@set.launcher
+org 0xd180
+xr0 = hex 30 30 30 30
+```
+
+---
+
+## 18. Extension System
 
 You can define new syntax and macros via `extensions.txt`.
 
@@ -230,7 +246,7 @@ call print
 
 ---
 
-## 18. Full Example
+## 19. Full Example
 
 ```rsc
 org 0xe9e0
