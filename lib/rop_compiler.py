@@ -181,6 +181,82 @@ def get_commands(filename):
 
         add_command(commands, address, command, tags, f'at {filename}:{line_index0 + 1}')
 
+def read_rename_list(filename):
+    '''Try to parse a rename list.
+
+    If the rename list is ambiguous without disassembly, it raises an error.
+    '''
+    global commands, datalabels
+    with open(filename, 'r', encoding='u8') as f:
+        data = f.read().splitlines()
+
+    line_regex   = re.compile(r'^\s*([\w_.]+)\s+([\w_.]+)')
+    global_regex = re.compile(r'f_([0-9a-fA-F]+)')
+    local_regex  = re.compile(r'.l_([0-9a-fA-F]+)')
+    data_regex   = re.compile(r'd_([0-9a-fA-F]+)')
+    hexadecimal  = re.compile(r'[0-9a-fA-F]+')
+
+    last_global_label = None
+    for line_index0, line in enumerate(data):
+        match = line_regex.match(line)
+        if not match: continue
+        raw, real = match[1], match[2]
+        if real.startswith('.'):
+            continue
+        
+        match = data_regex.fullmatch(raw)
+        if match:
+            addr = int(match[1], 16)
+            datalabels[real] = addr
+            continue
+
+        addr = None
+        if hexadecimal.fullmatch(raw):
+            addr = int(raw, 16)
+            last_global_label = None
+        else:
+            match = global_regex.match(raw)
+            if match:
+                addr = int(match[1], 16)
+                if len(match[0]) == len(raw):
+                    last_global_label = addr
+                else:
+                    match = local_regex.fullmatch(raw[len(match[0]):])
+                    if match:
+                        addr += int(match[1], 16)
+            else:
+                match = local_regex.fullmatch(raw)
+                if match:
+                    if last_global_label is None:
+                        print('Label cannot be read: ', line)
+                        continue
+                    else:
+                        addr = last_global_label + int(match[1], 16)
+
+        if addr is not None:
+            assert addr < len(disasm), f'{addr:05X}'
+            if disasm[addr].startswith('push lr'):
+                tags = 'del lr',
+                addr += 2
+            else:
+                tags = 'rt',
+                a1 = addr + 2
+                while not any(disasm[a1].startswith(x) for x in ('push lr', 'pop pc', 'rt')): a1 += 2
+                if not disasm[a1].startswith('rt'):
+                    tags = tags + ('del lr',)
+
+            if real in commands:
+                if 'override rename list' in commands[real][1]:
+                    continue
+                if commands[real] == (addr, tags):
+                    note(f'Warning: Duplicated command {real}\n')
+                    continue
+
+            add_command(commands, addr, real, tags=tags,
+                    debug_info=f'at {filename}:{line_index0+1}')
+        else:
+            raise ValueError('Invalid line: ' + repr(line))
+
 def get_disassembly(filename):
 	'''Try to parse a disasm file with annotated address.
 
@@ -282,82 +358,6 @@ def expand_extensions_in_program(program_lines, extensions):
             expanded.append(current_line)
     return expanded
 
-def read_rename_list(filename):
-    '''Try to parse a rename list.
-
-    If the rename list is ambiguous without disassembly, it raises an error.
-    '''
-    global commands, datalabels
-    with open(filename, 'r', encoding='u8') as f:
-        data = f.read().splitlines()
-
-    line_regex   = re.compile(r'^\s*([\w_.]+)\s+([\w_.]+)')
-    global_regex = re.compile(r'f_([0-9a-fA-F]+)')
-    local_regex  = re.compile(r'.l_([0-9a-fA-F]+)')
-    data_regex   = re.compile(r'd_([0-9a-fA-F]+)')
-    hexadecimal  = re.compile(r'[0-9a-fA-F]+')
-
-    last_global_label = None
-    for line_index0, line in enumerate(data):
-        match = line_regex.match(line)
-        if not match: continue
-        raw, real = match[1], match[2]
-        if real.startswith('.'):
-            continue
-        
-        match = data_regex.fullmatch(raw)
-        if match:
-            addr = int(match[1], 16)
-            datalabels[real] = addr
-            continue
-
-        addr = None
-        if hexadecimal.fullmatch(raw):
-            addr = int(raw, 16)
-            last_global_label = None
-        else:
-            match = global_regex.match(raw)
-            if match:
-                addr = int(match[1], 16)
-                if len(match[0]) == len(raw):
-                    last_global_label = addr
-                else:
-                    match = local_regex.fullmatch(raw[len(match[0]):])
-                    if match:
-                        addr += int(match[1], 16)
-            else:
-                match = local_regex.fullmatch(raw)
-                if match:
-                    if last_global_label is None:
-                        print('Label cannot be read: ', line)
-                        continue
-                    else:
-                        addr = last_global_label + int(match[1], 16)
-
-        if addr is not None:
-            assert addr < len(disasm), f'{addr:05X}'
-            if disasm[addr].startswith('push lr'):
-                tags = 'del lr',
-                addr += 2
-            else:
-                tags = 'rt',
-                a1 = addr + 2
-                while not any(disasm[a1].startswith(x) for x in ('push lr', 'pop pc', 'rt')): a1 += 2
-                if not disasm[a1].startswith('rt'):
-                    tags = tags + ('del lr',)
-
-            if real in commands:
-                if 'override rename list' in commands[real][1]:
-                    continue
-                if commands[real] == (addr, tags):
-                    note(f'Warning: Duplicated command {real}\n')
-                    continue
-
-            add_command(commands, addr, real, tags=tags,
-                    debug_info=f'at {filename}:{line_index0+1}')
-        else:
-            raise ValueError('Invalid line: ' + repr(line))
-
 def sizeof_register(reg_name):
     return {'r': 1, 'e': 2, 'x': 4, 'q': 8}[reg_name[0]]
 
@@ -373,8 +373,6 @@ vars_dict = {}
 
 # name of the section currently being processed (from @set.<name>)
 current_section_name = None
-
-from lib.rop_compiler import *
 
 def handle_label_definition(line):
     """
@@ -822,7 +820,7 @@ def handle_call_command(line):
         else:
             process_line(f'0x{adr + 0x00000000:0{8}x}')
     except TypeError:
-        process_line(f'0x{adr + 0x00000000:0{8}x}')
+        process_line(f'0x{adr + 0x30300000:0{8}x}')
 
 def handle_goto_command(line):
     """Syntax: `goto <label>`"""

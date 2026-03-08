@@ -10,3 +10,4 @@ find_gadgets {
 org 0xd180
 
 xr0 = hex 30 30 30 30
+line_print
