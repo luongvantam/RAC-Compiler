@@ -153,7 +153,7 @@ call 0x1234 ; goto end
 
 ## 13. Key Mapping
 
-Sử dụng hằng phím cho fx580vnx (xem key_map.txt để tra cứu).
+Sử dụng hằng phím cho fx580vnx (xem labels.txt để tra cứu).
 
 ```rsc
 KEY_SHIFT

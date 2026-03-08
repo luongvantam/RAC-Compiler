@@ -5,7 +5,6 @@ from ast import expr
 import re, sys, os
 from functools import lru_cache
 from lib.text import char_to_hex
-from lib.find_gadgets import find_first_gadget
 
 max_call_adr = 0x3ffff
 
@@ -181,30 +180,6 @@ def get_commands(filename):
             raise Exception(f'Line {line_index0 + 1} has invalid address: {address!r}')
 
         add_command(commands, address, command, tags, f'at {filename}:{line_index0 + 1}')
-        
-def get_key_map(filename):
-    global KEY_MAP
-    KEY_MAP = {}
-    if not os.path.exists(filename):
-        return
-    with open(filename, 'r', encoding='utf-8') as f:
-        data = f.read().splitlines()
-    line_regex = re.compile(r'(?:([0-9A-Fa-f]{4})\s+(\w+)|(\w+)\s+([0-9A-Fa-f]{4}))')
-    for line in data:
-        line = line.strip()
-        if not line or line.startswith('#') or line.startswith('//'):
-            continue
-        line = del_inline_comment(line)
-        if not line:
-            continue
-        m = line_regex.fullmatch(line)
-        if not m:
-            continue
-        if m[1]:
-            hex_raw, key_name = m[1], m[2]
-        else:
-            key_name, hex_raw = m[3], m[4]
-        KEY_MAP[key_name] = f"0x{hex_raw[:2]}, 0x{hex_raw[2:]}"
 
 def get_disassembly(filename):
 	'''Try to parse a disasm file with annotated address.
@@ -395,10 +370,11 @@ deferred_evals = []
 home = None
 in_comment = False
 vars_dict = {}
-KEY_MAP = {}
 
 # name of the section currently being processed (from @set.<name>)
 current_section_name = None
+
+from lib.rop_compiler import *
 
 def handle_label_definition(line):
     """
@@ -662,6 +638,86 @@ def handle_eval_expression(line):
     else:
         raise ValueError(f"Unsupported eval result type: {type(val)}")
     
+
+def find_gadget(instructions, disas_file):
+    def normalize_instruction(instr: str) -> str:
+        instr = instr.lower()
+        instr = re.sub(r"\s+", "", instr)
+        return instr
+
+    def expand_register_pattern(text, defined_vars):
+        def repl(match):
+            name = match.group(1)
+            constraint_pattern = r"(?:[0-9]|1[0-5])"
+
+            if "[" in name:
+                m = re.match(r"(\w+)\[(\d+)\]", name)
+                if not m:
+                    raise ValueError("Invalid constraint syntax")
+                var, constraint = m.groups()
+
+                if constraint == "1":
+                    constraint_pattern = r"[0-9]"
+                else:
+                    raise ValueError("Unsupported constraint")
+            else:
+                var = name
+
+            if var in defined_vars:
+                return rf"(?P={var})"
+
+            defined_vars.add(var)
+            return rf"(?P<{var}>{constraint_pattern})"
+
+        return re.sub(r"\{([^}]+)\}", repl, text)
+
+    def normalize_disassembly(content):
+        lines = content.splitlines()
+        normalized_lines = []
+
+        for line in lines:
+            parts = line.split(";")
+            if len(parts) >= 2:
+                instr = normalize_instruction(parts[0])
+                comment = ";" + parts[1]
+                normalized_lines.append(instr + comment)
+            else:
+                normalized_lines.append(line)
+
+        return "\n".join(normalized_lines)
+
+    line_prefix = r'^\s*'
+    line_suffix = r'\s*;\s*[0-9a-fA-F]+\s*\|\s*[0-9a-fA-F]+'
+
+    defined_vars = set()
+    pattern = ""
+
+    for i, instr in enumerate(instructions):
+        instr = normalize_instruction(instr)
+        instr = expand_register_pattern(instr, defined_vars)
+        pattern += line_prefix + instr + line_suffix
+
+        if i != len(instructions) - 1:
+            pattern += r'\r?\n'
+
+    with open(disas_file, "r", encoding="utf-8", errors="ignore") as f:
+        raw_content = f.read()
+
+    content = normalize_disassembly(raw_content)
+
+    match = re.search(pattern, content, re.MULTILINE)
+    if not match:
+        return None
+
+    block = match.group(0)
+    first_line = block.splitlines()[0]
+
+    addr_match = re.search(r";\s*([0-9a-fA-F]+)", first_line)
+    if not addr_match:
+        return None
+
+    address = addr_match.group(1)
+    return f"0x{address}"
 def handle_find_gadgets_command(line, program_iter):
     """
     Syntax:
@@ -718,7 +774,7 @@ def handle_find_gadgets_command(line, program_iter):
         else:
             instructions = [gadget_lines]
         try:
-            adr = find_first_gadget(instructions, disas_file)
+            adr = find_gadget(instructions, disas_file)
             if adr is None:
                 raise ValueError("No matching gadget found")
             process_line(f'call {adr}')
@@ -863,22 +919,6 @@ def handle_pr_length_command(line):
     pr_length_cmds.append(len(result))
     result.extend((0, 0))
 
-def handle_key_constant(line):
-    keyname = line.strip().upper()
-    if keyname not in KEY_MAP:
-        raise ValueError(f"Unknown key constant: {keyname}. KEY_MAP size: {len(KEY_MAP)}")
-    value = KEY_MAP[keyname]
-    new_bytes_list = []
-    if isinstance(value, str):
-        for part in value.split(','):
-            part = part.strip()
-            new_bytes_list.append(int(part, 0) & 0xFF)
-    elif isinstance(value, (list, tuple)):
-        new_bytes_list = [int(x) & 0xFF for x in value]
-    else:
-        raise ValueError(f"Invalid KEY_MAP entry for {keyname}: {value!r}")
-    result.extend(new_bytes_list)
-
 def handle_any_string_command(line):
     line_strip = line.strip()
     match = re.search(r'"(.*)"', line_strip)
@@ -934,7 +974,6 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif '=' in line: handle_assignment_command(line)
     elif line.startswith('org'): handle_org_command(line)
     elif line.startswith('pr_length'): handle_pr_length_command(line)
-    elif line.strip().upper().startswith('KEY_'): handle_key_constant(line)
     elif line_strip.startswith('"'): handle_any_string_command(line_strip)
     else:
         assert False, f'Unrecognized command: {line!r}'
@@ -1330,8 +1369,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
 
         result = [0] * home2 + result
 
-        import keypairs
-        print(keypairs.format(result))
+        print(" ".join(f"{x:02X}" for x in result))
 
     elif args.target == 'overflow' and args.format == 'key':
         print(' '.join(byte_to_key(x) for x in hackstring))

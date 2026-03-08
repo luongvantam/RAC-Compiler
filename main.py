@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sys, os, importlib.util, argparse
+import sys, os, argparse, json
 import lib.rop_compiler as rop_compiler
 
 # Setup Parser
@@ -10,44 +10,44 @@ parser.add_argument('-g', '--gadget-adr', type=lambda x: int(x, 0), help='Find e
 parser.add_argument('-gb', '--gadget-bin', help='Find equivalent addresses for a hex string')
 parser.add_argument('-gn', '--gadget-nword', type=lambda x: int(x, 0), default=0, help='Number of words for gadget search')
 parser.add_argument('-t', '--target', default='none', help='Target platform')
-parser.add_argument('folder', nargs='?', default='.', help='Folder containing config.py and data files')
+parser.add_argument('folder', nargs='?', default='.', help='Folder containing config.json and data files')
 parser.add_argument('input_file', nargs='?', help='Input RSC file')
 
 args, unknown = parser.parse_known_args()
 
 # Load Config
 folder_path = args.folder
-config_file_path = os.path.join(folder_path, "config.py")
+config_file_path = os.path.join(folder_path, "config.json")
 
 if not os.path.exists(config_file_path):
     print(f"Error: Configuration file not found at {config_file_path}")
     sys.exit(1)
 
-spec = importlib.util.spec_from_file_location("config", config_file_path)
-config = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(config)
+config_file_path = os.path.join(folder_path, "config.json")
+
+with open(config_file_path, "r", encoding="utf-8") as f:
+    config = json.load(f)
 
 def get_path(filename):
     return os.path.join(folder_path, filename)
 
 # Initialize Compiler Components
-rop_compiler.get_rom(get_path(config.rom_file))
-rop_compiler.get_disassembly(get_path(config.disassembly_file))
-rop_compiler.get_commands(get_path(config.gadgets_file))
-rop_compiler.read_rename_list(get_path(config.labels_file))
-rop_compiler.get_key_map(get_path(config.key_map_file))
-ext_list = rop_compiler.load_extensions(get_path(config.extensions_file))
-rop_compiler.disas_filename = get_path(config.disassembly_file)
+rop_compiler.get_rom(get_path(config["rom_file"]))
+rop_compiler.get_disassembly(get_path(config["disassembly_file"]))
+rop_compiler.get_commands(get_path(config["gadgets_file"]))
+rop_compiler.read_rename_list(get_path(config["labels_file"]))
+ext_list = rop_compiler.load_extensions(get_path(config["extensions_file"]))
+rop_compiler.disas_filename = get_path(config["disassembly_file"])
 
 # Setup Font and Display
 FINAL_FONT = []
-for row in config.FONT:
+for row in config["FONT"]:
     FINAL_FONT.extend(row[:16])
 while len(FINAL_FONT) < 256:
     FINAL_FONT.append(' ')
 
 rop_compiler.set_font(FINAL_FONT)
-rop_compiler.set_npress_array(config.NPRESS)
+rop_compiler.set_npress_array(config["NPRESS"])
 
 ROMWINDOW = 0xd000
 ROM_DATA = rop_compiler.rom
@@ -107,6 +107,6 @@ if __name__ == "__main__":
                 pass 
             
             program = rop_compiler.expand_extensions_in_program(raw_content, ext_list)
-            rop_compiler.process_program(args, program, config.overflow_initial_sp)
+            rop_compiler.process_program(args, program, config["overflow_initial_sp"])
         except EOFError:
             print("Error: Standard input closed unexpectedly.")

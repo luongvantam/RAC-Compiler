@@ -3,7 +3,6 @@ rom_file = "rom.bin"
 disassembly_file = "disas.asm"
 gadgets_file = "gadgets.txt"
 labels_file = "labels.txt"
-key_map_file = "key_map.txt"
 extensions_file = "extensions.txt"
 
 # font table

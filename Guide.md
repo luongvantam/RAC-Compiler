@@ -155,7 +155,7 @@ call 0x1234 ; goto end
 
 ## 13. Key Mapping
 
-Use key constants for fx580vnx (see key_map.txt for full list).
+Use key constants for fx580vnx (see labels.txt for full list).
 
 ```rsc
 KEY_SHIFT
