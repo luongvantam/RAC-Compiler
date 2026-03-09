@@ -127,3 +127,17 @@ pop {reg}
 @set.{section}
 org {org}
 ---
+
+---syntax---
+mode_fd20
+---logic---
+---output---
+hex fd 20 30 30 30 30 30 30 30 30 30 30 30 30
+---
+
+---syntax---
+mode_fd24
+---logic---
+---output---
+hex fd 24 30 30
+---

@@ -11,11 +11,9 @@ def logic_delay_py(value) {
 }
 
 func delay_from_rsc(value) {
-    er0 = py.logic_delay_py(value)
+    pop er0
+    py.logic_delay_py(value)
     delay
 }
-
-func main() {
-    0x00000000
 
 delay_from_rsc(0x111)

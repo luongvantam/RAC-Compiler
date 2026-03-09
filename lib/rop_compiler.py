@@ -864,15 +864,6 @@ def handle_assignment_command(line):
     i = line.index('=')
     left, right = line[:i].strip(), line[i+1:].strip()
 
-    def try_eval(expr):
-        try:
-            local_vars = vars_dict.copy()
-            local_vars['py'] = PyNamespace(PYTHON_FUNCTIONS)
-            res = eval(expr, {"py": local_vars['py']}, local_vars)
-            return res
-        except:
-            return expr
-
     if left.startswith("var "):
         var_name = left[4:].strip()
         val = right
@@ -886,7 +877,7 @@ def handle_assignment_command(line):
         process_line(value)
         assert len(result) - l1 == sizeof_register(register), f'Line {line!r} source/destination target mismatches'
     else:
-        val = try_eval(right)
+        val = right
         vars_dict[left] = val
 
 def handle_variable_expansion(line):
@@ -1120,7 +1111,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             handle_python_def(line_strip, program_iter, PYTHON_FUNCTIONS)
             continue
 
-        m = re.match(r'(\w+)\s*\((.*?)\)', line.strip())
+        m = re.match(r'(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)', line.strip())
         if m and m.group(1) in defined_functions:
             called_func_name = m.group(1)
             func = defined_functions[called_func_name]
@@ -1135,7 +1126,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             for param_def, arg_val in zip(func["args"], call_args):
                 if param_def.strip():
                     final_lines_to_process.append({
-                        "exec": f"{param_def.strip()} = {arg_val}",
+                        "exec": f"var {param_def.strip()} = {arg_val}",
                         "raw": raw_line, "num": orig_line_map[line_index], "ctx": f"passing args to '{called_func_name}'"
                     })
             for line_in_func in func["body"]:
