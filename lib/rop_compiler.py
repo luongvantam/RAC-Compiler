@@ -803,7 +803,7 @@ def handle_hex_data(line):
 
 def handle_call_command(line):
     """Syntax: `call <address>` or `call <built-in>`."""
-    global commands, home
+    global commands, home, datalabels
     try:
         adr = int(line[4:], 16)
     except ValueError:
@@ -815,7 +815,8 @@ def handle_call_command(line):
 
     assert 0 <= adr <= max_call_adr, f'Invalid address: {adr}'
     try:
-        if home >= 0xd180 and home < 0xd247:
+        input_range = datalabels['input_range'] if 'input_range' in datalabels else datalabels['input_area']
+        if home >= input_range and home < input_range + 0xc8:
             process_line(f'0x{adr + 0x30300000:0{8}x}')
         else:
             process_line(f'0x{adr + 0x00000000:0{8}x}')
