@@ -6,7 +6,7 @@
 
 Sử dụng ghi chú để giải thích mã nguồn. RAC hỗ trợ cả ghi chú 1 dòng và nhiều dòng.
 
-```rsc
+```
 # Đây là ghi chú 1 dòng
 /*
    Đây là ghi chú nhiều dòng
@@ -22,7 +22,7 @@ Sử dụng ghi chú để giải thích mã nguồn. RAC hỗ trợ cả ghi ch
 
 Đặt địa chỉ gốc cho mã máy.
 
-```rsc
+```
 org 0xe9e0
 ```
 
@@ -32,7 +32,7 @@ org 0xe9e0
 
 Định nghĩa nhãn để nhảy hoặc tham chiếu.
 
-```rsc
+```
 lbl start
   call 0x1234
   goto end
@@ -45,7 +45,7 @@ lbl end
 
 Thêm dữ liệu hex thô hoặc hex đảo byte.
 
-```rsc
+```
 0x1234ABCD
 hex CD AB 34 12
 ```
@@ -56,7 +56,7 @@ hex CD AB 34 12
 
 Gọi địa chỉ, hàm tích hợp hoặc nhảy tới nhãn.
 
-```rsc
+```
 call 0x5678
 call print
 goto start
@@ -68,7 +68,7 @@ goto start
 
 Lấy địa chỉ của nhãn (có thể cộng offset).
 
-```rsc
+```
 adr(main)
 eval(adr(loop) + 0x4)
 ```
@@ -79,7 +79,7 @@ eval(adr(loop) + 0x4)
 
 Ghi độ dài chương trình tại vị trí này.
 
-```rsc
+```
 pr_length
 ```
 
@@ -89,7 +89,7 @@ pr_length
 
 Thêm chuỗi, hỗ trợ chèn biến bằng `{}`.
 
-```rsc
+```
 var ten = "World"
 "Xin~chào,~{ten}!"
 ```
@@ -102,7 +102,7 @@ var ten = "World"
 
 Định nghĩa khối mã tái sử dụng và gọi với tham số.
 
-```rsc
+```
 func greet(person) {
   "Hello,~{person}!"
 }
@@ -117,7 +117,7 @@ greet("Linh")
 
 Tính toán biểu thức số học hoặc địa chỉ tại thời điểm biên dịch.
 
-```rsc
+```
 eval(0x1 + 0x2 * 0x3)
 eval(adr(label1) - adr(label2))
 # ta có thể dùng calc() thay thế eval() vì chức năng như nhau
@@ -129,7 +129,7 @@ eval(adr(label1) - adr(label2))
 
 Định nghĩa biến (số, hex, chuỗi) và gán giá trị cho thanh ghi.
 
-```rsc
+```
 var count = 10
 var hexval = 0x1A2B
 var message = "Test"
@@ -145,7 +145,7 @@ Cách gọi biến sẽ là `varname` và áp dụng tương tự cho string.
 
 Ghép nhiều lệnh trên 1 dòng bằng `;`.
 
-```rsc
+```
 call 0x1234 ; goto end
 ```
 
@@ -155,7 +155,7 @@ call 0x1234 ; goto end
 
 Sử dụng hằng phím cho fx580vnx (xem labels.txt để tra cứu).
 
-```rsc
+```
 KEY_SHIFT
 KEY_1
 KEY_ADD
@@ -167,7 +167,7 @@ KEY_ADD
 
 Định nghĩa một hàm Python, sau đó gọi và sử dụng hàm đó.
 
-```rsc
+```
 org 0xe9e0
 
 def check_even_odd(n) {
@@ -188,7 +188,7 @@ py.check_even_odd(0x3)
 
 Lặp lại một tập hợp nào đó một số lần cố định trong quá trình biên dịch.
 
-```rsc
+```
 loop 4 {
   0x67
 }
@@ -201,12 +201,13 @@ hex 00 00
 
 Tìm kiếm gadgets phù hợp
 
-```rsc
+```
 find_gadgets {
   mov er{a[1]}, er{b[1]}
   pop pc
 }
 ```
+
 Dùng {var} để nêu ra 1 biến giả định có giá trị từ 0 đến 15, {var[1]} để nêu ra 1 biến giả định từ 0 đến 9.
 
 ---
@@ -215,7 +216,7 @@ Dùng {var} để nêu ra 1 biến giả định có giá trị từ 0 đến 15
 
 Section cho phép chia một file thành nhiều vùng độc lập.
 
-```rsc
+```
 @set.main
 org 0xe9e0
 hex 30 30 30 30
@@ -227,13 +228,33 @@ xr0 = hex 30 30 30 30
 
 ---
 
-## 18. Hệ thống mở rộng (Extension)
+## 18. Mảng (danh sách)
+
+```
+[
+  0x1
+  0x2
+]
+[0x1; 0x2]
+```
+
+---
+
+## 19. Chuỗi Token
+
+```
+`sin( 90 )`
+```
+
+---
+
+## 20. Hệ thống mở rộng (Extension)
 
 Bạn có thể định nghĩa cú pháp mới, macro qua `extensions.txt`.
 
 **Ví dụ extension:**
 
-```txt
+```
 ---syntax---
 print {msg}
 ---logic---
@@ -244,9 +265,9 @@ call print
 
 ---
 
-## 19. Ví dụ hoàn chỉnh
+## 21. Ví dụ hoàn chỉnh
 
-```rsc
+```
 org 0xe9e0
 var name = "Nguyen~Van~A"
 lbl main

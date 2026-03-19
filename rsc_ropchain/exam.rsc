@@ -4,7 +4,10 @@
 org 0xd730
 # backup at 0xe9e0
 
-var person = "Bob"
+var person = [
+"Bob"
+"Peter"
+]
 
 func print4line(x, y, addr) {
     xr0 = x, y, addr
@@ -23,6 +26,9 @@ lbl main
     setsfr
     clear()
     print4line(0x01, 0x01, adr(text))
+
+    xr0 = adr(addr_calc), var_a
+    calc_func
 
 lbl jump
     goto idk
@@ -49,7 +55,18 @@ lbl idk
     goto restore
 
 lbl text
-    "Hello {person}"
+    "Hello"
+    person[0]
+    hex 00
+    "Hello"
+    person[1]
+    hex 00
+
+lbl addr_calc
+    adr(sum)
+
+lbl sum
+    `sigma( x , 1, 10 )`
     hex 00
 
 lbl end

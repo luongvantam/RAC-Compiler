@@ -4,7 +4,7 @@
 from ast import expr
 import re, sys, os
 from functools import lru_cache
-from lib.text import char_to_hex
+from lib.text import char_to_hex, token_to_hex
 
 max_call_adr = 0x3ffff
 
@@ -780,6 +780,26 @@ def handle_find_gadgets_command(line, program_iter):
         except Exception as e:
             raise ValueError(f"Error finding gadget '{' | '.join(instructions)}': {e}")
 
+def handle_list_command(line, program_iter):
+    if line.startswith('['):
+        content = line[1:]
+        if ']' in content:
+            content = content.split(']')[0]
+        else:
+            parts = [content]
+            for item in program_iter:
+                current = item[1] if isinstance(item, tuple) else item.get("exec") if isinstance(item, dict) else str(item)
+                s = current.strip()
+                if not s:
+                    continue
+                if ']' in s:
+                    parts.append(s.split(']')[0])
+                    break
+                parts.append(s)
+            content = "\n".join(parts)
+        line = content.replace('\n', ';')
+        process_line(line)
+
 def handle_hex_data(line):
     """Syntax: 
         0x<hex_digits>
@@ -861,9 +881,27 @@ def handle_builtin_command(line):
     line = to_lowercase(line)
     process_line('call ' + line)
 
-def handle_assignment_command(line):
+def handle_assignment_command(line, program_iter):
     i = line.index('=')
     left, right = line[:i].strip(), line[i+1:].strip()
+    
+    if right.startswith('['):
+        content = right[1:]
+        if ']' in content:
+            content = content.split(']')[0]
+        else:
+            parts = [content] if content.strip() else []
+            for item in program_iter:
+                current = item[1] if isinstance(item, tuple) else item.get("exec") if isinstance(item, dict) else str(item)
+                s = current.strip()
+                if not s:
+                    continue
+                if ']' in s:
+                    parts.append(s.split(']')[0])
+                    break
+                parts.append(s)
+            content = "\n".join(parts)
+        right = content.replace('\n', ';')
 
     if left.startswith("var "):
         var_name = left[4:].strip()
@@ -880,14 +918,31 @@ def handle_assignment_command(line):
     else:
         val = right
         vars_dict[left] = val
-
+        
+def resolve_index(value, index):
+    value = str(value).strip()
+    if value.startswith('"') and value.endswith('"'):
+        inner = value[1:-1]
+        return f'"{inner[index]}"' if 0 <= index < len(inner) else ''
+    if ';' in value:
+        items = [x.strip() for x in value.split(';') if x.strip()]
+        return items[index] if 0 <= index < len(items) else ''
+    return value
 def handle_variable_expansion(line):
     expanded = line
-
-    for var_name, var_value in vars_dict.items():
-        pattern = r'\b' + re.escape(var_name) + r'\b'
-        expanded = re.sub(pattern, str(var_value), expanded)
-
+    def replace_index(match):
+        var_name = match.group(1)
+        index = int(match.group(2))
+        if var_name in vars_dict:
+            return str(resolve_index(vars_dict[var_name], index))
+        return match.group(0)
+    expanded = re.sub(r'\b(\w+)\[(\d+)\]', replace_index, expanded)
+    def replace_var(match):
+        var_name = match.group(0)
+        if var_name in vars_dict:
+            return str(vars_dict[var_name])
+        return var_name
+    expanded = re.sub(r'\b\w+\b', replace_var, expanded)
     process_line(expanded)
 
 def handle_org_command(line):
@@ -931,6 +986,36 @@ def handle_any_string_command(line):
                 result.extend([int(hex_val[:2], 16), int(hex_val[2:], 16)])
         except KeyError:
             raise ValueError(f"Character '{c}' not found in conversion table")
+        
+def handle_token_literal(line):
+    content = line[1:-1].strip()
+    content = content.replace(" ", "")
+    note(f"Processing token sequence: {content}\n")
+    sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
+    tokens = []
+    i = 0
+    while i < len(content):
+        for t in sorted_tokens:
+            if content.startswith(t, i):
+                tokens.append(t)
+                i += len(t)
+                break
+        else:
+            tokens.append(content[i])
+            i += 1
+    for t in tokens:
+        if t in token_to_hex:
+            hex_val = token_to_hex[t]
+
+            if len(hex_val) == 2:
+                result.append(int(hex_val, 16))
+            elif len(hex_val) == 4:
+                result.extend([
+                    int(hex_val[:2], 16),
+                    int(hex_val[2:], 16)
+                ])
+        else:
+            raise ValueError(f"Unknown token/char: {t}")
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
@@ -960,11 +1045,16 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif line.startswith('adr'): handle_address_command(line)
     elif line in datalabels: handle_data_label(line)
     elif line in commands: handle_builtin_command(line)
-    elif line in vars_dict: handle_variable_expansion(line)
-    elif '=' in line: handle_assignment_command(line)
+    elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in vars_dict:handle_variable_expansion(line)
+    elif '=' in line: handle_assignment_command(line, program_iter)
     elif line.startswith('org'): handle_org_command(line)
     elif line.startswith('pr_length'): handle_pr_length_command(line)
     elif line_strip.startswith('"'): handle_any_string_command(line_strip)
+    elif line_strip.startswith('`'): handle_token_literal(line_strip)
+    elif line_strip.startswith('['):
+        if program_iter is None:
+            raise ValueError("List handling requires program_iter")
+        handle_list_command(line, program_iter)
     else:
         assert False, f'Unrecognized command: {line!r}'
 
@@ -1190,7 +1280,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
 
             note = original_note_func
             if note_log:
-                note(f'While processing line\n{line}\n')
+            #    note(f'While processing line\n{line}\n')
                 note(note_log)
 
     eval_scope = {}

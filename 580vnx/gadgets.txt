@@ -58,6 +58,8 @@
 1893a	pop er0,pop er4
 16754	pop er4,pop er8
 1A104	pop er8,pop qr0
+2045C   pop xr4,pop xr12
+0AC3A   pop xr4,pop qr8
 0A1CA   pop lr
 
 # Some MOV gadgets:
@@ -105,7 +107,7 @@
 1edea	er0 = er6,pop er8,pop xr4,rt
 0c1e6	er2 = er4,er0 -= er2,pop er4,pop er8,rt
 208E8	er0 = ea,rt
-140E4   er0=er6,er2=er12
+140E4   er0 = er6,er2 = er12
 
 # Some ST gadgets:
 16d9a	[er2] = er0,r2 = 0,pop er4,rt
@@ -124,6 +126,7 @@
 10E78	[er4] = er0,er4 -= 2,pop ea,pop xr4
 09cbe   [er10] = er8,pop qr8,rt
 16614   [er2] = r0,r0 = 0
+19742   [ea+] = er0,rt
 
 # Some L gadgets:
 16d7a	er4 = [er8],pop er8,rt
@@ -135,9 +138,9 @@
 24BEC   er0 = [er0-2],pop er8,rt
 09fdc	r0 = [ea],rt
 21f72	sp = [er8],pop er8
-19F44	er8 = [ea+],rt
 1C64A	er6 = [ea+]
-1C2C0   qr0=[ea],lea D002H,[ea]=qr0
+19E90   er8 = [ea+],rt
+1C2C0   qr0 = [ea]
 
 # Some ADD gadgets:
 14bd8	er0 += er4,rt

@@ -8,7 +8,7 @@
 
 Use comments to annotate your code. RAC supports both single-line and multi-line comments.
 
-```rsc
+```
 # This is a single-line comment
 /*
    This is a multi-line
@@ -24,7 +24,7 @@ Use comments to annotate your code. RAC supports both single-line and multi-line
 
 Set the base address for code mapping.
 
-```rsc
+```
 org 0xe9e0
 ```
 
@@ -34,7 +34,7 @@ org 0xe9e0
 
 Define a label for jumps or references.
 
-```rsc
+```
 lbl start
   call 0x1234
   goto end
@@ -47,7 +47,7 @@ lbl end
 
 Insert raw hexadecimal data or reversed hex data.
 
-```rsc
+```
 0x1234ABCD
 hex CD AB 34 12
 ```
@@ -58,7 +58,7 @@ hex CD AB 34 12
 
 Call an address or built-in function, or jump to a label.
 
-```rsc
+```
 call 0x5678
 call line_print
 goto label
@@ -70,7 +70,7 @@ goto label
 
 Get the address of a label (optionally with offset).
 
-```rsc
+```
 adr(main)
 eval(adr(loop) + 0x4)
 ```
@@ -81,7 +81,7 @@ eval(adr(loop) + 0x4)
 
 Insert the current program length at this point.
 
-```rsc
+```
 pr_length
 ```
 
@@ -91,7 +91,7 @@ pr_length
 
 Insert strings with variable expansion using curly braces `{}`.
 
-```rsc
+```
 var ten = "World"
 "Xin~chào,~{ten}!"
 ```
@@ -104,7 +104,7 @@ var ten = "World"
 
 Define reusable code blocks and call them with arguments.
 
-```rsc
+```
 func greet(person) {
   "Hello,~{person}!"
 }
@@ -119,7 +119,7 @@ greet("Bob")
 
 Evaluate math or address expressions at compile time.
 
-```rsc
+```
 eval(0x1 + 0x2 * 0x3)
 eval(adr(label1) - adr(label2))
 # We can use calc() instead of eval() because they have the same function.
@@ -131,7 +131,7 @@ eval(adr(label1) - adr(label2))
 
 Define variables (int, hex, string) and assign values to registers.
 
-```rsc
+```
 var count = 10
 var hexval = 0x1A2B
 var message = "Test"
@@ -147,7 +147,7 @@ The way to call a variable is `varname`, and the same applies to strings.
 
 Combine multiple statements in one line using `;`.
 
-```rsc
+```
 call 0x1234 ; goto end
 ```
 
@@ -157,7 +157,7 @@ call 0x1234 ; goto end
 
 Use key constants for fx580vnx (see labels.txt for full list).
 
-```rsc
+```
 KEY_SHIFT
 KEY_1
 KEY_ADD
@@ -169,7 +169,7 @@ KEY_ADD
 
 Define a Python function, then call and use it.
 
-```rsc
+```
 org 0xe9e0
 
 def check_even_odd(n) {
@@ -190,7 +190,7 @@ py.check_even_odd(0x3)
 
 Repeat a block of code a fixed number of times at compile time.
 
-```rsc
+```
 loop 4 {
   0x67
 }
@@ -203,12 +203,13 @@ hex 00 00
 
 Search for suitable gadgets.
 
-```rsc
+```
 find_gadgets {
   mov er{a[1]}, er{b[1]}
   pop pc
 }
 ```
+
 Use {var} to specify a hypothetical variable with a value from 0 to 15, {var[1]} to specify a hypothetical variable from 0 to 9.
 
 ---
@@ -217,7 +218,7 @@ Use {var} to specify a hypothetical variable with a value from 0 to 15, {var[1]}
 
 Sections allow you to divide a file into multiple independent areas.
 
-```rsc
+```
 @set.main
 org 0xe9e0
 hex 30 30 30 30
@@ -229,13 +230,33 @@ xr0 = hex 30 30 30 30
 
 ---
 
-## 18. Extension System
+## 18. Array (list)
+
+```
+[
+  0x1
+  0x2
+]
+[0x1; 0x2]
+```
+
+---
+
+## 19. Token Sequence
+
+```
+`sin( 90 )`
+```
+
+---
+
+## 20. Extension System
 
 You can define new syntax and macros via `extensions.txt`.
 
 **Example extension syntax:**
 
-```txt
+```
 ---syntax---
 print {msg}
 ---logic---
@@ -246,9 +267,9 @@ call print
 
 ---
 
-## 19. Full Example
+## 21. Full Example
 
-```rsc
+```
 org 0xe9e0
 var name = "Nick"
 lbl main
