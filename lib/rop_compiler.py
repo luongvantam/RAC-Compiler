@@ -611,6 +611,7 @@ def handle_eval_expression(line):
     eval_scope['py'] = PyNamespace(PYTHON_FUNCTIONS)
     for k, v in vars_dict.items():
         eval_scope[k] = v
+        print(v)
     expanded_expr = eval_nested(expanded_expr, eval_scope)
     if 'adr(' in expanded_expr:
         deferred_evals.append((len(result), expanded_expr))
@@ -972,7 +973,7 @@ def handle_any_string_command(line):
     content = match.group(1)
     def replace_calc(m):
         return process_line(f"eval({m.group(1)})") or ''
-    content = re.sub(r'\{([a-zA-Z_]\w*)\}', replace_calc, content)
+    content = re.sub(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', replace_calc, content)
     content=content.encode("latin1").decode("utf-8")
     note(f"Processing string: {content.replace('~', ' ')}\n")
     processed_text = re.sub(r"\s", "~", content)
@@ -1050,7 +1051,7 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif line.startswith('org'): handle_org_command(line)
     elif line.startswith('pr_length'): handle_pr_length_command(line)
     elif line_strip.startswith('"'): handle_any_string_command(line_strip)
-    elif line_strip.startswith('`'): handle_token_literal(line_strip)
+    elif line_strip.startswith("'"): handle_token_literal(line_strip)
     elif line_strip.startswith('['):
         if program_iter is None:
             raise ValueError("List handling requires program_iter")

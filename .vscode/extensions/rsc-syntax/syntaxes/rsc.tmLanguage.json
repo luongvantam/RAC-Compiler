@@ -16,8 +16,8 @@
         },
         {
             "name": "string.quoted.double.rsc",
-            "begin": "\"|`",
-            "end": "\"|`",
+            "begin": "\"|'",
+            "end": "\"|'",
             "patterns": [
                 {
                     "name": "constant.character.escape.rsc",

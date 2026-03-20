@@ -66,7 +66,7 @@ lbl addr_calc
     adr(sum)
 
 lbl sum
-    `sigma( x , 1, 10 )`
+    'sigma( x , 1, 10 )'
     hex 00
 
 lbl end

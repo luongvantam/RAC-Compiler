@@ -10,6 +10,5 @@ var b = "hello"
 b[2]
 a[1]
 
-`cos( sin(`
-
-# tuy nhiên về phần gọi list trong f-string vẫn chưa thêm nên "hello {person[0]}" hay gì đó sẽ chưa hoạt động...
+'cos( sin('
+"hello {b[2]}"

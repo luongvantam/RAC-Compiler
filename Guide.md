@@ -245,7 +245,7 @@ xr0 = hex 30 30 30 30
 ## 19. Token Sequence
 
 ```
-`sin( 90 )`
+'sin( 90 )'
 ```
 
 ---
