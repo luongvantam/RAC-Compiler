@@ -1020,12 +1020,6 @@ def handle_token_literal(line):
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
-    # 1. adr_of [<offset>] <label> -> eval(adr(<label>) + (<offset>))
-    line_strip = re.sub(r'\badr_of\s+\[(.*?)\]\s+([\w_.]+)', r'eval(adr(\2) + (\1))', line_strip)
-    # 2. adr_of <label> -> adr(<label>)
-    line_strip = re.sub(r'\badr_of\s+([\w_.]+)', r'adr(\1)', line_strip)
-    # 3. <label>: -> lbl <label>
-    line_strip = re.sub(r'^\s*([\w_.]+)\s*:$', r'lbl \1', line_strip)
     if line_strip.lower().startswith('lbl '):
         handle_label_definition(line)
 
