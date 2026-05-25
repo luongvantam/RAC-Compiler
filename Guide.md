@@ -199,7 +199,7 @@ hex 00 00
 
 ---
 
-## 16. Find_gadgets
+## 16. Find_gadgets (removed)
 
 Search for suitable gadgets.
 

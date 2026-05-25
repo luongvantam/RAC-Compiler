@@ -1,5 +1,5 @@
-@section main at 0xe9e0
+@section.main at 0xe9e0
 hex 30 30 30 30
 
-@section launcher at 0xd180
+@section.launcher at 0xd180
 hex 20 20

@@ -197,7 +197,7 @@ hex 00 00
 
 ---
 
-## 16. Find_gadgets
+## 16. Find_gadgets (đã bị loại bỏ)
 
 Tìm kiếm gadgets phù hợp
 
@@ -221,8 +221,7 @@ Section cho phép chia một file thành nhiều vùng độc lập.
 org 0xe9e0
 hex 30 30 30 30
 
-@set.launcher
-org 0xd180
+@section.launcher at 0xd180
 xr0 = hex 30 30 30 30
 ```
 

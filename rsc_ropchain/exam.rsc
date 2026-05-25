@@ -1,7 +1,6 @@
 # This is an exam code.
 
-@set.main
-org 0xd730
+@set.main at 0xd730
 # backup at 0xe9e0
 
 var person = [
@@ -72,8 +71,7 @@ lbl sum
 lbl end
     hex 00 00
 
-@set.launcher
-org 0xd180
+@set.launcher at 0xd180
 mode_fd24
 setlr
 setsfr

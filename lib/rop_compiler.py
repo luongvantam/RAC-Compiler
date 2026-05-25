@@ -638,148 +638,148 @@ def handle_eval_expression(line):
         raise ValueError(f"Unsupported eval result type: {type(val)}")
     
 
-def find_gadget(instructions, disas_file):
-    def normalize_instruction(instr: str) -> str:
-        instr = instr.lower()
-        instr = re.sub(r"\s+", "", instr)
-        return instr
+# def find_gadget(instructions, disas_file):
+#     def normalize_instruction(instr: str) -> str:
+#         instr = instr.lower()
+#         instr = re.sub(r"\s+", "", instr)
+#         return instr
 
-    def expand_register_pattern(text, defined_vars):
-        def repl(match):
-            name = match.group(1)
-            constraint_pattern = r"(?:[0-9]|1[0-5])"
+#     def expand_register_pattern(text, defined_vars):
+#         def repl(match):
+#             name = match.group(1)
+#             constraint_pattern = r"(?:[0-9]|1[0-5])"
 
-            if "[" in name:
-                m = re.match(r"(\w+)\[(\d+)\]", name)
-                if not m:
-                    raise ValueError("Invalid constraint syntax")
-                var, constraint = m.groups()
+#             if "[" in name:
+#                 m = re.match(r"(\w+)\[(\d+)\]", name)
+#                 if not m:
+#                     raise ValueError("Invalid constraint syntax")
+#                 var, constraint = m.groups()
 
-                if constraint == "1":
-                    constraint_pattern = r"[0-9]"
-                else:
-                    raise ValueError("Unsupported constraint")
-            else:
-                var = name
+#                 if constraint == "1":
+#                     constraint_pattern = r"[0-9]"
+#                 else:
+#                     raise ValueError("Unsupported constraint")
+#             else:
+#                 var = name
 
-            if var in defined_vars:
-                return rf"(?P={var})"
+#             if var in defined_vars:
+#                 return rf"(?P={var})"
 
-            defined_vars.add(var)
-            return rf"(?P<{var}>{constraint_pattern})"
+#             defined_vars.add(var)
+#             return rf"(?P<{var}>{constraint_pattern})"
 
-        return re.sub(r"\{([^}]+)\}", repl, text)
+#         return re.sub(r"\{([^}]+)\}", repl, text)
 
-    def normalize_disassembly(content):
-        lines = content.splitlines()
-        normalized_lines = []
+#     def normalize_disassembly(content):
+#         lines = content.splitlines()
+#         normalized_lines = []
 
-        for line in lines:
-            parts = line.split(";")
-            if len(parts) >= 2:
-                instr = normalize_instruction(parts[0])
-                comment = ";" + parts[1]
-                normalized_lines.append(instr + comment)
-            else:
-                normalized_lines.append(line)
+#         for line in lines:
+#             parts = line.split(";")
+#             if len(parts) >= 2:
+#                 instr = normalize_instruction(parts[0])
+#                 comment = ";" + parts[1]
+#                 normalized_lines.append(instr + comment)
+#             else:
+#                 normalized_lines.append(line)
 
-        return "\n".join(normalized_lines)
+#         return "\n".join(normalized_lines)
 
-    line_prefix = r'^\s*'
-    line_suffix = r'\s*;\s*[0-9a-fA-F]+\s*\|\s*[0-9a-fA-F]+'
+#     line_prefix = r'^\s*'
+#     line_suffix = r'\s*;\s*[0-9a-fA-F]+\s*\|\s*[0-9a-fA-F]+'
 
-    defined_vars = set()
-    pattern = ""
+#     defined_vars = set()
+#     pattern = ""
 
-    for i, instr in enumerate(instructions):
-        instr = normalize_instruction(instr)
-        instr = expand_register_pattern(instr, defined_vars)
-        pattern += line_prefix + instr + line_suffix
+#     for i, instr in enumerate(instructions):
+#         instr = normalize_instruction(instr)
+#         instr = expand_register_pattern(instr, defined_vars)
+#         pattern += line_prefix + instr + line_suffix
 
-        if i != len(instructions) - 1:
-            pattern += r'\r?\n'
+#         if i != len(instructions) - 1:
+#             pattern += r'\r?\n'
 
-    with open(disas_file, "r", encoding="utf-8", errors="ignore") as f:
-        raw_content = f.read()
+#     with open(disas_file, "r", encoding="utf-8", errors="ignore") as f:
+#         raw_content = f.read()
 
-    content = normalize_disassembly(raw_content)
+#     content = normalize_disassembly(raw_content)
 
-    match = re.search(pattern, content, re.MULTILINE)
-    if not match:
-        return None
+#     match = re.search(pattern, content, re.MULTILINE)
+#     if not match:
+#         return None
 
-    block = match.group(0)
-    first_line = block.splitlines()[0]
+#     block = match.group(0)
+#     first_line = block.splitlines()[0]
 
-    addr_match = re.search(r";\s*([0-9a-fA-F]+)", first_line)
-    if not addr_match:
-        return None
+#     addr_match = re.search(r";\s*([0-9a-fA-F]+)", first_line)
+#     if not addr_match:
+#         return None
 
-    address = addr_match.group(1)
-    return f"0x{address}"
-def handle_find_gadgets_command(line, program_iter):
-    """
-    Syntax:
-        find_gadgets {
-            gadget1
-            gadget2
-            ...
-        }
-    """
-    global disas_filename
-    gadgets = []
-    depth = 1
-    current_gadget = []
+#     address = addr_match.group(1)
+#     return f"0x{address}"
+# def handle_find_gadgets_command(line, program_iter):
+#     """
+#     Syntax:
+#         find_gadgets {
+#             gadget1
+#             gadget2
+#             ...
+#         }
+#     """
+#     global disas_filename
+#     gadgets = []
+#     depth = 1
+#     current_gadget = []
     
-    for item in program_iter:
-        if isinstance(item, tuple) and len(item) == 2:
-            _, raw_line = item
-            content = raw_line
-        elif isinstance(item, dict):
-            content = item.get("exec", "")
-        elif isinstance(item, str):
-            content = item
-        else:
-            content = str(item)
+#     for item in program_iter:
+#         if isinstance(item, tuple) and len(item) == 2:
+#             _, raw_line = item
+#             content = raw_line
+#         elif isinstance(item, dict):
+#             content = item.get("exec", "")
+#         elif isinstance(item, str):
+#             content = item
+#         else:
+#             content = str(item)
         
-        content_strip = content.split('---')[0].strip()
+#         content_strip = content.split('---')[0].strip()
         
-        if not content_strip:
-            if current_gadget:
-                gadgets.append(current_gadget)
-                current_gadget = []
-            continue
-        open_count = content_strip.count('{')
-        close_count = content_strip.count('}')
-        if content_strip == '}':
-            depth -= 1
-            if depth <= 0:
-                break
-            current_gadget.append(content_strip)
-            continue
-        current_gadget.append(content_strip)
-        depth += open_count - close_count
+#         if not content_strip:
+#             if current_gadget:
+#                 gadgets.append(current_gadget)
+#                 current_gadget = []
+#             continue
+#         open_count = content_strip.count('{')
+#         close_count = content_strip.count('}')
+#         if content_strip == '}':
+#             depth -= 1
+#             if depth <= 0:
+#                 break
+#             current_gadget.append(content_strip)
+#             continue
+#         current_gadget.append(content_strip)
+#         depth += open_count - close_count
     
-    if current_gadget:
-        gadgets.append(current_gadget)
+#     if current_gadget:
+#         gadgets.append(current_gadget)
 
-    disas_file = disas_filename
-    if not disas_file or not os.path.exists(disas_file):
-        raise ValueError(f"Disassembly file not found...")
+#     disas_file = disas_filename
+#     if not disas_file or not os.path.exists(disas_file):
+#         raise ValueError(f"Disassembly file not found...")
     
-    for gadget_lines in gadgets:
-        if isinstance(gadget_lines, list):
-            instructions = [g for g in gadget_lines if g]
-        else:
-            instructions = [gadget_lines]
-        try:
-            adr = find_gadget(instructions, disas_file)
-            if adr is None:
-                raise ValueError("No matching gadget found")
-            process_line(f'call {adr}')
-            print(f"Gadget found at {adr}: {'; '.join(instructions)}")
-        except Exception as e:
-            raise ValueError(f"Error finding gadget '{' | '.join(instructions)}': {e}")
+#     for gadget_lines in gadgets:
+#         if isinstance(gadget_lines, list):
+#             instructions = [g for g in gadget_lines if g]
+#         else:
+#             instructions = [gadget_lines]
+#         try:
+#             adr = find_gadget(instructions, disas_file)
+#             if adr is None:
+#                 raise ValueError("No matching gadget found")
+#             process_line(f'call {adr}')
+#             print(f"Gadget found at {adr}: {'; '.join(instructions)}")
+#         except Exception as e:
+#             raise ValueError(f"Error finding gadget '{' | '.join(instructions)}': {e}")
 
 def handle_list_command(line, program_iter):
     if line.startswith('['):
@@ -1020,42 +1020,85 @@ def handle_token_literal(line):
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
+    # 1. adr_of [<offset>] <label> -> eval(adr(<label>) + (<offset>))
+    line_strip = re.sub(r'\badr_of\s+\[(.*?)\]\s+([\w_.]+)', r'eval(adr(\2) + (\1))', line_strip)
+    # 2. adr_of <label> -> adr(<label>)
+    line_strip = re.sub(r'\badr_of\s+([\w_.]+)', r'adr(\1)', line_strip)
+    # 3. <label>: -> lbl <label>
+    line_strip = re.sub(r'^\s*([\w_.]+)\s*:$', r'lbl \1', line_strip)
     if line_strip.lower().startswith('lbl '):
         handle_label_definition(line)
+
     elif line_strip.startswith("def ") and line_strip.endswith('{'):
         if program_iter is None:
             raise ValueError("Python def handling requires program_iter")
         handle_python_def(line_strip, program_iter, PYTHON_FUNCTIONS)
+
     elif line_strip.startswith("func "):
         if program_iter is None or defined_functions is None:
             raise ValueError("Function handling requires program_iter and defined_functions")
         handle_function_definition(line, program_iter, defined_functions)
+
     elif line_strip.startswith("repeat ") or line_strip.startswith("loop "):
         if program_iter is None:
             raise ValueError("Repeat handling requires program_iter")
         handle_repeat_command(line, program_iter)
-    elif line_strip.startswith('find_gadgets ') or line_strip.startswith('find_gadgets{'):
-        if program_iter is None:
-            raise ValueError("find_gadgets handling requires program_iter")
-        handle_find_gadgets_command(line, program_iter)
-    elif line_strip.startswith('py.'): handle_python_call(line_strip)
-    elif line.startswith('0x') or (line.startswith('hex') and 'hex_' not in line): handle_hex_data(line)
-    elif (line.startswith('eval(') or line.startswith('calc(')) and line.endswith(')'): handle_eval_expression(line)
-    elif line.startswith('call'): handle_call_command(line)
-    elif line.startswith('goto'): handle_goto_command(line)
-    elif line.startswith('adr'): handle_address_command(line)
-    elif line in datalabels: handle_data_label(line)
-    elif line in commands: handle_builtin_command(line)
-    elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in vars_dict:handle_variable_expansion(line)
-    elif '=' in line: handle_assignment_command(line, program_iter)
-    elif line.startswith('org'): handle_org_command(line)
-    elif line.startswith('pr_length'): handle_pr_length_command(line)
-    elif line_strip.startswith('"'): handle_any_string_command(line_strip)
-    elif line_strip.startswith("'"): handle_token_literal(line_strip)
+
+    # elif line_strip.startswith('find_gadgets ') or line_strip.startswith('find_gadgets{'):
+    #     if program_iter is None:
+    #         raise ValueError("find_gadgets handling requires program_iter")
+    #     handle_find_gadgets_command(line, program_iter)
+
+    elif line_strip.startswith('py.'):
+        handle_python_call(line_strip)
+
+    elif line.startswith('0x') or (line.startswith('hex') and 'hex_' not in line):
+        handle_hex_data(line)
+
+    elif (line.startswith('eval(') or line.startswith('calc(')) and line.endswith(')'):
+        handle_eval_expression(line)
+
+    elif line.startswith('call'):
+        handle_call_command(line)
+
+    elif line.startswith('goto'):
+        handle_goto_command(line)
+
+    elif line.startswith('adr'):
+        handle_address_command(line)
+
+    elif line in datalabels:
+        handle_data_label(line)
+
+    elif line in commands:
+        handle_builtin_command(line)
+
+    elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in vars_dict:
+        handle_variable_expansion(line)
+
+    elif '=' in line:
+        handle_assignment_command(line, program_iter)
+
+    elif line.startswith('org'):
+        handle_org_command(line)
+
+    elif line.startswith('pr_length'):
+        handle_pr_length_command(line)
+
+    elif line_strip.startswith('"'):
+        handle_any_string_command(line_strip)
+
+    elif line_strip.startswith("'"):
+        handle_token_literal(line_strip)
+
     elif line_strip.startswith('['):
         if program_iter is None:
             raise ValueError("List handling requires program_iter")
         handle_list_command(line, program_iter)
+
+    elif line_strip.startswith('adr_of') or line_strip.startswith(':'):
+        process_line(line_strip)
+
     else:
         assert False, f'Unrecognized command: {line!r}'
 
@@ -1131,11 +1174,13 @@ def _split_into_sections(program_lines):
     current_lines = []
     for raw_line in program_lines:
         stripped = raw_line.strip()
-        if stripped.startswith('@set.'):
+        if stripped.startswith('@set.') or stripped.startswith('@section.'):
+            if "at" in stripped:
+                stripped = stripped.replace("at", "\norg ")
             # begin a new section
             if current_name is not None or current_lines:
                 sections.append((current_name, current_lines))
-            current_name = stripped[5:]
+            current_name = stripped[5:] if stripped.startswith('@set.') else stripped[9:]
             current_lines = []
         else:
             current_lines.append(raw_line)

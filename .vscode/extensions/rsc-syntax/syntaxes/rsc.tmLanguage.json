@@ -31,7 +31,7 @@
         },
         {
             "name": "keyword.control.directive.rsc",
-            "match": "^\\s*@set\\.[a-zA-Z0-9_]+"
+            "match": "^\\s*@(set|section)\\.[a-zA-Z0-9_]+"
         },
         {
             "name": "storage.modifier.rsc",
@@ -43,7 +43,7 @@
         },
         {
             "name": "keyword.control.rsc",
-            "match": "\\b(call|goto|eval|org|pr_length|calc|return)\\b"
+            "match": "\\b(call|goto|eval|org|pr_length|calc|return|at)\\b"
         },
         {
             "name": "support.function.rsc",

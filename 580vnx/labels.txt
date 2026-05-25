@@ -63,7 +63,7 @@
 1F24C		getscancode
 2F5E8		getkey
 25C1A		getkeycode
-29892		cvt_keycode
+29892		cvt_key
 0A0E0		setsfr
 094FE		render_stat_bar
 09EE8		shutdown
@@ -91,7 +91,7 @@
 22D66		LEAVE2
 13D92		LEAVE3
 2110A		LEAVE4
-13B9A		load_table
+#13B9A		load_table
 
 # -- solver function --
 17920		calc_func
@@ -99,7 +99,7 @@
 10000       solve_func
 220D8       table_func
 
-09C20		ea_switchcase
+#09C20		ea_switchcase
 
 # -- mode --
 2E234		mode_calc
