@@ -1,7 +1,7 @@
 # coded by @.minh12312
 org 0xe9e0
 
-lbl RTC
+lbl rtc
     er0=0xF0C0
     r0=[er0]
     hex_byte

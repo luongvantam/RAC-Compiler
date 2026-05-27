@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 import sys, os, argparse, json
-import lib.rop_compiler as rop_compiler
+from lib.engine import process_program
+from lib.extensions import expand_extensions_in_program, load_extensions
+from lib.loader import get_disassembly, get_commands, read_rename_list
+from lib.rom_analyzer import get_rom, optimize_gadget, find_equivalent_addresses, print_addresses
+from lib.font_mapper import set_font, set_npress_array, set_symbolrepr
+from lib import loader
+
 
 # Setup Parser
 parser = argparse.ArgumentParser(description="RAC Compiler")
@@ -32,12 +38,12 @@ def get_path(filename):
     return os.path.join(folder_path, filename)
 
 # Initialize Compiler Components
-rop_compiler.get_rom(get_path(config["rom_file"]))
-rop_compiler.get_disassembly(get_path(config["disassembly_file"]))
-rop_compiler.get_commands(get_path(config["gadgets_file"]))
-rop_compiler.read_rename_list(get_path(config["labels_file"]))
-ext_list = rop_compiler.load_extensions(get_path(config["extensions_file"]))
-rop_compiler.disas_filename = get_path(config["disassembly_file"])
+get_rom(get_path(config["rom_file"]))
+get_disassembly(get_path(config["disassembly_file"]))
+get_commands(get_path(config["gadgets_file"]))
+read_rename_list(get_path(config["labels_file"]))
+ext_list = load_extensions(get_path(config["extensions_file"]))
+disas_filename = get_path(config["disassembly_file"])
 
 # Setup Font and Display
 FINAL_FONT = []
@@ -46,14 +52,13 @@ for row in config["FONT"]:
 while len(FINAL_FONT) < 256:
     FINAL_FONT.append(' ')
 
-rop_compiler.set_font(FINAL_FONT)
-rop_compiler.set_npress_array(config["NPRESS"])
+set_font(FINAL_FONT)
+set_npress_array(config["NPRESS"])
 
 ROMWINDOW = 0xd000
-ROM_DATA = rop_compiler.rom
 
 def fetch(addr):
-    return ROM_DATA[addr] | (ROM_DATA[addr+1] << 8)
+    return loader.rom[addr] | (loader.rom[addr+1] << 8)
 
 def get_symbol(x):
     low, high = x & 0xff, x >> 8
@@ -62,14 +67,14 @@ def get_symbol(x):
     er2_base, er4_base = LOOKUP.get(high, (None, None))
     if er2_base is None: return 0, b''
     er2 = fetch(er2_base + low*2)
-    r0_val = ROM_DATA[er4_base + low]
+    r0_val = loader.rom[er4_base + low]
     r4, r0 = r0_val >> 4, r0_val & 0x0F
     if r0 == 0: return 0, b''
     if r4 != 15: er2 += r4
     result = bytearray()
     count = r0
     while count > 0 and er2 < ROMWINDOW:
-        val = ROM_DATA[er2]
+        val = loader.rom[er2]
         result.append(val)
         er2 = (er2 + 1) & 0xFFFF
         if 4 <= val < 0xF0: count -= 1
@@ -78,18 +83,18 @@ def get_symbol(x):
     return r0, bytes(result)
 
 symbols = [''.join(FINAL_FONT[b] for b in get_symbol(x)[1]) for x in range(0xf0)] + ['@']*0x10
-rop_compiler.set_symbolrepr(symbols)
+set_symbolrepr(symbols)
 
 # Main Execution
 if __name__ == "__main__":
     if args.gadget_bin:
-        rop_compiler.print_addresses(rop_compiler.optimize_gadget(bytes.fromhex(args.gadget_bin)), args.preview_count)
+        print_addresses(optimize_gadget(bytes.fromhex(args.gadget_bin)), args.preview_count)
     elif args.gadget_nword > 0 and args.gadget_adr is not None:
         start_adr = args.gadget_adr
         end_adr = start_adr + args.gadget_nword * 2
-        rop_compiler.print_addresses(rop_compiler.optimize_gadget(rop_compiler.rom[start_adr:end_adr]), args.preview_count)
+        print_addresses(optimize_gadget(loader.rom[start_adr:end_adr]), args.preview_count)
     elif args.gadget_adr is not None:
-        rop_compiler.print_addresses(rop_compiler.find_equivalent_addresses(rop_compiler.rom, {args.gadget_adr}), args.preview_count)
+        print_addresses(find_equivalent_addresses(loader.rom, {args.gadget_adr}), args.preview_count)
     else:
         try:
             if args.input_file:
@@ -106,7 +111,7 @@ if __name__ == "__main__":
             if not raw_content and not args.input_file:
                 pass 
             
-            program = rop_compiler.expand_extensions_in_program(raw_content, ext_list)
-            rop_compiler.process_program(args, program, config["overflow_initial_sp"])
+            program = expand_extensions_in_program(raw_content, ext_list)
+            process_program(args, program, config["overflow_initial_sp"])
         except EOFError:
             print("Error: Standard input closed unexpectedly.")
