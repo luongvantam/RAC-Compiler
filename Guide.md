@@ -77,7 +77,7 @@ Data collections can be represented using multi-line blocks or condensed into si
 Enclosing an expression in single quotes `'...'` defines a raw token sequence. The RAC parser preserves this structure intact for evaluation by specific macro processors or math expression engines.
 
 ```assembly
-'sin( 90 )' # Token sequence for custom arithmetic parsing
+'sin( 9 0 )' # Token sequence for custom arithmetic parsing
 
 ```
 

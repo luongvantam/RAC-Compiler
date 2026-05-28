@@ -1,0 +1,47 @@
+{
+    "name": "RSC Theme",
+    "type": "dark",
+
+    "colors": {},
+
+    "tokenColors": [
+        {
+            "scope": "entity.name.label.rsc",
+            "settings": {
+                "foreground": "#ff5555",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "storage.modifier.rsc",
+            "settings": {
+                "foreground": "#8be9fd"
+            }
+        },
+        {
+            "scope": "keyword.control.directive.rsc",
+            "settings": {
+                "foreground": "#ff79c6"
+            }
+        },
+        {
+            "scope": "variable.other.register.rsc",
+            "settings": {
+                "foreground": "#50fa7b"
+            }
+        },
+        {
+            "scope": "constant.numeric.hex.rsc",
+            "settings": {
+                "foreground": "#f1fa8c"
+            }
+        },
+        {
+            "scope": "comment.line.hash.rsc",
+            "settings": {
+                "foreground": "#6272a4",
+                "fontStyle": "italic"
+            }
+        }
+    ]
+}

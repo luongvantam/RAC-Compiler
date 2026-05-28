@@ -4,12 +4,15 @@
     "description": "Syntax highlighting for custom RSC scripts",
     "version": "0.0.1",
     "publisher": "luongvantam",
+
     "engines": {
         "vscode": "^1.80.0"
     },
+
     "categories": [
         "Programming Languages"
     ],
+
     "contributes": {
         "languages": [
             {
@@ -23,11 +26,20 @@
                 ]
             }
         ],
+
         "grammars": [
             {
                 "language": "rsc",
                 "scopeName": "source.rsc",
                 "path": "./syntaxes/rsc.tmLanguage.json"
+            }
+        ],
+
+        "themes": [
+            {
+                "label": "RSC Theme",
+                "uiTheme": "vs-dark",
+                "path": "./themes/rsc-color-theme.json"
             }
         ]
     }

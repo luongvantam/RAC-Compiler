@@ -1,115 +1,265 @@
 {
     "name": "RSC Script (Casio Compiler)",
     "scopeName": "source.rsc",
+
     "fileTypes": [
         "rsc"
     ],
+
     "patterns": [
         {
-            "name": "comment.line.hash.rsc",
-            "match": "#.*$"
+            "include": "#comments"
         },
         {
-            "name": "comment.block.rsc",
-            "begin": "/\\*",
-            "end": "\\*/"
+            "include": "#strings"
         },
         {
-            "name": "string.quoted.double.rsc",
-            "begin": "\"|'",
-            "end": "\"|'",
+            "include": "#directives"
+        },
+        {
+            "include": "#labels"
+        },
+        {
+            "include": "#functions"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#registers"
+        },
+        {
+            "include": "#hexstream"
+        },
+        {
+            "include": "#numbers"
+        },
+        {
+            "include": "#keys"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#punctuation"
+        },
+        {
+            "include": "#deprecated"
+        }
+    ],
+
+    "repository": {
+
+        "comments": {
             "patterns": [
                 {
-                    "name": "constant.character.escape.rsc",
-                    "match": "~"
+                    "name": "comment.line.number-sign.rsc",
+                    "match": "#.*$"
                 },
                 {
-                    "name": "variable.parameter.rsc",
-                    "match": "\\{.*?\\}"
+                    "name": "comment.block.rsc",
+                    "begin": "/\\*",
+                    "end": "\\*/"
                 }
             ]
         },
-        {
-            "name": "keyword.control.directive.rsc",
-            "match": "^\\s*@(set|section)\\.[a-zA-Z0-9_]+"
+
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.rsc",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.rsc",
+                            "match": "~"
+                        },
+                        {
+                            "name": "variable.interpolation.rsc",
+                            "match": "\\{[A-Za-z_][A-Za-z0-9_]*\\}"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.token.rsc",
+                    "begin": "'",
+                    "end": "'"
+                }
+            ]
         },
-        {
-            "name": "storage.modifier.rsc",
-            "match": "\\b(lbl|func|def|loop|find_gadgets)\\b"
+
+        "directives": {
+            "patterns": [
+                {
+                    "match": "^\\s*(@(set|section))(\\.([A-Za-z0-9_]+))",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.directive.rsc"
+                        },
+                        "3": {
+                            "name": "punctuation.accessor.rsc"
+                        },
+                        "4": {
+                            "name": "entity.name.namespace.rsc"
+                        }
+                    }
+                },
+                {
+                    "name": "keyword.control.origin.rsc",
+                    "match": "\\borg\\b"
+                }
+            ]
         },
-        {
-            "name": "storage.type.rsc",
-            "match": "\\b(reg|var)\\b"
+
+        "labels": {
+            "patterns": [
+                {
+                    "name": "entity.name.label.definition.rsc",
+                    "match": "\\blbl\\s+[A-Za-z_][A-Za-z0-9_]*\\b"
+                },
+                {
+                    "name": "entity.name.label.rsc",
+                    "match": "^\\s*[A-Za-z_][A-Za-z0-9_]*:"
+                },
+                {
+                    "name": "entity.name.label.reference.rsc",
+                    "match": "(?<=\\bgoto\\s)[A-Za-z_][A-Za-z0-9_]*"
+                }
+            ]
         },
-        {
-            "name": "keyword.control.rsc",
-            "match": "\\b(call|goto|eval|org|pr_length|calc|return|at)\\b"
+
+        "functions": {
+            "patterns": [
+                {
+                    "name": "storage.type.function.rsc",
+                    "match": "\\b(func|def)\\b"
+                },
+                {
+                    "name": "entity.name.function.definition.rsc",
+                    "match": "(?<=\\b(func|def)\\s)[A-Za-z_][A-Za-z0-9_]*"
+                },
+                {
+                    "name": "entity.name.function.call.rsc",
+                    "match": "(?<=\\bcall\\s)[A-Za-z_][A-Za-z0-9_]*"
+                },
+                {
+                    "name": "support.function.builtin.rsc",
+                    "match": "\\b(adr|adr_of|adr_arith|eval|calc)\\b"
+                },
+                {
+                    "name": "support.class.python.rsc",
+                    "match": "\\bpy\\b"
+                },
+                {
+                    "name": "entity.name.function.python.rsc",
+                    "match": "(?<=\\bpy\\.)[A-Za-z_][A-Za-z0-9_]*"
+                }
+            ]
         },
-        {
-            "name": "support.function.rsc",
-            "match": "\\badr\\b"
+
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "storage.modifier.rsc",
+                    "match": "\\b(var|reg|loop)\\b"
+                },
+                {
+                    "name": "keyword.control.rsc",
+                    "match": "\\b(call|goto|return|at|find_gadgets)\\b"
+                },
+                {
+                    "name": "keyword.operator.word.rsc",
+                    "match": "\\b(in|and|or|not)\\b"
+                }
+            ]
         },
-        {
-            "name": "support.class.python.rsc",
-            "match": "\\bpy\\b"
+
+        "registers": {
+            "patterns": [
+                {
+                    "name": "variable.other.register.rsc",
+                    "match": "\\b((er|xr|qr|r)[0-9]{1,2}|sp|pc|ea)\\b",
+                    "flags": "i"
+                }
+            ]
         },
-        {
-            "name": "entity.name.function.python.rsc",
-            "match": "(?<=\\bpy\\.)[a-zA-Z_][a-zA-Z0-9_]*"
+
+        "hexstream": {
+            "patterns": [
+                {
+                    "begin": "\\bhex\\b",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "keyword.control.hex.rsc"
+                        }
+                    },
+                    "end": "$",
+                    "patterns": [
+                        {
+                            "name": "constant.numeric.hex.byte.rsc",
+                            "match": "\\b[0-9A-Fa-f]{2}\\b"
+                        }
+                    ]
+                }
+            ]
         },
-        {
-            "name": "keyword.control.hex.rsc",
-            "match": "\\bhex\\b"
+
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.hex.rsc",
+                    "match": "\\b0x[0-9A-Fa-f]+\\b"
+                },
+                {
+                    "name": "constant.numeric.decimal.rsc",
+                    "match": "\\b\\d+\\b"
+                }
+            ]
         },
-        {
-            "name": "entity.name.function.definition.rsc",
-            "match": "(?<=\\b(func|def)\\s)[a-zA-Z_][a-zA-Z0-9_]*"
+
+        "keys": {
+            "patterns": [
+                {
+                    "name": "constant.other.keycode.rsc",
+                    "match": "\\bKEY_[A-Z0-9_]+\\b"
+                }
+            ]
         },
-        {
-            "name": "entity.name.label.definition.rsc",
-            "match": "(?<=\\blbl\\s)[a-zA-Z_][a-zA-Z0-9_]*"
+
+        "operators": {
+            "patterns": [
+                {
+                    "name": "keyword.operator.rsc",
+                    "match": "=|\\+|\\-|\\*|\\/|%|==|!=|<=|>=|<|>"
+                }
+            ]
         },
-        {
-            "name": "variable.other.register.rsc",
-            "match": "\\b([erxqr]{1,2}[0-9]{1,2}|sp|pc|ea)\\b",
-            "flags": "i"
+
+        "punctuation": {
+            "patterns": [
+                {
+                    "name": "punctuation.separator.rsc",
+                    "match": ",|;|:"
+                },
+                {
+                    "name": "punctuation.definition.parameters.rsc",
+                    "match": "\\(|\\)|\\[|\\]"
+                },
+                {
+                    "name": "punctuation.section.block.rsc",
+                    "match": "\\{|\\}"
+                }
+            ]
         },
-        {
-            "name": "constant.other.key.rsc",
-            "match": "\\bKEY_[A-Z0-9_]+\\b"
-        },
-        {
-            "name": "constant.numeric.hex.rsc",
-            "match": "\\b0x[0-9a-fA-F]+\\b"
-        },
-        {
-            "name": "constant.numeric.decimal.rsc",
-            "match": "\\b\\d+\\b"
-        },
-        {
-            "name": "keyword.operator.rsc",
-            "match": "=|\\+|\\-|\\*|/|%|==|!="
-        },
-        {
-            "name": "punctuation.separator.rsc",
-            "match": ",|;|:"
-        },
-        {
-            "name": "punctuation.definition.parameters.rsc",
-            "match": "\\(|\\)|\\[|\\]"
-        },
-        {
-            "name": "punctuation.section.block.rsc",
-            "match": "\\{|\\}"
-        },
-        {
-            "name": "entity.name.function.call.rsc",
-            "match": "(?<=\\bcall\\s)[a-zA-Z_][a-zA-Z0-9_]*"
-        },
-        {
-            "name": "entity.name.label.reference.rsc",
-            "match": "(?<=\\bgoto\\s)[a-zA-Z_][a-zA-Z0-9_]*"
+
+        "deprecated": {
+            "patterns": [
+                {
+                    "name": "invalid.deprecated.rsc",
+                    "match": "\\b(def|find_gadgets)\\b"
+                }
+            ]
         }
-    ],
-    "repository": {}
+    }
 }

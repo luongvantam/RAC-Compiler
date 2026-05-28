@@ -74,7 +74,7 @@ if_touch_player:
   r0 = 0
 cmp_func_1:
   er2 = 0x1400
-  er0 - er2_gt,r0 = 0 |r0 = 1,rt
+  er0 == er2 || !(r0 < 0x4E || r0 > 0x5F) ? r0 = 1 : r0 = 0 -> rt
   er4 = adr_of [-2] if_touch_cot
   pop er2  
   adr_arith if_touch-adr_arith if_touch_cot
@@ -89,7 +89,7 @@ if_touch_cot:
   r0 = 0
 cmp_func_2:
   er2 = 0x2300
-  er2 - er0_gt,r0 = 0 |r0 = 1,rt
+  er2 > er0 ? r0 = 0 : r0 = 1 -> rt
   er4 = adr_of [-2] if_not_touch
   er2 = 0x000A
   er0*=r2,er2 = er0,er0+=er4,rt
@@ -169,6 +169,33 @@ loop:
   BL strcpy
   er14 = 0xd62e
   sp = er14,pop er14
+key_table:
+  hex 80 04 
+  adr_of [-2] if_up
+  hex 00 00 
+  adr_of [-2] ngat_key
+touch_table:
+  hex 58 02 
+  adr_of [-2] if_touch
+  hex 58 38 
+  adr_of [-2] if_touch
+  hex 00 00 
+  adr_of [-2] check_cot
+cot_table:
+  0x0101   
+  adr_of [-2] if_touch_cot_fail
+  0x0160
+  adr_of [-2] if_touch_player
+  0x015e
+  adr_of [-2] if_touch_player
+  0x015c
+  adr_of [-2] if_touch_player
+  0x015a
+  adr_of [-2] if_touch_player
+  0x0148
+  adr_of [-2] setup_score
+  0x0000
+  adr_of [-2] add_func_score
 addr_var_b:
   adr_of b
 addr_var_b_2:
@@ -211,32 +238,6 @@ text_dev:
 text_score:
   str"Score:0"
   hex 00 00 00 00 00
-key_table:
-  hex 80 04 
-  adr_of [-2] if_up
-  hex 00 00 
-  adr_of [-2] ngat_key
-touch_table:
-  hex 58 02 
-  adr_of [-2] if_touch
-  hex 58 38 
-  adr_of [-2] if_touch
-  hex 00 00 
-  adr_of [-2] check_cot
-cot_table:
-  0x0101   
-  adr_of [-2] if_touch_cot_fail
-  0x0160
-  adr_of [-2] if_touch_player
-  0x015e
-  adr_of [-2] if_touch_player
-  0x015c
-  adr_of [-2] if_touch_player
-  0x015a
-  adr_of [-2] if_touch_player
-  0x0148
-  adr_of [-2] setup_score
-  0x0000
-  adr_of [-2] add_func_score
 object_bitmap:
   hex ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+
