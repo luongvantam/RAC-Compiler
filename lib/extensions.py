@@ -10,14 +10,13 @@ def load_extensions(path):
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    pattern = r"---syntax---\s*(.*?)\s*---logic---\s*(.*?)\s*---output---\s*(.*?)\s*(?=---syntax---|$)"
+    pattern = r"---syntax---\s*(.*?)\s*---output---\s*(.*?)\s*(?=---syntax---|$)"
     matches = re.findall(pattern, content, re.DOTALL)
 
     extensions = []
-    for syntax_block, logic_block, output_block in matches:
+    for syntax_block, output_block in matches:
         extensions.append({
             "syntax": syntax_block.strip(),
-            "logic": logic_block.strip(),
             "output": [ln.strip() for ln in output_block.strip().splitlines() if ln.strip()]
         })
     return extensions

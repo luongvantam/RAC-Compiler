@@ -3,6 +3,8 @@ org 0xe9e0
 var verify_func = call 0x13344
 
 lbl main
+    setlr
+    setsfr
     xr0 = adr(addr_verify), var_a
     verify_func
     er0=var_a

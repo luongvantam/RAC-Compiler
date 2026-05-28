@@ -368,7 +368,7 @@ def handle_pr_length_command(line):
     loader.pr_length_cmds.append(len(loader.result))
     loader.result.extend((0, 0))
 
-def handle_any_string_command(line):
+def handle_string_command(line):
     line_strip = line.strip()
     match = re.search(r'"(.*)"', line_strip)
     if not match:
@@ -470,20 +470,32 @@ def handle_str_hd_command(line):
         
     content = line_strip[3:].strip()
     
+    def encode_and_process_string(string_val):
+        string_val = string_val.encode("latin1").decode("utf-8")
+        processed_text = re.sub(r"\s", "~", string_val)
+        for c in processed_text:
+            try:
+                hex_val = char_to_hex[c]
+                if len(hex_val) == 2:
+                    loader.result.append(int(hex_val, 16))
+                elif len(hex_val) == 4:
+                    loader.result.extend([int(hex_val[:2], 16), int(hex_val[2:], 16)])
+            except KeyError:
+                raise ValueError(f"Character '{c}' not found in conversion table")
+
     match_var_str = re.match(r'^([a-zA-Z_]\w*)\s+"([^"]*)"$', content)
     if match_var_str:
         var_name = match_var_str.group(1)
         string_val = match_var_str.group(2)
         loader.vars_dict[var_name] = string_val
-        utils.note(f"Variable '{var_name}' set to string: {string_val.replace('~', ' ')}\n")
+        utils.note(f"Variable '{var_name}' set to string: {string_val}\n")
         return
 
     match_str_only = re.match(r'^"([^"]*)"$', content)
     if match_str_only:
         string_val = match_str_only.group(1)
-        utils.note(f"Processing string: {content.replace('~', ' ')}\n")
-        for char in string_val:
-            process_line(f'0x{ord(char):02x}')
+        utils.note(f"Processing string: {string_val}\n")
+        encode_and_process_string(string_val)
         return
 
     match_var_only = re.match(r'^([a-zA-Z_]\w*)$', content)
@@ -493,9 +505,8 @@ def handle_str_hd_command(line):
             raise ValueError(f"Variable '{var_name}' not found in vars_dict")
         
         string_val = str(loader.vars_dict[var_name])
-        utils.note(f"Processing string from variable '{var_name}': {content.replace('~', ' ')}\n")
-        for char in string_val:
-            process_line(f'0x{ord(char):02x}')
+        utils.note(f"Processing string from variable '{var_name}': {string_val}\n")
+        encode_and_process_string(string_val)
         return
 
     raise ValueError(f"Invalid str syntax: {line}")
@@ -549,7 +560,7 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
         handle_pr_length_command(line)
 
     elif line_strip.startswith('"'):
-        handle_any_string_command(line_strip)
+        handle_string_command(line_strip)
 
     elif line_strip.startswith("'"):
         handle_token_literal(line_strip)
