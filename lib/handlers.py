@@ -19,7 +19,7 @@ def handle_label_definition(line):
     loader.labels[label] = len(loader.result)
     
 def handle_function_definition(line, program_iter, defined_functions):
-    m = re.match(r'func\s+(\w+)\s*\((.*?)\)\s*\{', line.strip())
+    m = re.match(r'func\s+(\w+)\s*\\((.*?)\\)\s*\\{', line.strip())
     if not m: raise ValueError(f"Invalid func definition syntax: {line}")
     func_name, args_str = m.group(1), m.group(2).strip()
     func_args = [arg.strip() for arg in args_str.split(',')] if args_str else []
@@ -34,9 +34,9 @@ def handle_function_definition(line, program_iter, defined_functions):
 def handle_repeat_command(line, program_iter):
     """Syntax: repeat <expr> { <lines> }"""
     if line.startswith('repeat '):
-        m = re.match(r'repeat\s+(.+?)\s*\{', line.strip())
+        m = re.match(r'repeat\s+(.+?)\s*\\{', line.strip())
     elif line.startswith('loop '):
-        m = re.match(r'loop\s+(.+?)\s*\{', line.strip())
+        m = re.match(r'loop\s+(.+?)\s*\\{', line.strip())
         
     if not m:
         raise ValueError(f"Invalid repeat syntax: {line}")
@@ -101,9 +101,37 @@ def handle_repeat_command(line, program_iter):
 def handle_eval_expression(line):
     expr = line[5:-1].strip()
     expanded_expr = expr
+    
+    # 1. Thay thế các biến thông thường từ loader.vars_dict
     for var_name, var_value in loader.vars_dict.items():
         pattern = r'\b' + re.escape(var_name) + r'\b'
         expanded_expr = re.sub(pattern, str(var_value), expanded_expr)
+
+    # =========================================================================
+    # 2. XỬ LÝ ĐỘNG DIST TRONG HÀM: Tìm và thay thế trực tiếp 'dist.<tên_section>'
+    # =========================================================================
+    def repl_dist(match):
+        name = match.group(1)
+        # Thử tìm trong bộ nhớ quản lý section chung
+        if hasattr(loader, 'section_addresses') and name in loader.section_addresses:
+            org = loader.section_addresses[name].get('org')
+            backup = loader.section_addresses[name].get('backup')
+            if org is not None and backup is not None:
+                return str((backup - org) & 0xFFFF)
+        
+        # Dự phòng nếu là section hiện tại chưa kịp đẩy vào bộ nhớ chung
+        if name == getattr(loader, 'current_section_name', None):
+            org = getattr(loader, 'home', None)
+            backup = getattr(loader, 'backup_address', None)
+            if org is not None and backup is not None:
+                return str((backup - org) & 0xFFFF)
+                
+        raise ValueError(f"Section '{name}' không tìm thấy thông tin org/backup để tính dist tại dòng: {line}")
+
+    # Regex này tìm các chuỗi có dạng dist.abc hoặc dist.main_section
+    expanded_expr = re.sub(r'\bdist\.(\w+)\b', repl_dist, expanded_expr)
+    # =========================================================================
+
     def eval_nested(s, eval_scope):
         pattern = re.compile(r'\beval\(([^()]*(?:\([^()]*\)[^()]*)*)\)')
         while 'eval(' in s:
@@ -132,21 +160,27 @@ def handle_eval_expression(line):
                     raise ValueError(f"Unsupported nested eval result type: {type(val)}")
                 s = s[:m.start()] + val_str + s[m.end():]
         return s
+
     eval_scope = {}
     eval_scope['pr_length'] = len(loader.result)
     for k, v in loader.vars_dict.items():
         eval_scope[k] = v
+        
     expanded_expr = eval_nested(expanded_expr, eval_scope)
+    
+    # Lúc này biểu thức đã được thay thế 'dist.main' thành số nguyên (ví dụ: 'adr(main)+55472')
     if 'adr(' in expanded_expr:
         loader.deferred_evals.append((len(loader.result), expanded_expr))
         loader.result.extend((0, 0))
         return
+        
     eval_scope = {}
     eval_scope['pr_length'] = len(loader.result)
     try:
         val = eval(expanded_expr, {}, eval_scope)
     except Exception as e:
         raise ValueError(f"Eval error in '{expr}' (expanded: '{expanded_expr}'): {e}")
+        
     if isinstance(val, int):
         process_line(f'0x{val:x}')
     elif isinstance(val, str):
@@ -231,7 +265,7 @@ def handle_address_command(line):
     if line_strip.startswith('adr(') and line_strip.endswith(')'):
         inner_content = line_strip[4:-1].strip()
         
-        pattern = r'^([a-zA-Z_]\w*)(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\d+)))?(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\d+)))?$'
+        pattern = r'^([a-zA-Z_]\w*)(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?$'
         match = re.match(pattern, inner_content)
         if not match:
             raise ValueError(f"Invalid adr(...) syntax: {line}")
@@ -315,7 +349,14 @@ def handle_assignment_command(line, program_iter):
     elif left.startswith("reg ") or (left[0] in 'rexq' and any(left.startswith(prefix) for prefix in ['r', 'er', 'xr', 'qr', 'ea'])):
         register = left[4:].strip() if left.startswith("reg ") else left
         right = right.lower()
-        value = right.replace(',', ';')
+        new_right = []
+        paren_balance = 0
+        for char in right:
+            if char == '(':paren_balance += 1
+            elif char == ')':paren_balance -= 1
+            if char == ',' and paren_balance == 0:new_right.append(';')
+            else:new_right.append(char)
+        value = "".join(new_right)
         process_line(f'call pop {register}')
         l1 = len(loader.result)
         process_line(value)
@@ -324,6 +365,7 @@ def handle_assignment_command(line, program_iter):
         val = right
         loader.vars_dict[left] = val
         utils.note(f"Variable '{left}' set to: {val}\n")
+
 def resolve_index(value, index):
     value = str(value).strip()
     if value.startswith('"') and value.endswith('"'):
@@ -452,8 +494,6 @@ def handle_adr_arith_hd_command(line):
         if offset:
             offset = offset.strip()
             if not offset.startswith('+') and not offset.startswith('-'):
-                sub_expr += f' + {offset}'
-            else:
                 sub_expr += f' {offset[0]} {offset[1:].strip()}'
         else:
             sub_expr += ' + 0'
@@ -510,6 +550,26 @@ def handle_str_hd_command(line):
         return
 
     raise ValueError(f"Invalid str syntax: {line}")
+
+def handle_backup_command(line):
+    """Syntax: backup <expr>"""
+    expr = line[6:].strip()
+    try:
+        eval_scope = loader.vars_dict.copy()
+        val = eval(expr, {}, eval_scope)
+        if not isinstance(val, int):
+             raise ValueError(f"Backup address must evaluate to an integer, got {type(val)}")
+        loader.backup_address = val
+    except Exception as e:
+        raise ValueError(f"Error evaluating backup address '{expr}': {e}")
+
+def handle_dist_command(line):
+    """Syntax: dist.<section_name>"""
+    section_name = line[5:].strip()
+    if not section_name:
+        raise ValueError("Invalid dist syntax: missing section name")
+    loader.dist_cmds.append((len(loader.result), section_name))
+    loader.result.extend((0, 0))
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
@@ -578,6 +638,12 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     
     elif line_strip.startswith('str'):
         handle_str_hd_command(line_strip)
+
+    elif line_strip.startswith('backup '):
+        handle_backup_command(line_strip)
+
+    elif line_strip.startswith('dist.'):
+        handle_dist_command(line_strip)
 
     else:
         assert False, f'Unrecognized command: {line!r}'

@@ -37,6 +37,8 @@ def process_line(line, program_iter=None):
 def finalize_processing():
     for pos, left_offset, left_label, right_offset, right_label, op in loader.relocation_expressions:
         if left_label not in loader.labels or right_label not in loader.labels:
+            if getattr(loader, 'is_pass1', False):
+                continue
             raise ValueError(f'Label not found in adr: {left_label}, {right_label}')
         left_addr = loader.labels[left_label] + left_offset
         right_addr = loader.labels[right_label] + right_offset
@@ -46,15 +48,17 @@ def finalize_processing():
         else:
             result_addr = (left_addr - right_addr) & 0xFFFF
         
-        if loader.result[pos] != 0 or loader.result[pos+1] != 0:
-            print(f"[WARN] adr overwrite at {pos:04X}")
+        if not getattr(loader, 'is_pass1', False):
+            if loader.result[pos] != 0 or loader.result[pos+1] != 0:
+                print(f"[WARN] adr overwrite at {pos:04X}")
         loader.result[pos] = result_addr & 0xFF
         loader.result[pos + 1] = (result_addr >> 8) & 0xFF
 
     for pos in loader.pr_length_cmds:
         pr_length = len(loader.result)
-        if loader.result[pos] != 0 or loader.result[pos+1] != 0:
-            print(f"[WARN] pr_length overwrite at {pos:04X}")
+        if not getattr(loader, 'is_pass1', False):
+            if loader.result[pos] != 0 or loader.result[pos+1] != 0:
+                print(f"[WARN] pr_length overwrite at {pos:04X}")
         loader.result[pos] = pr_length & 0xFF
         loader.result[pos + 1] = (pr_length >> 8) & 0xFF
 
@@ -62,11 +66,14 @@ def finalize_processing():
     loader.pr_length_cmds.clear()
 
 
-
 def _split_into_sections(program_lines):
     """Return list of (name, lines) tuples by splitting on @set.<name> directives.
     Lines before the first @set are grouped under name None.  The directive
     itself is not included in the section contents.
+    
+    Supports:
+    - @section.<name> at <addr_org>
+    - @section.<name> at <addr_org> backup <addr_backup>
     """
     sections = []
     current_name = None
@@ -74,22 +81,35 @@ def _split_into_sections(program_lines):
     for raw_line in program_lines:
         stripped = raw_line.strip()
         if stripped.startswith('@set.') or stripped.startswith('@section.'):
-            if "at" in stripped:
-                stripped = stripped.replace("at", "\norg ")
-            # begin a new section
+            parts = stripped.split("at", 1)
+            name_part = parts[0].strip()
             if current_name is not None or current_lines:
                 sections.append((current_name, current_lines))
-            current_name = stripped[5:] if stripped.startswith('@set.') else stripped[9:]
+            current_name = name_part[5:] if name_part.startswith('@set.') else name_part[9:]
             current_lines = []
+            if len(parts) > 1:
+                addr_part = parts[1].strip()
+                if "backup" in addr_part:
+                    addr_subparts = addr_part.split("backup", 1)
+                    org_addr = addr_subparts[0].strip()
+                    backup_addr = addr_subparts[1].strip()
+                    
+                    if org_addr:
+                        current_lines.append("org " + org_addr)
+                    if backup_addr:
+                        current_lines.append("backup " + backup_addr)
+                else:
+                    current_lines.append("org " + addr_part)
         else:
             current_lines.append(raw_line)
-    # append last
     if current_name is not None or current_lines:
         sections.append((current_name, current_lines))
     return sections
 
 
 def process_program(args, program_lines, overflow_initial_sp):
+    loader.global_labels = {}
+    loader.section_addresses = {}
     # split into sections and dispatch to helper for each
     sections = _split_into_sections(program_lines)
     # reorder so named sections come before unnamed to avoid warning prints
@@ -99,9 +119,19 @@ def process_program(args, program_lines, overflow_initial_sp):
 
     if len(sections) == 1:
         # simple case, just process the single list of lines
+        loader.is_pass1 = False
+        loader.current_section_name = sections[0][0]
         return _process_program_core(args, sections[0][1], overflow_initial_sp)
 
     # multiple sections: process each independently
+    # Pass 1: Collect globals and section addresses silently
+    loader.is_pass1 = True
+    for name, lines in sections:
+        loader.current_section_name = name
+        _process_program_core(args, lines, overflow_initial_sp)
+        
+    # Pass 2: Actually resolve cross-section dependencies and print
+    loader.is_pass1 = False
     for name, lines in sections:
         loader.current_section_name = name
         if name is not None:
@@ -111,6 +141,10 @@ def process_program(args, program_lines, overflow_initial_sp):
 
 
 def _process_program_core(args, program_lines, overflow_initial_sp):
+    if not hasattr(loader, 'global_labels'):
+        loader.global_labels = {}
+    if not hasattr(loader, 'section_addresses'):
+        loader.section_addresses = {}
     loader.result = []
     loader.labels = {}
     loader.address_requests = []
@@ -119,6 +153,8 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     loader.deferred_evals = []
     loader.home = None
     loader.in_comment = False
+    loader.backup_address = None
+    loader.dist_cmds = []
     
     final_lines_to_process = []
     defined_functions = {}
@@ -204,7 +240,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 else:
                     print(f"  In line {line_num}{ctx_info}")
                 print(f"    {raw_origin.strip()}")
-                print(f"    {"^" * len(raw_origin.strip())}")
+                print(f"    {'^' * len(raw_origin.strip())}")
                 print(f"CompilerError: {str(e)}")
                 sys.exit()
 
@@ -213,7 +249,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 local_note_func('Line generates many keypresses\n')
 
             utils.note = original_note_func
-            if note_log:
+            if note_log and not getattr(loader, 'is_pass1', False):
                 utils.note(note_log)
 
     eval_scope = {}
@@ -231,6 +267,10 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
         if not isinstance(label, str):
              raise ValueError(f"Label in adr() must be a string, but got {label} (type {type(label)})")
         if label not in loader.labels:
+            if hasattr(loader, 'global_labels') and label in loader.global_labels:
+                return loader.global_labels[label] + offset
+            if getattr(loader, 'is_pass1', False):
+                return 0
             raise ValueError(f'Label not found during deferred eval: {label}')
         return (loader.labels[label] + offset)
 
@@ -255,12 +295,17 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
         if not isinstance(val, int):
             raise ValueError(f"Deferred eval {expr!r} did not return an integer")
         
-        is_absolute_address = expr.count('adr(') > 1
+        referenced_labels = re.findall(r'adr\(\s*["\']?([a-zA-Z_0-9]+)', expr)
+        is_absolute_address = (expr.count('adr(') > 1) or any(
+            (label in loader.global_labels and label not in loader.labels)
+            for label in referenced_labels
+        )
         
         if is_absolute_address:
             val = val & 0xFFFF
-            if loader.result[pos] != 0 or loader.result[pos+1] != 0:
-                print(f"[WARN] eval_abs overwrite at {pos:04X}")
+            if not getattr(loader, 'is_pass1', False):
+                if loader.result[pos] != 0 or loader.result[pos+1] != 0:
+                    print(f"[WARN] eval_abs overwrite at {pos:04X}")
             loader.result[pos] = val & 0xFF
             loader.result[pos + 1] = (val >> 8) & 0xFF
         else:
@@ -270,11 +315,18 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     
     resolved_adr_cmds = []
     for source_adr, offset, target_label in loader.address_requests:
-        if target_label not in loader.labels:
-             raise ValueError(f'Label not found: {target_label} (for adr() at pos {source_adr})')
-        resolved_adr_cmds.append((source_adr, loader.labels[target_label] + offset))
+        if target_label in loader.labels:
+            resolved_adr_cmds.append((source_adr, loader.labels[target_label] + offset))
+        elif target_label in loader.global_labels:
+            resolved_adr_cmds.append((source_adr, loader.global_labels[target_label] - loader.home + offset))
+        else:
+            if getattr(loader, 'is_pass1', False):
+                resolved_adr_cmds.append((source_adr, 0))
+                continue
+            raise ValueError(f'Label not found: {target_label} (for adr() at pos {source_adr})')
     
     loader.address_requests.clear()
+    
     if args.target in ('none', 'overflow'):
         if args.target == 'overflow':
             assert len(loader.result) <= 100, 'Program too long'
@@ -285,7 +337,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 loader.home -= loader.labels['home']
                 if loader.home + len(loader.result) > 0x8E00:
                     # suppress warning if section has a name (assuming named sections are handled first)
-                    if loader.current_section_name is None:
+                    if loader.current_section_name is None and not getattr(loader, 'is_pass1', False):
                         utils.note(f'Warning: Program length after home = {len(loader.result)} bytes'
                             f' > {0x8E00 - loader.home} bytes\n')
 
@@ -327,20 +379,48 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
 
     for source_adr, home_offset in resolved_adr_cmds:
         target_adr = loader.home + home_offset
-        if loader.result[source_adr] != 0 or loader.result[source_adr + 1] != 0:
-            print(f"[WARN] adr overwrite at {source_adr:04X}, old={loader.result[source_adr]:02X}{loader.result[source_adr+1]:02X}")
+        if not getattr(loader, 'is_pass1', False):
+            if loader.result[source_adr] != 0 or loader.result[source_adr + 1] != 0:
+                print(f"[WARN] adr overwrite at {source_adr:04X}, old={loader.result[source_adr]:02X}{loader.result[source_adr+1]:02X}")
         loader.result[source_adr] = target_adr & 0xFF
         loader.result[source_adr + 1] = target_adr >> 8
 
     for source_adr, home_offset in home_dependent_evals:
         target_adr = loader.home + home_offset
-        if loader.result[source_adr] != 0 or loader.result[source_adr + 1] != 0:
-            print(f"[WARN] eval_adr overwrite at {source_adr:04X}, old={loader.result[source_adr]:02X}{loader.result[source_adr+1]:02X}")
+        if not getattr(loader, 'is_pass1', False):
+            if loader.result[source_adr] != 0 or loader.result[source_adr + 1] != 0:
+                print(f"[WARN] eval_adr overwrite at {source_adr:04X}, old={loader.result[source_adr]:02X}{loader.result[source_adr+1]:02X}")
         loader.result[source_adr] = target_adr & 0xFF
         loader.result[source_adr + 1] = target_adr >> 8
 
     for label, home_offset in loader.labels.items():
-        utils.note(f'Label {label} is at address {loader.home + home_offset:04X}\n')
+        loader.global_labels[label] = loader.home + home_offset
+        if not getattr(loader, 'is_pass1', False):
+            utils.note(f'Label {label} is at address {loader.home + home_offset:04X}\n')
+
+    if loader.current_section_name is not None:
+        loader.section_addresses[loader.current_section_name] = {
+            'org': loader.home,
+            'backup': loader.backup_address
+        }
+
+    # Resolve dist.<section> commands
+    for pos, target_section in loader.dist_cmds:
+        if target_section not in loader.section_addresses:
+            if getattr(loader, 'is_pass1', False):
+                continue
+            raise ValueError(f"Section '{target_section}' not found or not yet processed for dist calculation")
+        sec_meta = loader.section_addresses[target_section]
+        if sec_meta['backup'] is None:
+            if getattr(loader, 'is_pass1', False):
+                continue
+            raise ValueError(f"Section '{target_section}' has no backup address defined")
+        dist_val = (sec_meta['backup'] - sec_meta['org']) & 0xFFFF
+        if not getattr(loader, 'is_pass1', False):
+            if loader.result[pos] != 0 or loader.result[pos+1] != 0:
+                print(f"[WARN] dist overwrite at {pos:04X}")
+        loader.result[pos] = dist_val & 0xFF
+        loader.result[pos+1] = (dist_val >> 8) & 0xFF
             
     if args.target == 'overflow':
         hackstring = list(map(ord, '1234567890' * 10))
@@ -349,6 +429,10 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             hackstring_pos = (loader.home + home_offset - 0x8154) % 100
             hackstring[hackstring_pos] = byte
 
+    # Stop here if we're only in Pass 1
+    if getattr(loader, 'is_pass1', False):
+        return
+
     # wrap output with section header/footer if needed
     header_printed = False
     def _print_header():
@@ -356,7 +440,10 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
         if header_printed:
             return
         header_printed = True
-        print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x} ===")
+        if loader.backup_address is None:
+            print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x} ===")
+        else:
+            print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x} (backup : {loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x}) ===")
     def _print_footer():
         print('=====')
         

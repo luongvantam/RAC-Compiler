@@ -1,5 +1,7 @@
-org 0xe9e0
+@section.main
+org 0xd730
+backup 0xe9e0
 
-ea = hex 30 30
-
-KEY_0
+dist.main
+lbl main
+eval(adr(main) + dist.main)

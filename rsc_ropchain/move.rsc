@@ -1,18 +1,18 @@
-org 0xd730
+@section.main at 0xd730 backup 0xe9e0
 
 lbl main
     setlr
     setsfr
     di,rt
     clear()
-    smallprint(0x8,0x1,eval(adr(line_1)+0x12b0))
-    smallprint(0x8,0x9,eval(adr(line_2)+0x12b0))
-    smallprint(0x8,0x11,eval(adr(line_3)+0x12b0))
-    smallprint(0x8,0x19,eval(adr(line_4)+0x12b0))
-    smallprint(0x8,0x21,eval(adr(line_5)+0x12b0))
-    smallprint(0x8,0x29,eval(adr(line_6)+0x12b0))
-    smallprint(0x8,0x31,eval(adr(line_7)+0x12b0))
-    smallprint(0x8,0x39,eval(adr(line_8)+0x12b0))
+    smallprint(0x8,0x1,eval(adr(line_1)+dist.main))
+    smallprint(0x8,0x9,eval(adr(line_2)+dist.main))
+    smallprint(0x8,0x11,eval(adr(line_3)+dist.main))
+    smallprint(0x8,0x19,eval(adr(line_4)+dist.main))
+    smallprint(0x8,0x21,eval(adr(line_5)+dist.main))
+    smallprint(0x8,0x29,eval(adr(line_6)+dist.main))
+    smallprint(0x8,0x31,eval(adr(line_7)+dist.main))
+    smallprint(0x8,0x39,eval(adr(line_8)+dist.main))
     render()
     er0 = adr(key)
     getscancode
@@ -42,7 +42,7 @@ lbl key_right
     er2 = hex 01 00
 
 lbl key_move
-    er8 = eval(adr(cursor) + 0x12b0)
+    er8 = eval(adr(cursor) + dist.main)
     [er8]+=er2,pop xr8
     0x30303030
     goto key_loop
@@ -56,7 +56,7 @@ lbl key_0
     goto key_write
 
 lbl key_write
-    er0 = eval(adr(cursor) + 0x12b0)
+    er0 = eval(adr(cursor) + dist.main)
     er0 = [er0],pop xr8,rt
     hex 00 00 00 00
     [er0] = r2,rt
@@ -68,7 +68,7 @@ lbl key_loop
     sp=er6,pop er8
 
 lbl cursor
-    eval(adr(picture) + 0x12b0)
+    eval(adr(picture) + dist.main)
 
 lbl table_key
     KEY_UP

@@ -14,6 +14,9 @@
             "include": "#strings"
         },
         {
+            "include": "#memory"
+        },
+        {
             "include": "#directives"
         },
         {
@@ -89,6 +92,37 @@
             ]
         },
 
+        "memory": {
+            "patterns": [
+                {
+                    "match": "\\b(org|backup)\\s+(0x[0-9A-Fa-f]+|\\d+)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.memory.rsc"
+                        },
+                        "2": {
+                            "name": "constant.numeric.address.rsc"
+                        }
+                    }
+                },
+
+                {
+                    "match": "\\b(dist)(\\.)([A-Za-z_][A-Za-z0-9_]*)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "support.function.distance.rsc"
+                        },
+                        "2": {
+                            "name": "punctuation.accessor.rsc"
+                        },
+                        "3": {
+                            "name": "entity.name.namespace.rsc"
+                        }
+                    }
+                }
+            ]
+        },
+
         "directives": {
             "patterns": [
                 {
@@ -104,10 +138,6 @@
                             "name": "entity.name.namespace.rsc"
                         }
                     }
-                },
-                {
-                    "name": "keyword.control.origin.rsc",
-                    "match": "\\borg\\b"
                 }
             ]
         },
@@ -166,7 +196,7 @@
                 },
                 {
                     "name": "keyword.control.rsc",
-                    "match": "\\b(call|goto|return|at|find_gadgets)\\b"
+                    "match": "\\b(call|goto|return|at)\\b"
                 },
                 {
                     "name": "keyword.operator.word.rsc",
