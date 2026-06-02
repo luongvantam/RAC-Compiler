@@ -281,14 +281,14 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     
     for pos, expr in temp_deferred_evals:
         try:
-            val = eval(expr, {}, eval_scope)
+            val = utils.safe_eval(expr, eval_scope)
         except Exception as e:
             try:
                 temp_scope = eval_scope.copy()
                 for k, v in temp_scope.items():
                     if isinstance(v, str) and v.startswith("eval("):
-                         temp_scope[k] = eval(v[5:-1], {}, temp_scope)
-                val = eval(expr, {}, temp_scope)
+                         temp_scope[k] = utils.safe_eval(v[5:-1], temp_scope)
+                val = utils.safe_eval(expr, temp_scope)
             except Exception as e2:
                  raise ValueError(f"Deferred eval error in expression {expr!r}: {e2}")
         

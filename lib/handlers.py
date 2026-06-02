@@ -43,7 +43,7 @@ def handle_repeat_command(line, program_iter):
     count_expr = m.group(1).strip()
     try:
         eval_scope = loader.vars_dict.copy()
-        count = eval(count_expr, {}, eval_scope)
+        count = utils.safe_eval(count_expr, eval_scope)
         if not isinstance(count, int):
              raise ValueError(f"Repeat count must evaluate to int, got {type(count)}")
     except Exception as e:
@@ -147,7 +147,7 @@ def handle_eval_expression(line):
                     s = s[:m.start()] + replacement + s[m.end():]
                     continue
                 try:
-                    val = eval(inner_result, {}, eval_scope)
+                    val = utils.safe_eval(inner_result, eval_scope)
                 except Exception as e:
                     raise ValueError(f"Eval error in nested eval('{inner}') (expanded: '{inner_result}'): {e}")
                 if isinstance(val, int):
@@ -177,7 +177,7 @@ def handle_eval_expression(line):
     eval_scope = {}
     eval_scope['pr_length'] = len(loader.result)
     try:
-        val = eval(expanded_expr, {}, eval_scope)
+        val = utils.safe_eval(expanded_expr, eval_scope)
     except Exception as e:
         raise ValueError(f"Eval error in '{expr}' (expanded: '{expanded_expr}'): {e}")
         
@@ -398,10 +398,23 @@ def handle_org_command(line):
     Specify the address of this location after mapping.
     Only use this for loader mode.
     '''
-    hx = eval(line[3:])
+    hx = int(line[3:], 0)
     new_home = hx - len(loader.result)
     assert loader.home is None or loader.home == new_home, 'Inconsistent value of `home`'
     loader.home = new_home
+
+def handle_backup_command(line):
+    """Syntax: backup <expr>"""
+    expr = line[6:].strip()
+    try:
+        eval_scope = loader.vars_dict.copy()
+        #val = eval(expr, {}, eval_scope)
+        val = int(expr, 0)
+        if not isinstance(val, int):
+             raise ValueError(f"Backup address must evaluate to an integer, got {type(val)}")
+        loader.backup_address = val
+    except Exception as e:
+        raise ValueError(f"Error evaluating backup address '{expr}': {e}")
 
 def handle_pr_length_command(line):
     ''' Syntax: `pr_length`
@@ -550,18 +563,6 @@ def handle_str_hd_command(line):
         return
 
     raise ValueError(f"Invalid str syntax: {line}")
-
-def handle_backup_command(line):
-    """Syntax: backup <expr>"""
-    expr = line[6:].strip()
-    try:
-        eval_scope = loader.vars_dict.copy()
-        val = eval(expr, {}, eval_scope)
-        if not isinstance(val, int):
-             raise ValueError(f"Backup address must evaluate to an integer, got {type(val)}")
-        loader.backup_address = val
-    except Exception as e:
-        raise ValueError(f"Error evaluating backup address '{expr}': {e}")
 
 def handle_dist_command(line):
     """Syntax: dist.<section_name>"""
