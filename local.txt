@@ -2,4 +2,4 @@ emu.inj = false
 output.file = false
 line.bytes = 16
 
-emu.inj_file = "/Users/luongtoi/CasioEmuMsvc/hc-inj.txt"
+emu.inj_file = "hc-inj.txt"
