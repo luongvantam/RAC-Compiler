@@ -1,9 +1,17 @@
 @echo off
+set "last_name="
 
 :loop
 cls
 echo Enter your filename to compile (for 580VNX only):
 set /p name=
+
+if "%name%"=="" (
+    if not "%last_name%"=="" (
+        set "name=%last_name%"
+        echo Using previous filename: %name%
+    )
+)
 
 set "filepath=.\rsc_ropchain\%name%"
 
@@ -24,6 +32,8 @@ pause
 goto :loop
 
 :found
+set "last_name=%name%"
+
 cls
 echo Compiling: %name%...
 python run.py 580vnx ".\rsc_ropchain\%name%"

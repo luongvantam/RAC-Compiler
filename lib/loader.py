@@ -34,7 +34,7 @@ def add_command(command_dict, address, command, tags, debug_info=''):
         f'Command contains ";" {debug_info}'
 
     for prev_command, (prev_adr, prev_tags) in command_dict.items():
-        if prev_command == command or prev_adr == address:
+        if prev_command == command:
             assert False, f'Command appears twice - ' \
                 f'first: {prev_command} -> {prev_adr:05X} {prev_tags}, ' \
                 f'second: {command} -> {address:05X} {tags} - ' \

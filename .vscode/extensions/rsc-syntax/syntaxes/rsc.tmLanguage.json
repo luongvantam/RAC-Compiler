@@ -126,6 +126,14 @@
         "directives": {
             "patterns": [
                 {
+                    "match": "^\\s*(@build)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.directive.rsc"
+                        }
+                    }
+                },
+                {
                     "match": "^\\s*(@(set|section))(\\.([A-Za-z0-9_]+))",
                     "captures": {
                         "1": {
@@ -138,6 +146,10 @@
                             "name": "entity.name.namespace.rsc"
                         }
                     }
+                },
+                {
+                    "match": "\\b(emu\\.inj_file|emu\\.inj_var|emu\\.inj_addr|emu\\.inj_adr|emu\\.inj|line\\.bytes|output\\.file_name|output\\.file)\\b",
+                    "name": "support.variable.rsc"
                 }
             ]
         },

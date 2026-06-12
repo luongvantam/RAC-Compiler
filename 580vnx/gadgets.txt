@@ -61,6 +61,11 @@
 2045C   pop xr4,pop xr12
 0AC3A   pop xr4,pop qr8
 0A1CA   pop lr
+13B9A   er0+=er0,er2+=er0,er0=[er2]
+09E96   [ea+]=r0,r0-=1,bne
+1c2c0   qr0=[ea],lea D002H,[ea]=qr0
+2245C   r1=0,pop er12
+140E6   er2=er12
 
 # Some MOV gadgets:
 24008	er6 = er0,er0 = er8,pop qr8

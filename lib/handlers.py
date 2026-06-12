@@ -265,7 +265,7 @@ def handle_address_command(line):
     if line_strip.startswith('adr(') and line_strip.endswith(')'):
         inner_content = line_strip[4:-1].strip()
         
-        pattern = r'^([a-zA-Z_]\w*)(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?$'
+        pattern = r'^([a-zA-Z_]\w*|0x[0-9a-fA-F]+|\d+)(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?$'
         match = re.match(pattern, inner_content)
         if not match:
             raise ValueError(f"Invalid adr(...) syntax: {line}")
@@ -407,7 +407,7 @@ def handle_backup_command(line):
     """Syntax: backup <expr>"""
     expr = line[6:].strip()
     try:
-        eval_scope = loader.vars_dict.copy()
+        #eval_scope = loader.vars_dict.copy()
         #val = eval(expr, {}, eval_scope)
         val = int(expr, 0)
         if not isinstance(val, int):
@@ -574,7 +574,7 @@ def handle_dist_command(line):
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
-    if line_strip.lower().startswith('lbl ') or ":" in line_strip:
+    if (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ("'" not in line_strip and '"' not in line_strip):
         handle_label_definition(line)
 
     elif line_strip.startswith("func "):

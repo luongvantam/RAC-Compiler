@@ -5,3 +5,4 @@ lib/__pycache__/
 tests/
 rsc_ropchain/tests/
 .DS_Store
+rsc_ropchain/nn.rsc

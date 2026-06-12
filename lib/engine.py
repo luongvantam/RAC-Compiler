@@ -120,8 +120,12 @@ def process_program(args, program_lines, overflow_initial_sp):
     if len(sections) == 1:
         # simple case, just process the single list of lines
         loader.is_pass1 = False
-        loader.current_section_name = sections[0][0]
-        return _process_program_core(args, sections[0][1], overflow_initial_sp)
+        name = sections[0][0]
+        loader.current_section_name = name
+        out_addr, out_bytes = _process_program_core(args, sections[0][1], overflow_initial_sp)
+        if out_addr is not None and out_bytes is not None:
+            return [(name, out_addr, out_bytes)]
+        return []
 
     # multiple sections: process each independently
     # Pass 1: Collect globals and section addresses silently
@@ -132,12 +136,16 @@ def process_program(args, program_lines, overflow_initial_sp):
         
     # Pass 2: Actually resolve cross-section dependencies and print
     loader.is_pass1 = False
+    results = []
     for name, lines in sections:
         loader.current_section_name = name
         if name is not None:
             print(f"\n=== section @{name} ===")
-        _process_program_core(args, lines, overflow_initial_sp)
+        out_addr, out_bytes = _process_program_core(args, lines, overflow_initial_sp)
+        if out_addr is not None and out_bytes is not None:
+            results.append((name, out_addr, out_bytes))
     loader.current_section_name = None
+    return results
 
 
 def _process_program_core(args, program_lines, overflow_initial_sp):
@@ -431,7 +439,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
 
     # Stop here if we're only in Pass 1
     if getattr(loader, 'is_pass1', False):
-        return
+        return None, None
 
     # wrap output with section header/footer if needed
     header_printed = False
@@ -443,26 +451,37 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
         if loader.backup_address is None:
             print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x} ===")
         else:
-            print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x} (backup : {loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x}) ===")
+            print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x} ({loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x}) ===")
     def _print_footer():
-        print('=====')
+        print('======')
         
     if loader.home == loader.home+len(loader.result) and loader.current_section_name is None:
-        return
+        return None, None
 
     _print_header()
 
+    out_addr = None
+    out_bytes = None
+
     if args.target == 'overflow' and args.format == 'hex':
+        out_addr = loader.home
+        out_bytes = hackstring
         print(''.join(f'{byte:02x}' for byte in hackstring))
 
     elif args.target == 'none' and args.format == 'hex':
-        print(f'{loader.home:#06x}:', ' '.join(f'{b:02x}' for b in loader.result))
+        out_addr = loader.home
+        out_bytes = loader.result
+        print(' '.join(f'{b:02x}' for b in loader.result))
 
     elif args.target == 'none' and args.format == 'key':
-        print(f'{loader.home:#06x}:', ' '.join(byte_to_key(b) for b in loader.result))
+        out_addr = loader.home
+        out_bytes = loader.result
+        print(' '.join(byte_to_key(b) for b in loader.result))
 
     elif args.target == 'loader' and args.format == 'key':
         addr = loader.home - home2
+        out_addr = addr
+        out_bytes = [0] * home2 + loader.result
         print('Address to load:',
             byte_to_key(addr & 0xff),
             byte_to_key((addr >> 8) & 0xff))
@@ -472,9 +491,12 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
         print(" ".join(f"{x:02X}" for x in loader.result))
 
     elif args.target == 'overflow' and args.format == 'key':
+        out_addr = loader.home
+        out_bytes = hackstring
         print(' '.join(byte_to_key(x) for x in hackstring))
 
     else:
         raise ValueError('Unsupported target/format combination')
 
     _print_footer()
+    return out_addr, out_bytes

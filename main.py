@@ -111,7 +111,27 @@ if __name__ == "__main__":
             if not raw_content and not args.input_file:
                 pass 
             
+            try:
+                import handler_build_command as handler_build_command
+                build_config, raw_content = handler_build_command.parse_build_block(raw_content)
+                if "emu.inj_var" not in build_config:
+                    if args.input_file:
+                        build_config["emu.inj_var"] = os.path.splitext(os.path.basename(args.input_file))[0]
+                    else:
+                        build_config["emu.inj_var"] = "out"
+            except ImportError:
+                build_config = {}
+
             program = expand_extensions_in_program(raw_content, ext_list)
-            process_program(args, program, config["overflow_initial_sp"])
+            
+            if build_config:
+                import io
+                import contextlib
+                f = io.StringIO()
+                with contextlib.redirect_stdout(f):
+                    results = process_program(args, program, config["overflow_initial_sp"])
+                handler_build_command.handle_build_output(build_config, results, f.getvalue())
+            else:
+                process_program(args, program, config["overflow_initial_sp"])
         except EOFError:
             print("Error: Standard input closed unexpectedly.")

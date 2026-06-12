@@ -1,3 +1,24 @@
+# build (test)
+
+```
+@build {
+    emu.inj = <true|false>
+    emu.inj_file = "<file_name>"
+    emu.inj_var = "<name_var>"
+    emu.inj_adr[<section>] = <address>
+
+    line.bytes = <số_hex_trên_1_dòng>
+
+    output.file = <true|false>
+    output.file_name = "<file_name>"
+    
+    # các dòng trên có thể có có thể không cần khai báo nhưng đảm bảo
+}
+
+# nó có thể được khai báo trên 1 dòng kiểu
+@build ...; ...; ...;
+```
+
 # section
 ```
 @section.<section>

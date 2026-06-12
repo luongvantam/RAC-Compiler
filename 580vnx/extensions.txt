@@ -77,3 +77,15 @@ mode_fd24
 ---output---
 hex fd 24 30 30
 ---
+
+---syntax---
+load_table
+---output---
+call 13B9A
+---
+
+---syntax---
+cmp_ea
+---output---
+ea_switchcase
+---

@@ -3,6 +3,7 @@
 26FFA		memcpy
 18932		memcpy_indr
 2B2BA       memcpy_auto_jmp
+2B2BA       memcpy_auto_jump
 0A8AA		memmove
 29A2C		strlen
 1EB94		memset
@@ -91,7 +92,6 @@
 22D66		LEAVE2
 13D92		LEAVE3
 2110A		LEAVE4
-13B9A		load_table
 
 # -- solver function --
 17920		calc_func
@@ -208,12 +208,12 @@
 1D902		num_cmp
 
 # -- verify numlib --
-19536       verify_eq
-195C0       verify_ne
-19516       verify_gt
-19526       verify_lt
-194F6       verify_ge
-19506       verify_le
+19536       verify_eq    # "=="
+195C0       verify_ne    # "!="
+19516       verify_gt    # ">"
+19526       verify_lt    # "<"
+194F6       verify_ge    # ">="
+19506       verify_le    # "<="
 
 2AD4C		display_menu
 093D2		draw_byte
