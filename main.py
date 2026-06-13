@@ -112,8 +112,8 @@ if __name__ == "__main__":
                 pass 
             
             try:
-                import handler_build_command as handler_build_command
-                build_config, raw_content = handler_build_command.parse_build_block(raw_content)
+                import handle_build_command as handle_build_command
+                build_config, raw_content = handle_build_command.parse_build_block(raw_content)
                 if "emu.inj_var" not in build_config:
                     if args.input_file:
                         build_config["emu.inj_var"] = os.path.splitext(os.path.basename(args.input_file))[0]
@@ -130,7 +130,7 @@ if __name__ == "__main__":
                 f = io.StringIO()
                 with contextlib.redirect_stdout(f):
                     results = process_program(args, program, config["overflow_initial_sp"])
-                handler_build_command.handle_build_output(build_config, results, f.getvalue())
+                handle_build_command.handle_build_output(build_config, results, f.getvalue())
             else:
                 process_program(args, program, config["overflow_initial_sp"])
         except EOFError:

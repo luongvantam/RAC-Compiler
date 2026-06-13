@@ -319,6 +319,25 @@ def handle_builtin_command(line):
     line = to_lowercase(line)
     process_line('call ' + line)
 
+def handle_def_gadget_command(line):
+    line = line[3:].strip()
+    i = line.index(':')
+    command, address_str = line[:i].strip(), line[i+1:].strip()
+    
+    command = utils.canonicalize(command)
+    command = to_lowercase(command)
+
+    tags = []
+    while command and command[0] == '{':
+        j = command.find('}')
+        if j < 0:
+            raise Exception(f'Unmatched "{{" in inline def command: {line}')
+        tags.append(command[1:j])
+        command = command[j + 1:].strip()
+
+    address = int(address_str, 0)
+    loader.add_command(loader.commands, address, command, tags, 'inline def')
+
 def handle_assignment_command(line, program_iter):
     i = line.index('=')
     left, right = line[:i].strip(), line[i+1:].strip()
@@ -574,7 +593,7 @@ def handle_dist_command(line):
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
-    if (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ("'" not in line_strip and '"' not in line_strip):
+    if (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ("'" not in line_strip and '"' not in line_strip and 'def' not in line_strip):
         handle_label_definition(line)
 
     elif line_strip.startswith("func "):
@@ -610,6 +629,9 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
 
     elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in loader.vars_dict:
         handle_variable_expansion(line)
+
+    elif line.startswith('def'):
+        handle_def_gadget_command(line)
 
     elif '=' in line:
         handle_assignment_command(line, program_iter)

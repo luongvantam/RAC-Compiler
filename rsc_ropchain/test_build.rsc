@@ -1,6 +1,6 @@
 @build {
     emu.inj = true
-    emu.inj_file = "/Users/luongtoi/CasioEmuMsvc/hc-inj.txt"
+    emu.inj_file = "hc-inj.txt"
     emu.inj_var = "test"
     emu.inj_adr[main] = 0xe9e0
 

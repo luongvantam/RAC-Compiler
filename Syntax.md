@@ -109,6 +109,7 @@ goto <label>            # it's `er14 = adr(<label>, -2); sp = er14, pop er14`
 
 # call gadget
 ```
+def <gadget> : <address>            # define a new gadget into command_dict
 call <address/function_name>        # like `call 0x17b34`
 ```
 
