@@ -1,3 +1,29 @@
+# chú thích
+```
+<...> : giá trị cần thay thế
+[...] : có thể có có thể không cần
+... : cái gì đó thay vào đấy
+```
+
+# alias
+
+```
+<var/reg/gadget/label/...> as <new_name>
+<new_name>
+
+@section.<old_name> [at ... backup ...] as <new_name>
+# nếu dùng sizeof(<new_name>) hay gì đó nó sẽ tự hiểu là sizeof(<old_name>) hay gì đó
+```
+
+# define gadget
+
+```
+def {<tag>} <name_gadget>: <address>
+
+example:
+def {memcpy} memcpy_auto_jmp: 0x12345
+```
+
 # build (test)
 
 ```
@@ -21,12 +47,8 @@
 
 # section
 ```
-@section.<section>
-@set.<section>
-@section.<section> at <addr_org>
-@set.<section> at <addr_org>
-@section.<section> at <addr_org> backup <addr_backup>
-@set.<section> at <addr_org> backup <addr_backup>
+@section.<section> [at <addr_org> backup <addr_backup>]
+@set.<section> [at <addr_org> backup <addr_backup>]
 ```
 
 # set program location
@@ -70,6 +92,7 @@ str <var>           # it's `str "<var_string>"`
 pr_length               # length of section
 
 dist.<section>          # distance backup to src
+sizeof(<section>)       # like pr_length
 ```
 
 # function
@@ -78,6 +101,16 @@ func <function>(<args>) {
     <code>
 }
 <function>(<args>)
+```
+
+```
+# like `lamdba <name>: <args> => <expression>`
+func <function>(<args>) {
+    return <expression>
+}
+
+# có thể dùng để gán biến hoặc thanh ghi
+# tuy nhiên chỉ khả dụng 1 dòng
 ```
 
 # repeat

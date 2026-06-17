@@ -11,6 +11,7 @@ labels = {}
 address_requests = []
 relocation_expressions = []
 pr_length_cmds = []
+sizeof_cmds = []
 deferred_evals = []
 home = None
 in_comment = False

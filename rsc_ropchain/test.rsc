@@ -7,6 +7,14 @@ lbl main
 eval(adr(main) + dist.main)
 
 
-def hello: 0x12345
+def hello: 12345
 
 hello
+
+func main(h) {
+    return eval(adr(h) - 0x2)
+}
+
+er0 = main(main)
+
+sizeof(main)

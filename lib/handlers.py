@@ -18,18 +18,34 @@ def handle_label_definition(line):
     assert label not in loader.labels, f'Duplicate label: {label}'
     loader.labels[label] = len(loader.result)
     
-def handle_function_definition(line, program_iter, defined_functions):
-    m = re.match(r'func\s+(\w+)\s*\\((.*?)\\)\s*\\{', line.strip())
+def handle_function_definition(line, program_iter):
+    m = re.match(r'func\s+(\w+)\s*\((.*?)\)\s*\{', line.strip())
     if not m: raise ValueError(f"Invalid func definition syntax: {line}")
     func_name, args_str = m.group(1), m.group(2).strip()
     func_args = [arg.strip() for arg in args_str.split(',')] if args_str else []
     
     body = []
+    has_return = False
+    return_expr = None
+    
     for _, raw_line in program_iter:
         stripped = raw_line.split('---')[0].strip()
         if stripped == '}': break
-        if stripped: body.append(stripped)
-    defined_functions[func_name] = {"args": func_args, "body": body}
+        if stripped:
+            if stripped.startswith('return '):
+                if has_return:
+                    raise ValueError(f"Function {func_name} has multiple return statements")
+                has_return = True
+                return_expr = stripped[7:].strip()
+            else:
+                body.append(stripped)
+                
+    if has_return:
+        if len(body) > 0:
+            raise ValueError(f"Function {func_name} with return statement must ONLY contain the return statement")
+        loader.defined_functions[func_name] = {"args": func_args, "return_expr": return_expr}
+    else:
+        loader.defined_functions[func_name] = {"args": func_args, "body": body}
 
 def handle_repeat_command(line, program_iter):
     """Syntax: repeat <expr> { <lines> }"""
@@ -102,35 +118,41 @@ def handle_eval_expression(line):
     expr = line[5:-1].strip()
     expanded_expr = expr
     
-    # 1. Thay thế các biến thông thường từ loader.vars_dict
     for var_name, var_value in loader.vars_dict.items():
         pattern = r'\b' + re.escape(var_name) + r'\b'
         expanded_expr = re.sub(pattern, str(var_value), expanded_expr)
 
-    # =========================================================================
-    # 2. XỬ LÝ ĐỘNG DIST TRONG HÀM: Tìm và thay thế trực tiếp 'dist.<tên_section>'
-    # =========================================================================
     def repl_dist(match):
         name = match.group(1)
-        # Thử tìm trong bộ nhớ quản lý section chung
         if hasattr(loader, 'section_addresses') and name in loader.section_addresses:
             org = loader.section_addresses[name].get('org')
             backup = loader.section_addresses[name].get('backup')
             if org is not None and backup is not None:
-                return str((backup - org) & 0xFFFF)
+                return str(abs(backup - org) & 0xFFFF)
         
-        # Dự phòng nếu là section hiện tại chưa kịp đẩy vào bộ nhớ chung
         if name == getattr(loader, 'current_section_name', None):
             org = getattr(loader, 'home', None)
             backup = getattr(loader, 'backup_address', None)
             if org is not None and backup is not None:
-                return str((backup - org) & 0xFFFF)
+                return str(abs(backup - org) & 0xFFFF)
                 
-        raise ValueError(f"Section '{name}' không tìm thấy thông tin org/backup để tính dist tại dòng: {line}")
+        raise ValueError(f"Section '{name}' could not find org/backup information to calculate dist at line: {line}")
 
-    # Regex này tìm các chuỗi có dạng dist.abc hoặc dist.main_section
     expanded_expr = re.sub(r'\bdist\.(\w+)\b', repl_dist, expanded_expr)
-    # =========================================================================
+
+    def repl_sizeof(match):
+        name = match.group(1).strip()
+        if not name or name == getattr(loader, 'current_section_name', None):
+            return str(len(loader.result))
+        if hasattr(loader, 'section_addresses') and name in loader.section_addresses:
+            length = loader.section_addresses[name].get('length')
+            if length is not None:
+                return str(length)
+        if getattr(loader, 'is_pass1', False):
+            return "0"
+        raise ValueError(f"Section '{name}' could not find length information for sizeof at line: {line}")
+
+    expanded_expr = re.sub(r'\bsizeof\((.*?)\)', repl_sizeof, expanded_expr)
 
     def eval_nested(s, eval_scope):
         pattern = re.compile(r'\beval\(([^()]*(?:\([^()]*\)[^()]*)*)\)')
@@ -168,7 +190,6 @@ def handle_eval_expression(line):
         
     expanded_expr = eval_nested(expanded_expr, eval_scope)
     
-    # Lúc này biểu thức đã được thay thế 'dist.main' thành số nguyên (ví dụ: 'adr(main)+55472')
     if 'adr(' in expanded_expr:
         loader.deferred_evals.append((len(loader.result), expanded_expr))
         loader.result.extend((0, 0))
@@ -319,7 +340,7 @@ def handle_builtin_command(line):
     line = to_lowercase(line)
     process_line('call ' + line)
 
-def handle_def_gadget_command(line):
+def handle_define_gadget_command(line):
     line = line[3:].strip()
     i = line.index(':')
     command, address_str = line[:i].strip(), line[i+1:].strip()
@@ -335,12 +356,35 @@ def handle_def_gadget_command(line):
         tags.append(command[1:j])
         command = command[j + 1:].strip()
 
-    address = int(address_str, 0)
+    address = int(address_str, 16)
     loader.add_command(loader.commands, address, command, tags, 'inline def')
+    utils.note(f"Gadget {command} is {hex(address)}\n")
 
 def handle_assignment_command(line, program_iter):
     i = line.index('=')
     left, right = line[:i].strip(), line[i+1:].strip()
+    
+    m_func = re.match(r'^(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)$', right)
+    if m_func and m_func.group(1) in getattr(loader, 'defined_functions', {}):
+        called_func_name = m_func.group(1)
+        func = loader.defined_functions[called_func_name]
+        
+        if "return_expr" not in func:
+            raise ValueError(f"Function {called_func_name} does not have a return statement, so it cannot be assigned.")
+            
+        call_args_str = m_func.group(2)
+        call_args = re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', call_args_str)
+        call_args = [arg.strip() for arg in call_args]
+        if call_args == [''] and not call_args_str: call_args = []
+
+        if len(call_args) != len(func["args"]):
+            raise ValueError(f"Error calling function {right}: args mismatch")
+
+        ret_expr = func["return_expr"]
+        for param, arg in zip(func["args"], call_args):
+            ret_expr = re.sub(r'\b' + re.escape(param) + r'\b', arg, ret_expr)
+            
+        right = ret_expr
     
     if right.startswith('['):
         content = right[1:]
@@ -364,7 +408,7 @@ def handle_assignment_command(line, program_iter):
         var_name = left[4:].strip()
         val = right
         loader.vars_dict[var_name] = val
-        utils.note(f"Variable '{var_name}' set to: {val}\n")
+        utils.note(f"Variable '{var_name}' set to {val}\n")
     elif left.startswith("reg ") or (left[0] in 'rexq' and any(left.startswith(prefix) for prefix in ['r', 'er', 'xr', 'qr', 'ea'])):
         register = left[4:].strip() if left.startswith("reg ") else left
         right = right.lower()
@@ -383,7 +427,7 @@ def handle_assignment_command(line, program_iter):
     else:
         val = right
         loader.vars_dict[left] = val
-        utils.note(f"Variable '{left}' set to: {val}\n")
+        utils.note(f"Variable '{left}' set to {val}\n")
 
 def resolve_index(value, index):
     value = str(value).strip()
@@ -440,6 +484,18 @@ def handle_pr_length_command(line):
     Defers the calculation of the program length until the end of processing.
     '''
     loader.pr_length_cmds.append(len(loader.result))
+    loader.result.extend((0, 0))
+
+def handle_sizeof_command(line):
+    """Syntax: sizeof(<section>) or sizeof()"""
+    m = re.match(r'^sizeof\((.*?)\)$', line.strip())
+    if not m:
+        raise ValueError(f"Invalid sizeof syntax: {line}")
+    sec_name = m.group(1).strip()
+    if not sec_name:
+        sec_name = getattr(loader, 'current_section_name', None)
+    
+    loader.sizeof_cmds.append((len(loader.result), sec_name))
     loader.result.extend((0, 0))
 
 def handle_string_command(line):
@@ -593,21 +649,34 @@ def handle_dist_command(line):
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     line_strip = line.strip()
-    if (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ("'" not in line_strip and '"' not in line_strip and 'def' not in line_strip):
+
+    if line.startswith('org'):
+        handle_org_command(line)
+
+    elif line_strip.startswith('backup '):
+        handle_backup_command(line_strip)
+
+    elif line_strip.startswith('"'):
+        handle_string_command(line_strip)
+
+    elif line_strip.startswith("'"):
+        handle_token_literal(line_strip)
+
+    elif line.startswith('0x') or (line.startswith('hex') and 'hex_' not in line):
+        handle_hex_data(line)
+
+    elif (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ('def' not in line_strip):
         handle_label_definition(line)
 
     elif line_strip.startswith("func "):
-        if program_iter is None or defined_functions is None:
-            raise ValueError("Function handling requires program_iter and defined_functions")
-        handle_function_definition(line, program_iter, defined_functions)
+        if program_iter is None:
+            raise ValueError("Function handling requires program_iter")
+        handle_function_definition(line, program_iter)
 
     elif line_strip.startswith("repeat ") or line_strip.startswith("loop "):
         if program_iter is None:
             raise ValueError("Repeat handling requires program_iter")
         handle_repeat_command(line, program_iter)
-
-    elif line.startswith('0x') or (line.startswith('hex') and 'hex_' not in line):
-        handle_hex_data(line)
 
     elif (line.startswith('eval(') or line.startswith('calc(')) and line.endswith(')'):
         handle_eval_expression(line)
@@ -631,22 +700,16 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
         handle_variable_expansion(line)
 
     elif line.startswith('def'):
-        handle_def_gadget_command(line)
+        handle_define_gadget_command(line)
 
     elif '=' in line:
         handle_assignment_command(line, program_iter)
 
-    elif line.startswith('org'):
-        handle_org_command(line)
-
     elif line.startswith('pr_length'):
         handle_pr_length_command(line)
 
-    elif line_strip.startswith('"'):
-        handle_string_command(line_strip)
-
-    elif line_strip.startswith("'"):
-        handle_token_literal(line_strip)
+    elif line.startswith('sizeof(') or line == 'sizeof()':
+        handle_sizeof_command(line)
 
     elif line_strip.startswith('['):
         if program_iter is None:
@@ -661,9 +724,6 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     
     elif line_strip.startswith('str'):
         handle_str_hd_command(line_strip)
-
-    elif line_strip.startswith('backup '):
-        handle_backup_command(line_strip)
 
     elif line_strip.startswith('dist.'):
         handle_dist_command(line_strip)

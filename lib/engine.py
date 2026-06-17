@@ -62,8 +62,28 @@ def finalize_processing():
         loader.result[pos] = pr_length & 0xFF
         loader.result[pos + 1] = (pr_length >> 8) & 0xFF
 
+    for pos, sec_name in getattr(loader, 'sizeof_cmds', []):
+        if sec_name is None or sec_name == getattr(loader, 'current_section_name', None):
+            val = len(loader.result)
+        else:
+            if not hasattr(loader, 'section_addresses') or sec_name not in loader.section_addresses:
+                if getattr(loader, 'is_pass1', False):
+                    val = 0
+                else:
+                    raise ValueError(f"Section '{sec_name}' not found for sizeof calculation")
+            else:
+                val = loader.section_addresses[sec_name].get('length', 0)
+        
+        if not getattr(loader, 'is_pass1', False):
+            if loader.result[pos] != 0 or loader.result[pos+1] != 0:
+                print(f"[WARN] sizeof overwrite at {pos:04X}")
+        loader.result[pos] = val & 0xFF
+        loader.result[pos + 1] = (val >> 8) & 0xFF
+
     loader.relocation_expressions.clear()
     loader.pr_length_cmds.clear()
+    if hasattr(loader, 'sizeof_cmds'):
+        loader.sizeof_cmds.clear()
 
 
 def _split_into_sections(program_lines):
@@ -81,11 +101,22 @@ def _split_into_sections(program_lines):
     for raw_line in program_lines:
         stripped = raw_line.strip()
         if stripped.startswith('@set.') or stripped.startswith('@section.'):
+            alias_name = None
+            if ' as ' in stripped:
+                stripped, alias_name = stripped.rsplit(' as ', 1)
+                alias_name = alias_name.strip()
+                stripped = stripped.strip()
+                
             parts = stripped.split("at", 1)
             name_part = parts[0].strip()
             if current_name is not None or current_lines:
                 sections.append((current_name, current_lines))
             current_name = name_part[5:] if name_part.startswith('@set.') else name_part[9:]
+            
+            if alias_name:
+                if not hasattr(loader, 'aliases'):
+                    loader.aliases = {}
+                loader.aliases[alias_name] = current_name
             current_lines = []
             if len(parts) > 1:
                 addr_part = parts[1].strip()
@@ -110,6 +141,7 @@ def _split_into_sections(program_lines):
 def process_program(args, program_lines, overflow_initial_sp):
     loader.global_labels = {}
     loader.section_addresses = {}
+    loader.aliases = {}
     # split into sections and dispatch to helper for each
     sections = _split_into_sections(program_lines)
     # reorder so named sections come before unnamed to avoid warning prints
@@ -165,7 +197,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     loader.dist_cmds = []
     
     final_lines_to_process = []
-    defined_functions = {}
+    loader.defined_functions = {}
     
     orig_line_map = []
     for idx, raw_line in enumerate(program_lines):
@@ -173,17 +205,40 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
 
     program_iter = iter(enumerate(program_lines))
     for line_index, raw_line in program_iter:
-        line = canonicalize(del_inline_comment(raw_line))
+        line_strip = canonicalize(del_inline_comment(raw_line)).strip()
+        if not line_strip: continue
+        
+        m = re.match(r'^(.+?)\s+as\s+([a-zA-Z_]\w*)$', line_strip)
+        if m and not line_strip.startswith('"') and not line_strip.startswith("'"):
+            loader.aliases[m.group(2)] = m.group(1).strip()
+            continue
 
+        if hasattr(loader, 'aliases') and loader.aliases:
+            parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', raw_line)
+            for i in range(0, len(parts), 2):
+                for new_name, old_name in loader.aliases.items():
+                    parts[i] = re.sub(r'\b' + re.escape(new_name) + r'\b', old_name, parts[i])
+            raw_line = ''.join(parts)
+            
+        line = canonicalize(del_inline_comment(raw_line))
         line_strip = line.strip()
+
+        if line_strip.startswith('@set.') or line_strip.startswith('@section.'):
+            stripped = line_strip
+            if ' as ' in stripped:
+                stripped, _ = stripped.rsplit(' as ', 1)
+                stripped = stripped.strip()
+            loader.current_section_name = stripped.split()[0].split('.')[1]
+            continue
+
         if line_strip.startswith("func "):
-            handle_function_definition(line, program_iter, defined_functions)
+            handle_function_definition(line, program_iter)
             continue
 
         m = re.match(r'(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)', line.strip())
-        if m and m.group(1) in defined_functions:
+        if m and m.group(1) in getattr(loader, "defined_functions", {}):
             called_func_name = m.group(1)
-            func = defined_functions[called_func_name]
+            func = loader.defined_functions[called_func_name]
             call_args_str = m.group(2)
             call_args = re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', call_args_str)
             call_args = [arg.strip() for arg in call_args]
@@ -191,6 +246,9 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
 
             if len(call_args) != len(func["args"]):
                 raise ValueError(f"Error calling function {line}: args mismatch")
+
+            if "return_expr" in func:
+                raise ValueError(f"Function {called_func_name} with return cannot be called as a standalone statement without assignment.")
 
             for param_def, arg_val in zip(func["args"], call_args):
                 if param_def.strip():
@@ -244,12 +302,12 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 ctx_info = f", {context}" if context else ""
                 fname = os.path.basename(args.input_file) if hasattr(args, 'input_file') else "?"
                 if fname != "?":
-                    print(f"  File \"{fname}\", line {line_num}{ctx_info}")
+                    sys.stderr.write(f"  File \"{fname}\", line {line_num}{ctx_info}")
                 else:
-                    print(f"  In line {line_num}{ctx_info}")
-                print(f"    {raw_origin.strip()}")
-                print(f"    {'^' * len(raw_origin.strip())}")
-                print(f"CompilerError: {str(e)}")
+                    sys.stderr.write(f"  In line {line_num}{ctx_info}")
+                sys.stderr.write(f"    {raw_origin.strip()}\n")
+                sys.stderr.write(f"    {'^' * len(raw_origin.strip())}")
+                sys.stderr.write(f"CompilerError: {str(e)}")
                 sys.exit()
 
             if args.format == 'key' and \
