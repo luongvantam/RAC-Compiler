@@ -54,14 +54,6 @@ def finalize_processing():
         loader.result[pos] = result_addr & 0xFF
         loader.result[pos + 1] = (result_addr >> 8) & 0xFF
 
-    for pos in loader.pr_length_cmds:
-        pr_length = len(loader.result)
-        if not getattr(loader, 'is_pass1', False):
-            if loader.result[pos] != 0 or loader.result[pos+1] != 0:
-                print(f"[WARN] pr_length overwrite at {pos:04X}")
-        loader.result[pos] = pr_length & 0xFF
-        loader.result[pos + 1] = (pr_length >> 8) & 0xFF
-
     for pos, sec_name in getattr(loader, 'sizeof_cmds', []):
         if sec_name is None or sec_name == getattr(loader, 'current_section_name', None):
             val = len(loader.result)
@@ -81,7 +73,6 @@ def finalize_processing():
         loader.result[pos + 1] = (val >> 8) & 0xFF
 
     loader.relocation_expressions.clear()
-    loader.pr_length_cmds.clear()
     if hasattr(loader, 'sizeof_cmds'):
         loader.sizeof_cmds.clear()
 
@@ -189,7 +180,6 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     loader.labels = {}
     loader.address_requests = []
     loader.relocation_expressions = []
-    loader.pr_length_cmds = []
     loader.deferred_evals = []
     loader.home = None
     loader.in_comment = False
@@ -302,12 +292,12 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 ctx_info = f", {context}" if context else ""
                 fname = os.path.basename(args.input_file) if hasattr(args, 'input_file') else "?"
                 if fname != "?":
-                    sys.stderr.write(f"  File \"{fname}\", line {line_num}{ctx_info}")
+                    sys.stderr.write(f"  File \"{fname}\", line {line_num}{ctx_info}\n")
                 else:
-                    sys.stderr.write(f"  In line {line_num}{ctx_info}")
+                    sys.stderr.write(f"  In line {line_num}{ctx_info}\n")
                 sys.stderr.write(f"    {raw_origin.strip()}\n")
-                sys.stderr.write(f"    {'^' * len(raw_origin.strip())}")
-                sys.stderr.write(f"CompilerError: {str(e)}")
+                sys.stderr.write(f"    {'^' * len(raw_origin.strip())}\n")
+                sys.stderr.write(f"CompilerError: {str(e)}\n")
                 sys.exit()
 
             if args.format == 'key' and \
@@ -340,7 +330,33 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             raise ValueError(f'Label not found during deferred eval: {label}')
         return (loader.labels[label] + offset)
 
+    def sizeof_eval(sec_name=""):
+        if not sec_name or sec_name == getattr(loader, 'current_section_name', None):
+            return len(loader.result)
+        if hasattr(loader, 'section_addresses') and sec_name in loader.section_addresses:
+            return loader.section_addresses[sec_name].get('length', 0)
+        if getattr(loader, 'is_pass1', False):
+            return 0
+        raise ValueError(f"Section '{sec_name}' not found for sizeof calculation")
+        
+    def dist_eval(sec_name):
+        if hasattr(loader, 'section_addresses') and sec_name in loader.section_addresses:
+            org = loader.section_addresses[sec_name].get('org')
+            backup = loader.section_addresses[sec_name].get('backup')
+            if org is not None and backup is not None:
+                return abs(backup - org) & 0xFFFF
+        if sec_name == getattr(loader, 'current_section_name', None):
+            org = getattr(loader, 'home', None)
+            backup = getattr(loader, 'backup_address', None)
+            if org is not None and backup is not None:
+                return abs(backup - org) & 0xFFFF
+        if getattr(loader, 'is_pass1', False):
+            return 0
+        raise ValueError(f"Section '{sec_name}' could not find org/backup information to calculate dist")
+
     eval_scope['adr'] = adr_eval
+    eval_scope['sizeof'] = sizeof_eval
+    eval_scope['dist'] = dist_eval
     home_dependent_evals = [] 
     temp_deferred_evals = list(loader.deferred_evals)
     loader.deferred_evals.clear() 
@@ -362,7 +378,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             raise ValueError(f"Deferred eval {expr!r} did not return an integer")
         
         referenced_labels = re.findall(r'adr\(\s*["\']?([a-zA-Z_0-9]+)', expr)
-        is_absolute_address = (expr.count('adr(') > 1) or any(
+        is_absolute_address = (expr.count('adr(') > 1) or ('adr(' not in expr) or any(
             (label in loader.global_labels and label not in loader.labels)
             for label in referenced_labels
         )
@@ -467,7 +483,8 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     if loader.current_section_name is not None:
         loader.section_addresses[loader.current_section_name] = {
             'org': loader.home,
-            'backup': loader.backup_address
+            'backup': loader.backup_address,
+            'length': len(loader.result)
         }
 
     # Resolve dist.<section> commands
@@ -481,7 +498,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             if getattr(loader, 'is_pass1', False):
                 continue
             raise ValueError(f"Section '{target_section}' has no backup address defined")
-        dist_val = (sec_meta['backup'] - sec_meta['org']) & 0xFFFF
+        dist_val = abs(sec_meta['backup'] - sec_meta['org']) & 0xFFFF
         if not getattr(loader, 'is_pass1', False):
             if loader.result[pos] != 0 or loader.result[pos+1] != 0:
                 print(f"[WARN] dist overwrite at {pos:04X}")

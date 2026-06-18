@@ -116,6 +116,7 @@ def handle_repeat_command(line, program_iter):
 
 def handle_eval_expression(line):
     expr = line[5:-1].strip()
+    expr = re.sub(r'\bpr_length\b', 'sizeof()', expr)
     expanded_expr = expr
     
     for var_name, var_value in loader.vars_dict.items():
@@ -124,33 +125,13 @@ def handle_eval_expression(line):
 
     def repl_dist(match):
         name = match.group(1)
-        if hasattr(loader, 'section_addresses') and name in loader.section_addresses:
-            org = loader.section_addresses[name].get('org')
-            backup = loader.section_addresses[name].get('backup')
-            if org is not None and backup is not None:
-                return str(abs(backup - org) & 0xFFFF)
-        
-        if name == getattr(loader, 'current_section_name', None):
-            org = getattr(loader, 'home', None)
-            backup = getattr(loader, 'backup_address', None)
-            if org is not None and backup is not None:
-                return str(abs(backup - org) & 0xFFFF)
-                
-        raise ValueError(f"Section '{name}' could not find org/backup information to calculate dist at line: {line}")
+        return f'dist("{name}")'
 
     expanded_expr = re.sub(r'\bdist\.(\w+)\b', repl_dist, expanded_expr)
 
     def repl_sizeof(match):
         name = match.group(1).strip()
-        if not name or name == getattr(loader, 'current_section_name', None):
-            return str(len(loader.result))
-        if hasattr(loader, 'section_addresses') and name in loader.section_addresses:
-            length = loader.section_addresses[name].get('length')
-            if length is not None:
-                return str(length)
-        if getattr(loader, 'is_pass1', False):
-            return "0"
-        raise ValueError(f"Section '{name}' could not find length information for sizeof at line: {line}")
+        return f'sizeof("{name}")'
 
     expanded_expr = re.sub(r'\bsizeof\((.*?)\)', repl_sizeof, expanded_expr)
 
@@ -190,7 +171,7 @@ def handle_eval_expression(line):
         
     expanded_expr = eval_nested(expanded_expr, eval_scope)
     
-    if 'adr(' in expanded_expr:
+    if 'adr(' in expanded_expr or 'sizeof(' in expr or 'dist.' in expr:
         loader.deferred_evals.append((len(loader.result), expanded_expr))
         loader.result.extend((0, 0))
         return
@@ -283,52 +264,42 @@ def handle_goto_command(line):
 
 def handle_address_command(line):
     line_strip = line.strip()
-    if line_strip.startswith('adr(') and line_strip.endswith(')'):
-        inner_content = line_strip[4:-1].strip()
-        
-        pattern = r'^([a-zA-Z_]\w*|0x[0-9a-fA-F]+|\d+)(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?(?:\s*,\s*([+-]?\s*(?:0x[0-9a-fA-F]+|\w+)))?$'
-        match = re.match(pattern, inner_content)
-        if not match:
-            raise ValueError(f"Invalid adr(...) syntax: {line}")
-            
-        label_name = match.group(1)
-        offset_part = match.group(2)
-        base_addr_part = match.group(3)
-        
-        offset_str = "+ 0"
-        if offset_part:
-            offset_part = offset_part.replace(" ", "")
-            if not offset_part.startswith('+') and not offset_part.startswith('-'):
-                offset_str = f"+ {offset_part}"
-            else:
-                offset_str = f"{offset_part[0]} {offset_part[1:].strip()}"
-                
-        if base_addr_part:
-            base_addr_part = base_addr_part.replace(" ", "")
-            if base_addr_part.startswith('0x') or base_addr_part.startswith('0X'):
-                base_addr_val = int(base_addr_part, 16)
-            else:
-                base_addr_val = int(base_addr_part)
-                
-            current_home = loader.home if loader.home is not None else 0
-            distance = base_addr_val - current_home
-            
-            if distance >= 0:
-                expr = f'eval(adr("{label_name}") + {distance} {offset_str})'
-            else:
-                expr = f'eval(adr("{label_name}") - {abs(distance)} {offset_str})'
-            process_line(expr)
-        else:
-            if offset_part:
-                expr = f'eval(adr("{label_name}") {offset_str})'
-                process_line(expr)
-            else:
-                expr = f'adr("{label_name}")'
-            
-                loader.deferred_evals.append((len(loader.result), expr))
-                loader.result.extend((0, 0))
-    else:
+    if not (line_strip.startswith('adr(') and line_strip.endswith(')')):
         raise ValueError(f"Unrecognized adr command: {line}")
+        
+    inner_content = line_strip[4:-1].strip()
+    parts = [p.strip() for p in inner_content.split(',')]
+    
+    if not parts or not parts[0]:
+        raise ValueError(f"Invalid adr(...) syntax: {line}")
+        
+    label_name = parts[0]
+    expr_parts = [f'adr("{label_name}")']
+    
+    if len(parts) > 1 and parts[1]:
+        offset = parts[1].replace(" ", "")
+        if not offset.startswith('+') and not offset.startswith('-'):
+            offset = '+' + offset
+        expr_parts.append(offset)
+        
+    if len(parts) > 2 and parts[2]:
+        base_addr = parts[2].replace(" ", "")
+        base_val = int(base_addr, 0)
+        current_home = loader.home or 0
+        diff = base_val - current_home
+        if diff >= 0:
+            expr_parts.append(f'+{diff}')
+        else:
+            expr_parts.append(str(diff))
+            
+    if len(parts) > 3:
+        raise ValueError(f"Invalid adr(...) syntax: {line}")
+
+    if len(expr_parts) == 1:
+        loader.deferred_evals.append((len(loader.result), expr_parts[0]))
+        loader.result.extend((0, 0))
+    else:
+        process_line(f'eval({" ".join(expr_parts)})')
 
 def handle_data_label(line):
     """`<label>`."""
@@ -424,6 +395,9 @@ def handle_assignment_command(line, program_iter):
         l1 = len(loader.result)
         process_line(value)
         assert len(loader.result) - l1 == sizeof_register(register), f'Line {line!r} source/destination target mismatches'
+    elif left.startswith("lbl "):
+        process_line(left)
+        process_line(right)
     else:
         val = right
         loader.vars_dict[left] = val
@@ -483,8 +457,7 @@ def handle_pr_length_command(line):
     ''' Syntax: `pr_length`
     Defers the calculation of the program length until the end of processing.
     '''
-    loader.pr_length_cmds.append(len(loader.result))
-    loader.result.extend((0, 0))
+    handle_sizeof_command("sizeof()")
 
 def handle_sizeof_command(line):
     """Syntax: sizeof(<section>) or sizeof()"""
@@ -555,13 +528,14 @@ def handle_adr_of_hd_command(line):
     if not line_strip.startswith('adr_of'):
         raise ValueError(f"Unrecognized adr_of command: {line}")
     content = line_strip[6:].strip()
-    match = re.match(r'^(?:\[(.*?)\])?\s*(\S+)$', content)
+    match = re.match(r'^(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$', content)
     if not match:
         raise ValueError(f"Invalid adr_of syntax: {line}")
     offset_part = match.group(1)
-    label_name = match.group(2)
+    base_address = match.group(2)
+    label_name = match.group(3)
     offset_part = "+ 0" if offset_part is None else offset_part.strip()
-    expr = f'adr({label_name}, {offset_part})'
+    expr = f'adr({label_name}, {offset_part}, {base_address})'
     process_line(expr)
 
 def handle_adr_arith_hd_command(line):
@@ -665,6 +639,15 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif line.startswith('0x') or (line.startswith('hex') and 'hex_' not in line):
         handle_hex_data(line)
 
+    elif line in loader.datalabels:
+        handle_data_label(line)
+
+    elif line in loader.commands:
+        handle_builtin_command(line)
+
+    elif '=' in line:
+        handle_assignment_command(line, program_iter)
+
     elif (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ('def' not in line_strip):
         handle_label_definition(line)
 
@@ -690,20 +673,11 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif line.startswith('adr('):
         handle_address_command(line)
 
-    elif line in loader.datalabels:
-        handle_data_label(line)
-
-    elif line in loader.commands:
-        handle_builtin_command(line)
-
     elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in loader.vars_dict:
         handle_variable_expansion(line)
 
     elif line.startswith('def'):
         handle_define_gadget_command(line)
-
-    elif '=' in line:
-        handle_assignment_command(line, program_iter)
 
     elif line.startswith('pr_length'):
         handle_pr_length_command(line)

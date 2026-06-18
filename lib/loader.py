@@ -10,7 +10,6 @@ result = []
 labels = {}
 address_requests = []
 relocation_expressions = []
-pr_length_cmds = []
 sizeof_cmds = []
 deferred_evals = []
 home = None
@@ -36,6 +35,8 @@ def add_command(command_dict, address, command, tags, debug_info=''):
 
     for prev_command, (prev_adr, prev_tags) in command_dict.items():
         if prev_command == command:
+            if prev_adr == address and prev_tags == tuple(tags):
+                return
             assert False, f'Command appears twice - ' \
                 f'first: {prev_command} -> {prev_adr:05X} {prev_tags}, ' \
                 f'second: {command} -> {address:05X} {tags} - ' \
