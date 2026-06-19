@@ -45,9 +45,6 @@
         },
         {
             "include": "#punctuation"
-        },
-        {
-            "include": "#deprecated"
         }
     ],
 
@@ -187,15 +184,7 @@
                 },
                 {
                     "name": "support.function.builtin.rsc",
-                    "match": "\\b(adr|adr_of|adr_arith|eval|calc)\\b"
-                },
-                {
-                    "name": "support.class.python.rsc",
-                    "match": "\\bpy\\b"
-                },
-                {
-                    "name": "entity.name.function.python.rsc",
-                    "match": "(?<=\\bpy\\.)[A-Za-z_][A-Za-z0-9_]*"
+                    "match": "\\b(adr|adr_of|adr_arith|eval|calc|sizeof|pr_length)\\b"
                 }
             ]
         },
@@ -204,11 +193,11 @@
             "patterns": [
                 {
                     "name": "storage.modifier.rsc",
-                    "match": "\\b(var|reg|loop)\\b"
+                    "match": "\\b(var|reg|loop|repeat|str)\\b"
                 },
                 {
                     "name": "keyword.control.rsc",
-                    "match": "\\b(call|goto|return|at)\\b"
+                    "match": "\\b(call|goto|return|at|as|org|backup)\\b"
                 },
                 {
                     "name": "keyword.operator.word.rsc",
@@ -291,15 +280,6 @@
                 {
                     "name": "punctuation.section.block.rsc",
                     "match": "\\{|\\}"
-                }
-            ]
-        },
-
-        "deprecated": {
-            "patterns": [
-                {
-                    "name": "invalid.deprecated.rsc",
-                    "match": "\\b(def|find_gadgets)\\b"
                 }
             ]
         }
