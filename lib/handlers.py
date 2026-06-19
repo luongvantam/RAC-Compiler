@@ -8,6 +8,8 @@ def process_line(line, program_iter=None):
     return _process_line(line, program_iter)
 from .text import char_to_hex, token_to_hex
 
+sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
+
 def handle_label_definition(line):
     """
     Syntax: lbl <label> or <label>:
@@ -119,9 +121,9 @@ def handle_eval_expression(line):
     expr = re.sub(r'\bpr_length\b', 'sizeof()', expr)
     expanded_expr = expr
     
-    for var_name, var_value in loader.vars_dict.items():
-        pattern = r'\b' + re.escape(var_name) + r'\b'
-        expanded_expr = re.sub(pattern, str(var_value), expanded_expr)
+    if loader.vars_dict:
+        pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in loader.vars_dict) + r')\b')
+        expanded_expr = pattern.sub(lambda m: str(loader.vars_dict[m.group(1)]), expanded_expr)
 
     def repl_dist(match):
         name = match.group(1)
@@ -414,6 +416,9 @@ def resolve_index(value, index):
     return value
 
 def handle_variable_expansion(line):
+    if not loader.vars_dict:
+        process_line(line)
+        return
     expanded = line
     def replace_index(match):
         var_name = match.group(1)
@@ -421,13 +426,14 @@ def handle_variable_expansion(line):
         if var_name in loader.vars_dict:
             return str(resolve_index(loader.vars_dict[var_name], index))
         return match.group(0)
-    expanded = re.sub(r'\b(\w+)\[(\d+)\]', replace_index, expanded)
+    
+    keys_pattern = '|'.join(re.escape(k) for k in loader.vars_dict)
+    expanded = re.sub(r'\b(' + keys_pattern + r')\[(\d+)\]', replace_index, expanded)
+    
     def replace_var(match):
-        var_name = match.group(0)
-        if var_name in loader.vars_dict:
-            return str(loader.vars_dict[var_name])
-        return var_name
-    expanded = re.sub(r'\b\w+\b', replace_var, expanded)
+        return str(loader.vars_dict[match.group(1)])
+        
+    expanded = re.sub(r'\b(' + keys_pattern + r')\b', replace_var, expanded)
     process_line(expanded)
 
 def handle_org_command(line):
@@ -444,8 +450,6 @@ def handle_backup_command(line):
     """Syntax: backup <expr>"""
     expr = line[6:].strip()
     try:
-        #eval_scope = loader.vars_dict.copy()
-        #val = eval(expr, {}, eval_scope)
         val = int(expr, 0)
         if not isinstance(val, int):
              raise ValueError(f"Backup address must evaluate to an integer, got {type(val)}")
@@ -497,7 +501,6 @@ def handle_token_literal(line):
     content = line[1:-1].strip()
     content = content.replace(" ", "")
     utils.note(f"Processing token sequence: {content}\n")
-    sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
     tokens = []
     i = 0
     while i < len(content):
@@ -645,6 +648,9 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif line in loader.commands:
         handle_builtin_command(line)
 
+    elif line.startswith('call'):
+        handle_call_command(line)
+
     elif '=' in line:
         handle_assignment_command(line, program_iter)
 
@@ -663,9 +669,6 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
 
     elif (line.startswith('eval(') or line.startswith('calc(')) and line.endswith(')'):
         handle_eval_expression(line)
-
-    elif line.startswith('call'):
-        handle_call_command(line)
 
     elif line.startswith('goto'):
         handle_goto_command(line)

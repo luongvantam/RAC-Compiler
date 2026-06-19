@@ -16,9 +16,7 @@ home = None
 in_comment = False
 vars_dict = {}
 current_section_name = None
-rom = None
 disasm = []
-
 
 def add_command(command_dict, address, command, tags, debug_info=''):
     ''' Add a command to command_dict. '''
@@ -44,14 +42,12 @@ def add_command(command_dict, address, command, tags, debug_info=''):
 
     command_dict[command] = (address, tuple(tags))
 
-def get_commands(filename):
-    ''' Read a list of gadget names.
-
-    Args:
-        A dict
-    '''
-    global commands
-    with open(filename, 'r', encoding='utf-8') as f:
+def get_commands(gadgets_file, labels_file):
+    ''' Read a list of gadget names and parse a rename list. '''
+    global commands, datalabels
+    
+    # 1. Parse gadgets file
+    with open(gadgets_file, 'r', encoding='utf-8') as f:
         data = f.read().splitlines()
 
     in_comment = False
@@ -73,6 +69,8 @@ def get_commands(filename):
             continue
 
         match = line_regex.fullmatch(line)
+        if not match:
+            continue
         address, command = match[1], match[2]
 
         command = canonicalize(command)
@@ -92,18 +90,13 @@ def get_commands(filename):
         except ValueError:
             raise Exception(f'Line {line_index0 + 1} has invalid address: {address!r}')
 
-        add_command(commands, address, command, tags, f'at {filename}:{line_index0 + 1}')
+        add_command(commands, address, command, tags, f'at {gadgets_file}:{line_index0 + 1}')
 
-def read_rename_list(filename):
-    '''Try to parse a rename list.
-
-    If the rename list is ambiguous without disassembly, it raises an error.
-    '''
-    global commands, datalabels
-    with open(filename, 'r', encoding='u8') as f:
+    # 2. Parse labels file (rename list)
+    with open(labels_file, 'r', encoding='u8') as f:
         data = f.read().splitlines()
 
-    line_regex   = re.compile(r'^\s*([\w_.]+)\s+([\w_.]+)')
+    line_regex_rename = re.compile(r'^\s*([\w_.]+)\s+([\w_.]+)')
     global_regex = re.compile(r'f_([0-9a-fA-F]+)')
     local_regex  = re.compile(r'.l_([0-9a-fA-F]+)')
     data_regex   = re.compile(r'd_([0-9a-fA-F]+)')
@@ -111,7 +104,7 @@ def read_rename_list(filename):
 
     last_global_label = None
     for line_index0, line in enumerate(data):
-        match = line_regex.match(line)
+        match = line_regex_rename.match(line)
         if not match: continue
         raw, real = match[1], match[2]
         if real.startswith('.'):
@@ -166,29 +159,35 @@ def read_rename_list(filename):
                     continue
 
             add_command(commands, addr, real, tags=tags,
-                    debug_info=f'at {filename}:{line_index0+1}')
+                    debug_info=f'at {labels_file}:{line_index0+1}')
         else:
             raise ValueError('Invalid line: ' + repr(line))
 
 def get_disassembly(filename):
-	'''Try to parse a disasm file with annotated address.
+    '''Try to parse a disasm file with annotated address.
 
-	Each line should look like this:
+    Each line should look like this:
 
-		mov r2, 1                      ; 0A0A2 | 0201
-	'''
-	global disasm
-	with open(filename, 'r', encoding='u8') as f:
-		data = f.read().splitlines()
+        mov r2, 1                      ; 0A0A2 | 0201
+    '''
+    global disasm
+    with open(filename, 'r', encoding='u8') as f:
+        data = f.read().splitlines()
 
-	line_regex = re.compile(r'\t(.*?)\s*; ([0-9a-fA-F]*) \|')
-	disasm = []
-	for line in data:
-		match = line_regex.match(line)
-		if match:
-			addr = int(match[2], 16)
-			while addr >= len(disasm): disasm.append('')
-			disasm[addr] = match[1]
+    # Pre-allocate array of strings to avoid resizing/appending overhead
+    disasm = [''] * 262144
+    for line in data:
+        if line.startswith('\t') and ';' in line:
+            parts = line.split(';', 1)
+            instr = parts[0].strip()
+            comment = parts[1]
+            if '|' in comment:
+                addr_hex = comment.split('|', 1)[0].strip()
+                try:
+                    addr = int(addr_hex, 16)
+                    disasm[addr] = instr
+                except ValueError:
+                    pass
 
 def sizeof_register(reg_name):
     return {'r': 1, 'e': 2, 'x': 4, 'q': 8}[reg_name[0]]

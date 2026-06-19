@@ -4,8 +4,8 @@ import sys
 from .utils import to_lowercase, canonicalize, del_inline_comment
 from . import utils
 from . import loader
-from .optimizer import byte_to_key, get_npress, get_npress_adr
 from .handlers import dispatch_command_handler, handle_function_definition
+from .optimizer import get_npress_adr
 
 def process_line(line, program_iter=None):
     line = line.split('---')[0].strip()
@@ -193,6 +193,9 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     for idx, raw_line in enumerate(program_lines):
         orig_line_map.append(idx + 1)
 
+    aliases_cache = {}
+    aliases_pattern = None
+
     program_iter = iter(enumerate(program_lines))
     for line_index, raw_line in program_iter:
         line_strip = canonicalize(del_inline_comment(raw_line)).strip()
@@ -204,11 +207,16 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             continue
 
         if hasattr(loader, 'aliases') and loader.aliases:
-            parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', raw_line)
-            for i in range(0, len(parts), 2):
-                for new_name, old_name in loader.aliases.items():
-                    parts[i] = re.sub(r'\b' + re.escape(new_name) + r'\b', old_name, parts[i])
-            raw_line = ''.join(parts)
+            if len(aliases_cache) != len(loader.aliases):
+                aliases_cache = dict(loader.aliases)
+                pattern_str = r'\b(' + '|'.join(re.escape(k) for k in aliases_cache) + r')\b'
+                aliases_pattern = re.compile(pattern_str)
+            
+            if aliases_pattern:
+                parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', raw_line)
+                for i in range(0, len(parts), 2):
+                    parts[i] = aliases_pattern.sub(lambda m: loader.aliases[m.group(1)], parts[i])
+                raw_line = ''.join(parts)
             
         line = canonicalize(del_inline_comment(raw_line))
         line_strip = line.strip()
@@ -283,7 +291,6 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 note_log += st
             
             utils.note = local_note_func
-            old_len_result = len(loader.result)
             
             try:
                 process_line(line_to_process, lines_iter)
@@ -299,10 +306,6 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 sys.stderr.write(f"    {'^' * len(raw_origin.strip())}\n")
                 sys.stderr.write(f"CompilerError: {str(e)}\n")
                 sys.exit()
-
-            if args.format == 'key' and \
-                    any(x != 0 and get_npress(x) > 100 for x in loader.result[old_len_result:]):
-                local_note_func('Line generates many keypresses\n')
 
             utils.note = original_note_func
             if note_log and not getattr(loader, 'is_pass1', False):
@@ -434,8 +437,8 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             loader.home = min(range(min_home, loader.home, 100), key=lambda home_val:
                         (
                              sum(
-                                 get_npress_adr(home_val + home_offset) >= 100
-                                 for source_adr, home_offset in all_home_dependencies
+                                  get_npress_adr(home_val + home_offset) >= 100
+                                  for source_adr, home_offset in all_home_dependencies
                              ),
                              -home_val
                         )
@@ -503,7 +506,7 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             if loader.result[pos] != 0 or loader.result[pos+1] != 0:
                 print(f"[WARN] dist overwrite at {pos:04X}")
         loader.result[pos] = dist_val & 0xFF
-        loader.result[pos+1] = (dist_val >> 8) & 0xFF
+        loader.result[pos+1] = (dist_val >> 8) & 0xFFFF
             
     if args.target == 'overflow':
         hackstring = list(map(ord, '1234567890' * 10))
@@ -538,40 +541,23 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     out_addr = None
     out_bytes = None
 
-    if args.target == 'overflow' and args.format == 'hex':
+    if args.target == 'overflow':
         out_addr = loader.home
         out_bytes = hackstring
         print(''.join(f'{byte:02x}' for byte in hackstring))
 
-    elif args.target == 'none' and args.format == 'hex':
+    elif args.target == 'none':
         out_addr = loader.home
         out_bytes = loader.result
         print(' '.join(f'{b:02x}' for b in loader.result))
 
-    elif args.target == 'none' and args.format == 'key':
-        out_addr = loader.home
-        out_bytes = loader.result
-        print(' '.join(byte_to_key(b) for b in loader.result))
-
-    elif args.target == 'loader' and args.format == 'key':
-        addr = loader.home - home2
-        out_addr = addr
+    elif args.target == 'loader':
+        out_addr = loader.home - home2
         out_bytes = [0] * home2 + loader.result
-        print('Address to load:',
-            byte_to_key(addr & 0xff),
-            byte_to_key((addr >> 8) & 0xff))
-
-        loader.result = [0] * home2 + loader.result
-
-        print(" ".join(f"{x:02X}" for x in loader.result))
-
-    elif args.target == 'overflow' and args.format == 'key':
-        out_addr = loader.home
-        out_bytes = hackstring
-        print(' '.join(byte_to_key(x) for x in hackstring))
+        print(" ".join(f"{x:02X}" for x in out_bytes))
 
     else:
-        raise ValueError('Unsupported target/format combination')
+        raise ValueError('Unsupported target')
 
     _print_footer()
     return out_addr, out_bytes

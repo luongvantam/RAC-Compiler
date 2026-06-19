@@ -1,6 +1,5 @@
 import os
 import re
-from .utils import note, to_lowercase, canonicalize, del_inline_comment
 
 def load_extensions(path):
     if not os.path.exists(path):
@@ -15,22 +14,17 @@ def load_extensions(path):
 
     extensions = []
     for syntax_block, output_block in matches:
+        syntax = syntax_block.strip()
+        pattern_str = re.escape(syntax).replace(r"\{", "(?P<").replace(r"\}", ">.+?)")
+        compiled = re.compile(pattern_str)
         extensions.append({
-            "syntax": syntax_block.strip(),
-            "output": [ln.strip() for ln in output_block.strip().splitlines() if ln.strip()]
+            "syntax": syntax,
+            "output": [ln.strip() for ln in output_block.strip().splitlines() if ln.strip()],
+            "compiled_pattern": compiled
         })
+    # Pre-sort extensions by syntax length descending to avoid sorting during program expansion
+    extensions.sort(key=lambda x: len(x["syntax"]), reverse=True)
     return extensions
-
-def match_extension(line, extensions):
-    for ext in extensions:
-        syntax = ext["syntax"]
-        pattern = re.escape(syntax)
-        pattern = re.sub(r'\\\{(\w+)\\\}', r'(?P<\1>.+?)', pattern)
-        
-        m = re.fullmatch(pattern, line.strip())
-        if m:
-            return ext, m.groupdict()
-    return None, None
 
 def expand_extensions_in_program(program_lines, extensions):
     expanded = []
@@ -41,14 +35,13 @@ def expand_extensions_in_program(program_lines, extensions):
         current_line = line
         matched_full = False
         
-        for ext in sorted(extensions, key=lambda x: len(x["syntax"]), reverse=True):
-            pattern_str = re.escape(ext["syntax"]).replace(r"\{", "(?P<").replace(r"\}", ">.+?)")
-            
-            match = re.fullmatch(pattern_str, current_line)
+        for ext in extensions:
+            compiled = ext["compiled_pattern"]
+            match = compiled.fullmatch(current_line)
             is_inline = False
             
             if not match:
-                match = re.search(pattern_str, current_line)
+                match = compiled.search(current_line)
                 is_inline = True
             
             if match:
