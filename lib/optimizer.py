@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 max_call_adr = 0x3ffff
-
 npress = []
 
 def set_npress_array(npress_):

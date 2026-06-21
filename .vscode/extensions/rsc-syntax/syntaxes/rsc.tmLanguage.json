@@ -176,7 +176,7 @@
                 },
                 {
                     "name": "entity.name.function.definition.rsc",
-                    "match": "(?<=\\b(func|def)\\s)[A-Za-z_][A-Za-z0-9_]*"
+                    "match": "(?<=\\b(func|def|@def)\\s)[A-Za-z_][A-Za-z0-9_]*"
                 },
                 {
                     "name": "entity.name.function.call.rsc",
@@ -197,7 +197,7 @@
                 },
                 {
                     "name": "keyword.control.rsc",
-                    "match": "\\b(call|goto|return|at|as|org|backup)\\b"
+                    "match": "\\b(call|goto|return|at|as|org|backup|goto_er14|goto_er6)\\b"
                 },
                 {
                     "name": "keyword.operator.word.rsc",

@@ -1,12 +1,15 @@
-import sys
 import re
 import ast
 import operator
 
+notes_buffer = []
 def default_note(st):
-    ''' Print st to stderr. Used for additional information (note, warning) '''
-    sys.stderr.write(st)
-
+    notes_buffer.append(str(st))
+def get_notes():
+    global notes_buffer
+    result = ''.join(notes_buffer)
+    notes_buffer.clear()
+    return result
 note = default_note
 
 def to_lowercase(s):
@@ -23,9 +26,7 @@ def canonicalize(st):
 def del_inline_comment(line):
     return (line + '#')[:line.find('#')].rstrip()
 
-# Define safe operators for AST evaluation
 SAFE_OPERATORS = {
-    # Binary operators
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -38,12 +39,10 @@ SAFE_OPERATORS = {
     ast.BitOr: operator.or_,
     ast.BitXor: operator.xor,
     ast.BitAnd: operator.and_,
-    # Unary operators
     ast.UAdd: operator.pos,
     ast.USub: operator.neg,
     ast.Invert: operator.inv,
     ast.Not: operator.not_,
-    # Comparison operators
     ast.Eq: operator.eq,
     ast.NotEq: operator.ne,
     ast.Lt: operator.lt,

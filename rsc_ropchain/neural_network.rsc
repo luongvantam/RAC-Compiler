@@ -313,21 +313,21 @@ lbl weights
 
 lbl picture
     lbl line_1
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_2
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_3
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_4
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_5
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_6
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_7
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
     lbl line_8
-        hex CD CD CD CD CD CD CD CD 00
+        loop 8 { hex CD }; hex 00
 
 lbl end
     hex 00 00 00 00

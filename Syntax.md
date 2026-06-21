@@ -18,7 +18,7 @@
 # define gadget
 
 ```
-def {<tag>} <name_gadget>: <address>
+def {tag} <name_gadget>: <address>
 
 example:
 def {memcpy} memcpy_auto_jmp: 0x12345
@@ -161,4 +161,32 @@ calc(<expression>)          # function like `eval`
 /*
     <big comment>
 */
+```
+
+---
+
+# Cập nhật mới (Draft updates)
+
+### Ghép dòng & Tiếp tục dòng
+```
+# Dùng \ cuối dòng để nối tiếp câu lệnh
+hex 30 \
+31
+
+# Viết biểu thức ngoặc tròn trên nhiều dòng
+eval(
+    0x01 + 0x02
+)
+```
+
+### Dynamic macro
+```
+# Dạng 1 dòng
+def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
+
+# Dạng khối lệnh
+def my_macro(<addr>, <val>) => {
+    er0 = <addr>
+    er2 = <val>
+}
 ```

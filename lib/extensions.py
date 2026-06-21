@@ -28,7 +28,8 @@ def load_extensions(path):
 
 def expand_extensions_in_program(program_lines, extensions):
     expanded = []
-    for line in program_lines:
+    for idx, line in enumerate(program_lines):
+        line_num = idx + 1
         line = line.split('---')[0].strip()
         if not line: continue
         
@@ -57,10 +58,10 @@ def expand_extensions_in_program(program_lines, extensions):
                 if is_inline and len(output_lines) == 1:
                     current_line = current_line[:match.start()] + output_lines[0] + current_line[match.end():]
                 else:
-                    expanded.extend(output_lines)
+                    expanded.extend([(line_num, out_line) for out_line in output_lines])
                     matched_full = True
                     break
         
         if not matched_full:
-            expanded.append(current_line)
+            expanded.append((line_num, current_line))
     return expanded

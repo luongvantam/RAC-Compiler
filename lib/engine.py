@@ -1,7 +1,7 @@
 import re
 import os
 import sys
-from .utils import to_lowercase, canonicalize, del_inline_comment
+from .utils import to_lowercase, canonicalize, del_inline_comment, get_notes
 from . import utils
 from . import loader
 from .handlers import dispatch_command_handler, handle_function_definition
@@ -77,6 +77,15 @@ def finalize_processing():
         loader.sizeof_cmds.clear()
 
 
+def register_alias(name, target):
+    if not hasattr(loader, 'aliases'):
+        loader.aliases = {}
+    loader.aliases[name] = target
+    if loader.aliases:
+        pattern_str = r'\b(' + '|'.join(re.escape(k) for k in loader.aliases) + r')\b'
+        loader.aliases_pattern = re.compile(pattern_str)
+
+
 def _split_into_sections(program_lines):
     """Return list of (name, lines) tuples by splitting on @set.<name> directives.
     Lines before the first @set are grouped under name None.  The directive
@@ -89,7 +98,13 @@ def _split_into_sections(program_lines):
     sections = []
     current_name = None
     current_lines = []
-    for raw_line in program_lines:
+    for idx, item in enumerate(program_lines):
+        if isinstance(item, tuple):
+            line_num, raw_line = item
+        else:
+            raw_line = item
+            line_num = idx + 1
+            
         stripped = raw_line.strip()
         if stripped.startswith('@set.') or stripped.startswith('@section.'):
             alias_name = None
@@ -105,9 +120,7 @@ def _split_into_sections(program_lines):
             current_name = name_part[5:] if name_part.startswith('@set.') else name_part[9:]
             
             if alias_name:
-                if not hasattr(loader, 'aliases'):
-                    loader.aliases = {}
-                loader.aliases[alias_name] = current_name
+                register_alias(alias_name, current_name)
             current_lines = []
             if len(parts) > 1:
                 addr_part = parts[1].strip()
@@ -117,13 +130,13 @@ def _split_into_sections(program_lines):
                     backup_addr = addr_subparts[1].strip()
                     
                     if org_addr:
-                        current_lines.append("org " + org_addr)
+                        current_lines.append((line_num, "org " + org_addr))
                     if backup_addr:
-                        current_lines.append("backup " + backup_addr)
+                        current_lines.append((line_num, "backup " + backup_addr))
                 else:
-                    current_lines.append("org " + addr_part)
+                    current_lines.append((line_num, "org " + addr_part))
         else:
-            current_lines.append(raw_line)
+            current_lines.append((line_num, raw_line))
     if current_name is not None or current_lines:
         sections.append((current_name, current_lines))
     return sections
@@ -133,6 +146,7 @@ def process_program(args, program_lines, overflow_initial_sp):
     loader.global_labels = {}
     loader.section_addresses = {}
     loader.aliases = {}
+    loader.aliases_pattern = None
     # split into sections and dispatch to helper for each
     sections = _split_into_sections(program_lines)
     # reorder so named sections come before unnamed to avoid warning prints
@@ -188,34 +202,199 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
     
     final_lines_to_process = []
     loader.defined_functions = {}
+    loader.dynamic_macros = []
     
-    orig_line_map = []
-    for idx, raw_line in enumerate(program_lines):
-        orig_line_map.append(idx + 1)
+    # Preprocess program lines for backslash continuation and parenthesized blocks
+    merged_lines = []
+    current_line = ""
+    current_num = None
+    for idx, item in enumerate(program_lines):
+        if isinstance(item, tuple):
+            line_num, raw_line = item
+        else:
+            raw_line = item
+            line_num = idx + 1
+            
+        comment_idx = raw_line.find('#')
+        if comment_idx != -1:
+            content = raw_line[:comment_idx]
+        else:
+            content = raw_line
+        stripped_content = content.rstrip()
+        if stripped_content.endswith('\\'):
+            current_line += content[:content.rfind('\\')]
+            if current_num is None:
+                current_num = line_num
+        else:
+            current_line += content
+            if current_num is None:
+                current_num = line_num
+            merged_lines.append((current_num, current_line))
+            current_line = ""
+            current_num = None
+    if current_line:
+        if current_num is None:
+            current_num = len(program_lines)
+        merged_lines.append((current_num, current_line))
 
-    aliases_cache = {}
-    aliases_pattern = None
+    final_merged = []
+    current_line = ""
+    current_num = None
+    paren_depth = 0
+    for line_num, raw_line in merged_lines:
+        comment_idx = raw_line.find('#')
+        if comment_idx != -1:
+            content = raw_line[:comment_idx]
+        else:
+            content = raw_line
+            
+        content_no_strings = re.sub(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', '', content)
+        line_depth_change = content_no_strings.count('(') - content_no_strings.count(')')
+            
+        if paren_depth > 0:
+            current_line += " " + raw_line.strip()
+        else:
+            current_line = raw_line.strip()
+            current_num = line_num
+            
+        paren_depth += line_depth_change
+        if paren_depth <= 0:
+            final_merged.append((current_num, current_line))
+            current_line = ""
+            current_num = None
+            paren_depth = 0
+    if current_line:
+        final_merged.append((current_num, current_line))
 
-    program_iter = iter(enumerate(program_lines))
-    for line_index, raw_line in program_iter:
+    def split_by_semicolon(line):
+        parts = []
+        current = []
+        in_double = False
+        in_single = False
+        i = 0
+        while i < len(line):
+            char = line[i]
+            if char == '"' and not in_single:
+                if i > 0 and line[i-1] == '\\':
+                    pass
+                else:
+                    in_double = not in_double
+            elif char == "'" and not in_double:
+                if i > 0 and line[i-1] == '\\':
+                    pass
+                else:
+                    in_single = not in_single
+            elif char == ';' and not in_double and not in_single:
+                parts.append("".join(current).strip())
+                current = []
+                i += 1
+                continue
+            current.append(char)
+            i += 1
+        parts.append("".join(current).strip())
+        return [p for p in parts if p]
+
+    remaining_lines = []
+    for line_num, merged_line in final_merged:
+        for part in split_by_semicolon(merged_line):
+            remaining_lines.append((line_num, part))
+
+    class ProgramIterator:
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if not remaining_lines:
+                raise StopIteration
+            return remaining_lines.pop(0)
+
+    program_iter = ProgramIterator()
+    for line_num, raw_line in program_iter:
+        loader.current_line_num = line_num
         line_strip = canonicalize(del_inline_comment(raw_line)).strip()
         if not line_strip: continue
+
+        # Check if line_strip defines a dynamic macro
+        if line_strip.startswith("def") and "=>" in line_strip:
+            pattern_part, rest_part = raw_line.split('=>', 1)
+            pattern = pattern_part.strip()
+            if pattern.startswith("def "):
+                pattern = pattern[4:].strip()
+            elif pattern.startswith("def"):
+                pattern = pattern[3:].strip()
+            rest = rest_part.strip()
+
+            if rest.startswith('{'):
+                from .handlers import collect_block_body
+                body_items, _ = collect_block_body(rest[1:], program_iter)
+            else:
+                body_items = [rest] if rest else []
+
+            body_lines = []
+            for item in body_items:
+                if isinstance(item, tuple) and len(item) == 2:
+                    body_lines.append(item[1])
+                elif isinstance(item, dict):
+                    body_lines.append(item["exec"])
+                else:
+                    body_lines.append(str(item))
+
+            canonical_pat = canonicalize(pattern)
+            escaped_pat = re.escape(canonical_pat)
+            converted_pat = escaped_pat.replace(r"\<", "(?P<").replace("<", "(?P<").replace(r"\>", ">.+?)").replace(">", ">.+?)")
+            compiled_pat = re.compile(converted_pat)
+
+            keyword = pattern.split('<', 1)[0].strip()
+            m_kw = re.match(r'^([a-zA-Z_]\w*)', keyword)
+            macro_keyword = m_kw.group(1) if m_kw else keyword.rstrip('(').strip()
+            macro_keyword = canonicalize(macro_keyword)
+
+            if not hasattr(loader, 'dynamic_macros'):
+                loader.dynamic_macros = []
+            loader.dynamic_macros.append({
+                "pattern": pattern,
+                "keyword": macro_keyword,
+                "compiled_pattern": compiled_pat,
+                "output": body_lines
+            })
+            loader.dynamic_macros.sort(key=lambda x: len(x["pattern"]), reverse=True)
+            continue
+
+        # Check if line_strip matches any dynamic macro
+        matched_macro = False
+        if hasattr(loader, 'dynamic_macros'):
+            for macro in loader.dynamic_macros:
+                if macro["keyword"] not in line_strip:
+                    continue
+                match = macro["compiled_pattern"].search(line_strip)
+                if match:
+                    local_env = match.groupdict()
+                    output_lines = []
+                    for out in macro["output"]:
+                        temp = out
+                        for k, v in local_env.items():
+                            temp = temp.replace(f"<{k}>", str(v))
+                        output_lines.append(temp)
+                    if len(output_lines) == 1:
+                        replaced_line = line_strip[:match.start()] + output_lines[0] + line_strip[match.end():]
+                        remaining_lines.insert(0, (line_num, replaced_line))
+                    else:
+                        inserted = [(line_num, out_line) for out_line in output_lines]
+                        remaining_lines = inserted + remaining_lines
+                    matched_macro = True
+                    break
+        if matched_macro:
+            continue
         
         m = re.match(r'^(.+?)\s+as\s+([a-zA-Z_]\w*)$', line_strip)
         if m and not line_strip.startswith('"') and not line_strip.startswith("'"):
-            loader.aliases[m.group(2)] = m.group(1).strip()
+            register_alias(m.group(2), m.group(1).strip())
             continue
 
         if hasattr(loader, 'aliases') and loader.aliases:
-            if len(aliases_cache) != len(loader.aliases):
-                aliases_cache = dict(loader.aliases)
-                pattern_str = r'\b(' + '|'.join(re.escape(k) for k in aliases_cache) + r')\b'
-                aliases_pattern = re.compile(pattern_str)
-            
-            if aliases_pattern:
+            if getattr(loader, 'aliases_pattern', None):
                 parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', raw_line)
                 for i in range(0, len(parts), 2):
-                    parts[i] = aliases_pattern.sub(lambda m: loader.aliases[m.group(1)], parts[i])
+                    parts[i] = loader.aliases_pattern.sub(lambda m: loader.aliases[m.group(1)], parts[i])
                 raw_line = ''.join(parts)
             
         line = canonicalize(del_inline_comment(raw_line))
@@ -246,19 +425,33 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 raise ValueError(f"Error calling function {line}: args mismatch")
 
             if "return_expr" in func:
-                raise ValueError(f"Function {called_func_name} with return cannot be called as a standalone statement without assignment.")
+                ret_expr = func["return_expr"]
+                for param, arg in zip(func["args"], call_args):
+                    ret_expr = re.sub(r'\b' + re.escape(param) + r'\b', arg, ret_expr)
+                final_lines_to_process.append({
+                    "exec": ret_expr,
+                    "raw": raw_line,
+                    "num": line_num,
+                    "ctx": f"inside '{called_func_name}'"
+                })
+                continue
 
             for param_def, arg_val in zip(func["args"], call_args):
                 if param_def.strip():
                     final_lines_to_process.append({
                         "exec": f"var {param_def.strip()} = {arg_val}",
-                        "raw": raw_line, "num": orig_line_map[line_index], "ctx": f"passing args to '{called_func_name}'"
+                        "raw": raw_line, "num": line_num, "ctx": f"passing args to '{called_func_name}'"
                     })
-            for line_in_func in func["body"]:
-                final_lines_to_process.append({"exec": line_in_func, "raw": line_in_func, "num": orig_line_map[line_index], "ctx": f"inside '{called_func_name}'"})
+            for item in func["body"]:
+                if isinstance(item, tuple):
+                    f_line_num, line_in_func = item
+                else:
+                    line_in_func = item
+                    f_line_num = line_num
+                final_lines_to_process.append({"exec": line_in_func, "raw": line_in_func, "num": f_line_num, "ctx": f"inside '{called_func_name}'"})
             continue
 
-        final_lines_to_process.append({"exec": line, "raw": raw_line, "num": orig_line_map[line_index], "ctx": ""})
+        final_lines_to_process.append({"exec": line, "raw": raw_line, "num": line_num, "ctx": ""})
 
     lines_iter = iter(final_lines_to_process)
     for item in lines_iter:
@@ -272,6 +465,13 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
                 raw_origin = item
                 line_num = "?"
                 context = ""
+            
+            if hasattr(loader, 'aliases') and loader.aliases:
+                if getattr(loader, 'aliases_pattern', None):
+                    parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', line)
+                    for i in range(0, len(parts), 2):
+                        parts[i] = loader.aliases_pattern.sub(lambda m: loader.aliases[m.group(1)], parts[i])
+                    line = ''.join(parts)
             
             line_strip = canonicalize(del_inline_comment(line))
 
@@ -292,20 +492,56 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
             
             utils.note = local_note_func
             
+            loader.current_exec_info = {
+                "line": line_to_process,
+                "raw": raw_origin,
+                "num": line_num,
+                "ctx": context
+            }
+            
             try:
                 process_line(line_to_process, lines_iter)
             except Exception as e:
-                print(f"\nTraceback (most recent call last):")
-                ctx_info = f", {context}" if context else ""
-                fname = os.path.basename(args.input_file) if hasattr(args, 'input_file') else "?"
-                if fname != "?":
-                    sys.stderr.write(f"  File \"{fname}\", line {line_num}{ctx_info}\n")
-                else:
-                    sys.stderr.write(f"  In line {line_num}{ctx_info}\n")
-                sys.stderr.write(f"    {raw_origin.strip()}\n")
-                sys.stderr.write(f"    {'^' * len(raw_origin.strip())}\n")
-                sys.stderr.write(f"CompilerError: {str(e)}\n")
-                sys.exit()
+                exec_info = getattr(loader, 'current_exec_info', None)
+                if exec_info:
+                    line_num = exec_info["num"]
+                    raw_origin = exec_info["raw"]
+                    context = exec_info["ctx"]
+                
+                ctx_info = f" (inside '{context}')" if context else ""
+                fname = os.path.basename(args.input_file) if (hasattr(args, 'input_file') and args.input_file) else "source.rsc"
+                
+                is_tty = sys.stderr.isatty()
+                if is_tty and sys.platform == 'win32':
+                    try:
+                        import ctypes
+                        kernel32 = ctypes.windll.kernel32
+                        h_err = kernel32.GetStdHandle(-12)
+                        mode = ctypes.c_ulong()
+                        if kernel32.GetConsoleMode(h_err, ctypes.byref(mode)):
+                            kernel32.SetConsoleMode(h_err, mode.value | 0x0004)
+                    except Exception:
+                        is_tty = False
+
+                red = '\033[1;31m' if is_tty else ''
+                blue = '\033[1;34m' if is_tty else ''
+                bold = '\033[1m' if is_tty else ''
+                reset = '\033[0m' if is_tty else ''
+
+                orig_stripped = raw_origin.strip()
+                leading_spaces = len(raw_origin) - len(raw_origin.lstrip())
+                caret_line = " " * leading_spaces + "^" * max(1, len(orig_stripped))
+                
+                num_str = str(line_num)
+                prefix_spaces = " " * (len(num_str) + 1)
+                arrow_spaces = " " * max(1, len(num_str) - 2)
+                
+                sys.stderr.write(f"\n{red}{bold}error:{reset} {bold}{str(e)}{ctx_info}{reset}\n")
+                sys.stderr.write(f"{arrow_spaces}{blue}-->{reset} {fname}:{line_num}\n")
+                sys.stderr.write(f"{prefix_spaces}{blue}|{reset}\n")
+                sys.stderr.write(f"{blue}{num_str} |{reset} {raw_origin.rstrip()}\n")
+                sys.stderr.write(f"{prefix_spaces}{blue}|{reset} {red}{caret_line}{reset}\n\n")
+                sys.exit(1)
 
             utils.note = original_note_func
             if note_log and not getattr(loader, 'is_pass1', False):
@@ -535,6 +771,8 @@ def _process_program_core(args, program_lines, overflow_initial_sp):
         
     if loader.home == loader.home+len(loader.result) and loader.current_section_name is None:
         return None, None
+    
+    sys.stderr.write(get_notes())
 
     _print_header()
 
