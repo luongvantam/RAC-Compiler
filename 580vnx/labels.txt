@@ -2,8 +2,7 @@
 2EDA0		strcat
 26FFA		memcpy
 18932		memcpy_indr
-2B2BA       memcpy_auto_jmp
-2B2BA       memcpy_auto_jump
+2B2BA       memcpy_auto_jmp; memcpy_auto_jump
 0A8AA		memmove
 29A2C		strlen
 1EB94		memset
@@ -65,7 +64,8 @@
 2F5E8		getkey
 25C1A		getkeycode
 29892		cvt_keycode
-0A0E0		setsfr
+2F5F0       getkey_er8
+0A0E0		setsfr; reset_sfr
 094FE		render_stat_bar
 09EE8		shutdown
 0A0DA		reset_screen_sfr
@@ -85,7 +85,7 @@
 09318		char_get_l14
 0A16A		zero_KO
 09DE6		assign_var
-08C60		buffer_clear
+08C60		buffer_clear; clear()
 0AC30		ENTER
 0AC38		LEAVE
 224DE		LEAVE1
@@ -99,7 +99,7 @@
 10000       solve_func
 220D8       table_func
 
-09C20		ea_switchcase
+09C20		ea_switchcase; cmp_ea; ea_cmp
 
 # -- mode --
 2E234		mode_calc
@@ -230,7 +230,7 @@ d_0D11B		 num_format_i
 d_0D11D		 angle_unit
 d_0D138		 draw_mode
 d_0D139		 buffer_index
-d_0D180		 input_range
+d_0D180		 input_range; input_area
 d_0D318		 unstable_char
 d_0D31A		 var_m
 d_0D324		 var_ans

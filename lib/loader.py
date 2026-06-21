@@ -73,6 +73,11 @@ def get_commands(gadgets_file, labels_file):
             continue
         address, command = match[1], match[2]
 
+        try:
+            address = int(address, 16)
+        except ValueError:
+            raise Exception(f'Line {line_index0 + 1} has invalid address: {address!r}')
+
         command = canonicalize(command)
         command = to_lowercase(command)
 
@@ -83,20 +88,19 @@ def get_commands(gadgets_file, labels_file):
                 raise Exception(f'Line {line_index0 + 1} '
                                 'has unmatched "{"')
             tags.append(command[1:i])
-            command = command[i + 1:]
+            command = command[i + 1:].strip()
 
-        try:
-            address = int(address, 16)
-        except ValueError:
-            raise Exception(f'Line {line_index0 + 1} has invalid address: {address!r}')
-
-        add_command(commands, address, command, tags, f'at {gadgets_file}:{line_index0 + 1}')
+        sub_commands = [c.strip() for c in command.split(';') if c.strip()]
+        for sub_cmd in sub_commands:
+            sub_cmd = canonicalize(sub_cmd)
+            sub_cmd = to_lowercase(sub_cmd)
+            add_command(commands, address, sub_cmd, tags, f'at {gadgets_file}:{line_index0 + 1}')
 
     # 2. Parse labels file (rename list)
     with open(labels_file, 'r', encoding='u8') as f:
         data = f.read().splitlines()
 
-    line_regex_rename = re.compile(r'^\s*([\w_.]+)\s+([\w_.]+)')
+    line_regex_rename = re.compile(r'^\s*([\w_.]+)\s+(.+)')
     global_regex = re.compile(r'f_([0-9a-fA-F]+)')
     local_regex  = re.compile(r'.l_([0-9a-fA-F]+)')
     data_regex   = re.compile(r'd_([0-9a-fA-F]+)')
@@ -106,14 +110,19 @@ def get_commands(gadgets_file, labels_file):
     for line_index0, line in enumerate(data):
         match = line_regex_rename.match(line)
         if not match: continue
-        raw, real = match[1], match[2]
-        if real.startswith('.'):
-            continue
+        raw, real_part = match[1], match[2]
+        real_part = del_inline_comment(real_part).strip()
+        if not real_part: continue
         
-        match = data_regex.fullmatch(raw)
-        if match:
-            addr = int(match[1], 16)
-            datalabels[real] = addr
+        real_names = [r.strip() for r in real_part.split(';') if r.strip()]
+        real_names = [r for r in real_names if not r.startswith('.')]
+        if not real_names: continue
+        
+        match_data = data_regex.fullmatch(raw)
+        if match_data:
+            addr = int(match_data[1], 16)
+            for real in real_names:
+                datalabels[real] = addr
             continue
 
         addr = None
@@ -121,23 +130,23 @@ def get_commands(gadgets_file, labels_file):
             addr = int(raw, 16)
             last_global_label = None
         else:
-            match = global_regex.match(raw)
-            if match:
-                addr = int(match[1], 16)
-                if len(match[0]) == len(raw):
+            match_global = global_regex.match(raw)
+            if match_global:
+                addr = int(match_global[1], 16)
+                if len(match_global[0]) == len(raw):
                     last_global_label = addr
                 else:
-                    match = local_regex.fullmatch(raw[len(match[0]):])
-                    if match:
-                        addr += int(match[1], 16)
+                    match_local = local_regex.fullmatch(raw[len(match_global[0]):])
+                    if match_local:
+                        addr += int(match_local[1], 16)
             else:
-                match = local_regex.fullmatch(raw)
-                if match:
+                match_local = local_regex.fullmatch(raw)
+                if match_local:
                     if last_global_label is None:
                         print('Label cannot be read: ', line)
                         continue
                     else:
-                        addr = last_global_label + int(match[1], 16)
+                        addr = last_global_label + int(match_local[1], 16)
 
         if addr is not None:
             assert addr < len(disasm), f'{addr:05X}'
@@ -151,15 +160,16 @@ def get_commands(gadgets_file, labels_file):
                 if not disasm[a1].startswith('rt'):
                     tags = tags + ('del lr',)
 
-            if real in commands:
-                if 'override rename list' in commands[real][1]:
-                    continue
-                if commands[real] == (addr, tags):
-                    note(f'Warning: Duplicated command {real}\n')
-                    continue
+            for real in real_names:
+                if real in commands:
+                    if 'override rename list' in commands[real][1]:
+                        continue
+                    if commands[real] == (addr, tags):
+                        note(f'Warning: Duplicated command {real}\n')
+                        continue
 
-            add_command(commands, addr, real, tags=tags,
-                    debug_info=f'at {labels_file}:{line_index0+1}')
+                add_command(commands, addr, real, tags=tags,
+                        debug_info=f'at {labels_file}:{line_index0+1}')
         else:
             raise ValueError('Invalid line: ' + repr(line))
 

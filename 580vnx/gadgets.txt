@@ -61,7 +61,7 @@
 2045C   pop xr4,pop xr12
 0AC3A   pop xr4,pop qr8
 0A1CA   pop lr
-13B9A   er0+=er0,er2+=er0,er0=[er2]
+13B9A   er0+=er0,er2+=er0,er0=[er2]; load_table
 09E96   [ea+]=r0,r0-=1,bne
 1c2c0   qr0=[ea],lea D002H,[ea]=qr0
 2245C   r1=0,pop er12
@@ -143,7 +143,7 @@
 24BEC   er0 = [er0-2],pop er8,rt
 09fdc	r0 = [ea],rt
 21f72	sp = [er8],pop er8
-1C64A	er6 = [ea+]
+1C64A	er6 = [ea+]; er6=[ea]
 19E90   er8 = [ea+],rt
 1C2C0   qr0 = [ea]
 
