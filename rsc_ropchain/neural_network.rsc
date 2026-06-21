@@ -8,7 +8,7 @@
 
 @build {
     emu.inj = true
-    #emu.inj_file = "hc-inj.txt"
+    emu.inj_file = "/Users/luongtoi/CasioEmuMsvc/hc-inj.txt"
     emu.inj_adr[main] = 0xe9e0
 }
 
@@ -24,7 +24,6 @@ n_now = var_f
 */
 
 lbl start
-    setlr_pc
     xr0 = eval(adr(var_i) + dist.main), 0xd0f5
     [er2]=r0,r2=0
     [er0]=r2
@@ -42,17 +41,18 @@ lbl draw_picture
         hex 44 01                       # er0
     lbl adr_line
         eval(adr(line_1)+dist.main)     # er2
-    eval(adr(counter_loop)+dist.main)   # er4
+    hex 00 00                           # er4
     hex 00 00                           # er6
     line_print
+    setlr_pc
     er0 = er6,er2 = er12
     [er8] += er2,pop xr8
     eval(adr(adr_line)+dist.main); hex 00 00
     er2 = hex 09 00
     [er8] += er2,pop xr8
-    adr(key); hex 00 00
-    setlr_pc
-    [er4]+=1,rt
+    eval(adr(counter_loop)+dist.main-0x5); hex 00 00
+    [er8+5]+=1,pop er8
+    adr(key)
     lbl counter_loop
         call 0981A
         eval(adr(table_key) - 0xa); eval(adr(table_key) - 0xa)      # xr12
@@ -83,11 +83,12 @@ lbl key_move
     er2=er0,er0+=er4,rt
     [er8]+=er2,pop xr8
     hex 00 00 00 00
-    goto key_loop
+    er6 = eval(adr(jump_to_start) - 0x2)
+    sp = er6,pop er8
 
 lbl key_write
-    er2=er0,er0+=er4,rt
-    er0 = eval(adr(cursor) + dist.main)
+    r2 = r0,pop er0
+    eval(adr(cursor) + dist.main)
     er0 = [er0],pop xr8,rt
     hex 00 00 00 00
     [er0]=r2
@@ -113,28 +114,27 @@ lbl check_n
     r0=[er0]
     r1=0,rt
     er0 - er2_eq,r0 = 1|r0 = 0,rt
-    er2 = adr(var_n)
-    hex_to_dec
+    r2 = r0,pop er0
+    var_f
+    num_frombyte
 
 lbl loop_w
     # var_w = var_w + weights[var_i] * picture[var_i]
+    setlr_pc
     r2 = r0,pop er0
     eval(adr(weights) + dist.main)
     er0+=er8,rt
     r0 = [er0]
     # er0 = picture[var_i], er2 = weights[var_i]
     er0 *= r2,er2 = er0,er0 += er4,rt       # er2 = er0 = weights[var_i] * picture[var_i]
-    er2 = adr(w_now)
-    hex_to_dec
-    xr0 = adr(addr_w_now), var_e
-    calc_func
+    r2 = r0,pop er0
+    var_e
+    num_frombyte
     xr0 = adr(addr_calc_sum), var_a
     calc_func
 
 lbl loop_n
     #var_n = picture[var_i] + var_n
-    xr0 = adr(addr_var_n), var_f
-    calc_func
     xr0 = adr(addr_calc_sum_n), var_b
     calc_func
 
@@ -149,23 +149,27 @@ lbl store_threshold
 lbl loop_i
     # var_i += 0 if var_i == 72 else 1
     setlr_pc
-    qr0 = eval(adr(var_i) + dist.main), 0x0048, eval(adr(add_i) - 0x2), hex 00 00
+    xr0 = eval(adr(var_i) + dist.main), 0x0048
     r0 = [er0]
     r1=0,rt
     er0 - er2_eq,r0 = 1|r0 = 0,rt
-    er2 = eval(adr(print_result) - adr(add_i))
-    er0 *= r2,er2 = er0,er0 += er4,rt
-    er14 = er0, pop xr0
-    var_c; var_d
-    sp = er14, pop er14
-    eval(adr(restore) - 0x2)
+    er2 = er0,er0 = er2,pop er8,rt
+    eval(adr(var_i) + dist.main - 0x5)
+    er0 += er2,rt
+    xr12 = eval(adr(table_jump) + dist.main + 0x2), eval(adr(print_result) - 0x2)
+    call 11976      # BL [ER12+=R0]
+    eval(adr(restore) - 0x3e)
+    [er8+5]+=1,pop er8
+    hex 00 00
+    sp = er4,sp += 32H,pop xr4,pop qr8
 
-lbl add_i
-    er4 = eval(adr(var_i) + dist.main)
-    [er4] += 1,rt
-    sp=er14, pop er14
+lbl table_jump
+    hex 40 07 
+    hex 12 7b
+    hex 40 07 
 
 lbl print_result
+    xr0 = var_c, var_d
     verify_gt
     /*
         if y > threshold:
@@ -177,23 +181,17 @@ lbl print_result
     setlr_pc
     clear()
     er0 = er2,rt
-    er2 = adr(table_text)
-    load_table
-    er14 = er0, pop xr0
-    hex 11 11
-    adr(text_one)
-    sp = er14,pop er14
+    er0 += er2,rt
+    xr12 = eval(adr(table_jump) + dist.main), eval(adr(print_zero) - 0x2)
+    call 11976      # BL [ER12+=R0]
+    adr(if_num_is_zero)
+    setlr_pc
+    [er4] += 1,rt   # print_zero: call 23EC2
 
-lbl table_text
-    eval(adr(if_num_is_zero) - 0x2)
-    eval(adr(if_num_is_one) - 0x2)
-
-lbl if_num_is_one
-    er4 = adr(if_num_is_zero)
-    [er4] += 1,rt   # if_num_is_zero: call 23EC2
-
-lbl if_num_is_zero
-    call 23EC1      # er2 += 4, bl line_print.col_0
+lbl print_zero
+    xr0 = hex 11 11, eval(adr(text_one) + dist.main)
+    lbl if_num_is_zero
+        call 23EC1      # er2 += 4, bl line_print.col_0
 
 lbl print_output
     xr0 = 0x0101, eval(adr(tilte) + dist.main)
@@ -233,18 +231,12 @@ lbl addr_calc_threshold
 lbl addr_calc_sum
     adr(calc_sum_w)
 
-lbl addr_var_n
-    adr(var_n)
-
 lbl addr_calc_sum_n
     adr(calc_sum_n)
 
-lbl addr_w_now
-    adr(w_now)
-
 lbl calc_y
-    'A / 2 - 1 0 0 * B'     # var_c
-    hex 00
+    'A / 2 - 0 1 0 0 * B'     # var_c
+    hex 00 
 
 lbl calc_threshold
     '3 3 3 3'       # var_d
@@ -254,17 +246,9 @@ lbl calc_sum_w
     'E + A'         # var_a
     hex 00
 
-lbl var_n
-    hex 00 00 00
-    # var_f
-
 lbl calc_sum_n
     'F + B'         # var_b
     hex 00
-
-lbl w_now
-    hex 00 00 00 00
-    # var_e
 
 lbl tilte
     "NEURAL NETWORK"

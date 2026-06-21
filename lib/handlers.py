@@ -382,7 +382,7 @@ def handle_assignment_command(line, program_iter):
         val = right
         loader.vars_dict[var_name] = val
         utils.note(f"Variable '{var_name}' set to {val}\n")
-    elif left.startswith("reg ") or re.match(r'^(r|er|xr|qr|ea)\d+$', left):
+    elif left.startswith("reg ") or re.match(r'^(?:ea|(r|er|xr|qr)\d+)$', left):
         register = left[4:].strip() if left.startswith("reg ") else left
         right = right.lower()
         new_right = []

@@ -1,9 +1,8 @@
 @section.main at 0xd730 backup 0xe9e0
 
 lbl main
-    setlr
+    setlr_pc
     setsfr
-    di,rt
     clear()
     smallprint(0x8,0x1,eval(adr(line_1)+dist.main))
     smallprint(0x8,0x9,eval(adr(line_2)+dist.main))
@@ -16,9 +15,8 @@ lbl main
     render()
     er0 = adr(key)
     getscancode
-    xr12=eval(adr(table_key) - 0xa), eval(adr(table_key) - 0xa)
+    ea = adr(table_key)
     setlr
-    call 17CA6
     pop er0
     lbl key
         0x0000
@@ -62,6 +60,7 @@ lbl key_write
     [er0] = r2,rt
 
 lbl key_loop
+    di,rt
     xr0 = 0xd630, 0xd184
     BL strcpy
     er6 = 0xd62e
@@ -105,3 +104,13 @@ lbl picture
         hex CD CD CD CD CD CD CD CD 00
 
 hex 00 00 00 00
+
+@section.launcher at 0xd180
+hex FD 24 
+hex 30 30
+setlr_pc
+xr0 = 0xd730, 0xe9e0        # dst, src
+call 09451
+hex fe 02       # size
+er14 = 0xd72e
+sp = er14, pop er14
