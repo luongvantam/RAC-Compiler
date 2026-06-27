@@ -51,3 +51,18 @@ lbl table
     eval(adr(key_2_func)-0x2)
     hex 00 00                   # else
     eval(adr(loop)-0x2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

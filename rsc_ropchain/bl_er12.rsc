@@ -21,7 +21,7 @@ lbl restore
     DI,RT
     pop xr4,pop xr12
     adr(main); pr_length
-    backup; eval(adr(main) - 0xC)
+    0xe630; eval(adr(main) - 0xC)
     memcpy_auto_jmp
 
 lbl out

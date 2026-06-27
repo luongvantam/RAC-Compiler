@@ -162,3 +162,4 @@ def safe_eval(expr_str, scope=None):
             raise TypeError(f"Unsupported syntax tree node: {type(node).__name__}")
 
     return eval_node(node)
+
