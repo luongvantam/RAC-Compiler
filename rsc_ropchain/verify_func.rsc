@@ -1,6 +1,6 @@
 org 0xe9e0
 
-var verify_func = call 0x13344
+def verify_func : 0x13344
 
 lbl main
     setlr

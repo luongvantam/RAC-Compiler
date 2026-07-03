@@ -1,4 +1,4 @@
-org 0xd730
+@section.main at 0xd730 backup 0xe9e0
 
 /*
 var_a = 0
@@ -6,8 +6,6 @@ var_b = 1
 var_c = 0
 var_x = n
 */
-
-dista = eval(0xe9e0-0xd730)
 
 lbl start
     setlr
@@ -56,30 +54,34 @@ lbl restore
 lbl addr_calc_a
     adr(calc_a)
 
-lbl calc_a
-    # A = B
-    hex 43 00
-
 lbl addr_calc_b
     adr(calc_b)
-
-lbl calc_b
-    # B = C
-    hex 44 00
 
 lbl addr_calc_c
     adr(calc_c)
 
-lbl calc_c
-    # C = A + B
-    hex 42 A6 43 00
-
 lbl addr_calc_x
     adr(calc_x)
 
+lbl calc_a
+    # A = B
+    'B'
+    hex 00
+
+lbl calc_b
+    # B = C
+    'C'
+    hex 00
+
+lbl calc_c
+    # C = A + B
+    'A + B'
+    hex 00
+
 lbl calc_x
-    # x = x - 1
-    hex 48 A7 31 00
+    # x -= 1
+    'x - 1'
+    hex 00
 
 lbl table
     eval(adr(restore) - 0x2)
@@ -88,16 +90,14 @@ lbl table
 lbl end
     hex 00 00 00 00
 
-/* launcher in 0xd180
-FD 24 30 30 
-A8 9F 30 30 
-E0 A0 30 30 
-34 7b 31 30 
-30 d7 
-e0 e9 
-51 94 30 30 
-FE 01
-78 5C 31 30 
-2e D7 
-60 0D 32 30
-*/
+
+@section.launcher at 0xd180
+
+hex fd 24 30 30
+setlr
+setsfr
+xr0 = 0xd730, 0xe9e0
+call 09451
+hex fe 01
+er14 = 0xd72e
+sp = er14, pop er14

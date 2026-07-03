@@ -736,6 +736,9 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif line.startswith('call'):
         handle_call_command(line)
 
+    elif line.startswith('def') or line.startswith('@def'):
+        handle_define_gadget_command(line)
+
     elif '=' in line:
         handle_assignment_command(line, program_iter)
 
@@ -763,9 +766,6 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
 
     elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in loader.vars_dict:
         handle_variable_expansion(line)
-
-    elif line.startswith('def') or line.startswith('@def'):
-        handle_define_gadget_command(line)
 
     elif line.startswith('pr_length'):
         handle_pr_length_command(line)

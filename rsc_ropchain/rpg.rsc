@@ -1,8 +1,8 @@
 # Source: Nguyen Minh Khang, edited by @luongvantam
 @section.main at 0xd730 backup 0xe9e0
 
-var buffer_to_input = call 0x27738
-var memcpy_auto_jump = call 0x2b2ba
+def buffer_to_input : 0x27738
+def memcpy_auto_jump : 0x2b2ba
 
 lbl program
     lbl print

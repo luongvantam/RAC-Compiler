@@ -1,6 +1,3 @@
 var a = True
 
-
 a
-
-

@@ -1,25 +1,32 @@
-org 0xd730
+@section.main at 0xd730
+def num_to_hex : 1ed58
 
-setlr
-di,rt
-xr0 = adr(addr_calc), adr(result)
-calc_func
-xr0 = adr(result), hex 30 30
-r0=[er0]
-r1=0,rt
+lbl main
+    setlr_pc
+    setsfr
+    xr0 = adr(addr_calc), var_a
+    calc_func
+    xr0 = var_a, adr(text)
+    num_to_hex
+    [er2] = r0, r2 = 0
+    xr0 = hex 01 01, adr(text)
+    line_print
+    render.ddd4
+    brk
 
-line_print(0x1, 0x1, adr(result))
-render()
-brk
+lbl text
+    hex 00 00 00 00
 
 lbl addr_calc
-    adr(calc)
+    adr(calcc)
 
-lbl calc
-    # 1 + 2
-    hex 31 A6 32
-
-lbl result
-    hex 00 00 00 00 00 00 00 00 00 00 00 00
+lbl calcc
+    '1 + 1'
+    hex 00
 
 
+@section.launcher at 0xd180
+
+hex fd 24
+adr(main, -0x2)
+sp = er14, pop er14

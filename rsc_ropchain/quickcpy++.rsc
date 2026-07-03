@@ -1,14 +1,11 @@
-.org 0xd630
-# backup at 0xd8a0
-
-dista = eval(0xd8a0-0xd630)
+@section.main at 0xd630 backup 0xd8a0
 
 lbl start
     hex 30 30 30 30       # xr4
     hex 30 80 30 02 2E D9 80 D1   # qr8
     mode_calc
     call 17502
-    eval(adr(addr_input) + dista); hex 30 30    # xr8
+    eval(adr(addr_input) + dist.main); hex 30 30    # xr8
     er2 = hex 60 00
     [er8]+=er2,pop xr8
     hex 30 30 c0 30
@@ -27,17 +24,14 @@ lbl restore
     hex 30 d6
 lbl end
 
-/*
-34 7b 31 30 
-11 D1 
-02 30 
-D2 03 32 30 
-34 7b 31 30 
-30 D6 
-A0 D8 
-62 0D 32 30 
-30 D6 
-E6 BF 
-30 30 
-5A 00
-*/
+
+@section.launcher at 0xd180
+
+repeat 48 { hex 30 }
+# mode 124an
+xr0 = 0xd111, hex 02 30
+[er0] = r2
+xr0 = 0xd630, 0xd8a0
+er14 = 0xd630
+call 0x0bfe6
+hex 5a 00
