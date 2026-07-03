@@ -14,29 +14,28 @@ if "%name%"=="" (
 )
 
 set "filepath=.\rsc_ropchain\%name%"
+if exist "%filepath%" goto :run_python
+if exist "%filepath%.rsc" set "name=%name%.rsc" & goto :run_python
+if exist "%filepath%.asm" set "name=%name%.asm" & goto :run_python
 
-if exist "%filepath%" (
-    goto :found
-)
-
-if exist "%filepath%.rsc" (
-    set "name=%name%.rsc"
-    goto :found
-)
+set "filepath=.\asm_ropchain\%name%"
+if exist "%filepath%" goto :run_python
+if exist "%filepath%.rsc" set "name=%name%.rsc" & goto :run_python
+if exist "%filepath%.asm" set "name=%name%.asm" & goto :run_python
 
 cls
-echo Error: File "%name%" or "%name%.rsc" not found in .\rsc_ropchain\
+echo Error: File "%name%" not found in .\rsc_ropchain\ or .\asm_ropchain\
 echo Please double-check the filename.
 echo.
 pause
 goto :loop
 
-:found
+:run_python
 set "last_name=%name%"
 
 cls
 echo Compiling: %name%...
-python run.py 580vnx ".\rsc_ropchain\%name%"
+python lib\main.py 580vnx "%name%"
 
 echo.
 echo ===================================================

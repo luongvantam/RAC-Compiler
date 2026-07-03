@@ -20,15 +20,21 @@ while true; do
         exit 0
     fi
 
-    filepath="./rsc_ropchain/$name"
-
-    if [ -f "$filepath" ]; then
+    if [ -f "./rsc_ropchain/$name" ]; then
         :
-    elif [ -f "$filepath.rsc" ]; then
+    elif [ -f "./rsc_ropchain/$name.rsc" ]; then
         name="$name.rsc"
+    elif [ -f "./rsc_ropchain/$name.asm" ]; then
+        name="$name.asm"
+    elif [ -f "./asm_ropchain/$name" ]; then
+        :
+    elif [ -f "./asm_ropchain/$name.rsc" ]; then
+        name="$name.rsc"
+    elif [ -f "./asm_ropchain/$name.asm" ]; then
+        name="$name.asm"
     else
         clear
-        printf "Error: File '%s' or '%s.rsc' not found in ./rsc_ropchain/\n" "$name" "$name"
+        printf "Error: File '%s' not found in ./rsc_ropchain/ or ./asm_ropchain/\n" "$name"
         printf "Please double-check the filename.\n\n"
         read -n 1 -s -r -p "Press any key to continue..."
         continue
@@ -39,7 +45,7 @@ while true; do
 
     clear
     printf "Compiling %s...\n\n" "$name"
-    python3 run.py 580vnx "./rsc_ropchain/$name"
+    python3 lib/main.py 580vnx "$name"
 
     printf "\n===================================================\n"
     printf "Done! Press any key to try another file...\n"

@@ -1,794 +1,336 @@
 import re
-from .utils import to_lowercase
-from . import utils
-from . import loader
-from .loader import sizeof_register, max_call_adr
-def process_line(line, program_iter=None):
-    from .engine import process_line as _process_line
-    return _process_line(line, program_iter)
-from .hex_mapping import char_to_hex, token_to_hex
+import utils
+import loader
+from loader import sizeof_register, max_call_adr, char_to_hex, token_to_hex
 
 sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
 
+def process_line(line, program_iter=None):
+    from engine import process_line as _process_line
+    return _process_line(line, program_iter)
+
 def handle_label_definition(line):
-    """
-    Syntax: lbl <label> or <label>:
-    Special: If the label is 'home', it specifies the point to
-    start program execution. By default it's at the begin.
-    """
-    label = to_lowercase(line.strip()[4:].strip()) if line.strip().lower().startswith('lbl ') else to_lowercase(line.strip()[:-1].strip())
+    line_str = line.strip()
+    label = line_str[4:].strip().lower() if line_str.lower().startswith('lbl ') else line_str[:-1].strip().lower()
     assert label not in loader.labels, f'Duplicate label: {label}'
     loader.labels[label] = len(loader.result)
-    
+
 def collect_block_body(first_line_rest, program_iter, line_num=None):
-    """
-    Given the rest of the first line (after '{') and the program iterator,
-    collects and returns the block body as a list of lines/items.
-    Also returns whether the block was successfully matched/closed inline.
-    """
     if '}' in first_line_rest:
         content = first_line_rest[:first_line_rest.rfind('}')].strip()
-        body_items = []
-        if content:
-            if line_num is not None:
-                body_items = [(line_num, content)]
-            else:
-                body_items = [content]
-        return body_items, True
+        return ([(line_num, content)] if content and line_num is not None else [content] if content else []), True
 
-    body_items = []
-    depth = 1
-    if program_iter is None:
-        raise ValueError("Block requires an iterator to read multiple lines")
+    body_items, depth = [], 1
+    if program_iter is None: raise ValueError("Block requires an iterator")
         
     for item in program_iter:
-        if isinstance(item, tuple) and len(item) == 2:
-            _, raw_line = item
-            content = raw_line
-        elif isinstance(item, dict):
-            content = item["exec"]
-        elif isinstance(item, str):
-            content = item
-        else:
-            content = str(item)
+        ln, content = item if isinstance(item, tuple) and len(item) == 2 else (None, item.get("exec") if isinstance(item, dict) else str(item))
+        content_strip = content.strip()
+        if not content_strip: continue
             
-        content_strip = content.split('---')[0].strip()
-        if not content_strip:
-            continue
-            
-        open_count = content_strip.count('{')
-        close_count = content_strip.count('}')
-        depth += open_count
-        depth -= close_count
-        
+        depth += content_strip.count('{') - content_strip.count('}')
         if depth <= 0:
             if '}' in content_strip:
                 before_close = content_strip[:content_strip.find('}')].strip()
                 if before_close:
                     if isinstance(item, dict):
-                        dummy = item.copy()
-                        dummy["exec"] = before_close
-                        body_items.append(dummy)
-                    elif isinstance(item, tuple):
-                        body_items.append((item[0], before_close))
-                    else:
-                        body_items.append(before_close)
+                        d = item.copy()
+                        d["exec"] = before_close
+                        body_items.append(d)
+                    else: body_items.append((ln, before_close) if ln is not None else before_close)
             break
-            
         body_items.append(item)
-        
     return body_items, False
 
 def handle_function_definition(line, program_iter):
     m = re.match(r'func\s+(\w+)\s*\((.*?)\)\s*\{', line.strip())
-    if not m:
-        raise ValueError(f"Invalid func definition syntax: {line}")
-    func_name = m.group(1)
-    args_str = m.group(2).strip()
-    func_args = [arg.strip() for arg in args_str.split(',')] if args_str else []
+    if not m: raise ValueError(f"Invalid func syntax: {line}")
+    func_name, args_str = m.group(1), m.group(2).strip()
     
     line_num = getattr(loader, 'current_line_num', None)
-    rest = line[m.end():].strip()
-    body_items, _ = collect_block_body(rest, program_iter, line_num)
+    body_items, _ = collect_block_body(line[m.end():].strip(), program_iter, line_num)
     
-    body = []
-    has_return = False
-    return_expr = None
-    
+    body, return_expr = [], None
     for item in body_items:
-        if isinstance(item, tuple) and len(item) == 2:
-            body_line_num, content = item
-        elif isinstance(item, dict):
-            body_line_num = item["num"]
-            content = item["exec"]
-        elif isinstance(item, str):
-            body_line_num = line_num
-            content = item
-        else:
-            body_line_num = line_num
-            content = str(item)
-            
-        stripped = content.split('---')[0].strip()
-        if not stripped:
-            continue
-            
+        b_ln, content = item if isinstance(item, tuple) and len(item) == 2 else (item.get("num"), item.get("exec")) if isinstance(item, dict) else (line_num, str(item))
+        stripped = content.strip()
+        if not stripped: continue
         if stripped.startswith('return '):
-            if has_return:
-                raise ValueError(f"Function {func_name} has multiple return statements")
-            has_return = True
+            if return_expr is not None: raise ValueError(f"Multiple returns in {func_name}")
             return_expr = stripped[7:].strip()
         else:
-            body.append((body_line_num, stripped))
+            body.append((b_ln, stripped))
             
-    if has_return:
-        if len(body) > 0:
-            raise ValueError(f"Function {func_name} with return statement must ONLY contain the return statement")
-        loader.defined_functions[func_name] = {"args": func_args,"return_expr": return_expr}
-    else:
-        loader.defined_functions[func_name] = {"args": func_args,"body": body}
+    if return_expr is not None and body: raise ValueError(f"Function {func_name} with return must ONLY contain return")
+    loader.defined_functions[func_name] = {"args": [a.strip() for a in args_str.split(',')] if args_str else [], **({"return_expr": return_expr} if return_expr is not None else {"body": body})}
 
 def handle_repeat_command(line, program_iter):
-    """Syntax:
-    repeat <expr> { ... }
-    loop <expr> { ... }
-    """
     m = re.match(r'(?:repeat|loop)\s+(.+?)\s*\{', line.strip())
-    if not m:
-        raise ValueError(f"Invalid repeat syntax: {line}")
-    count_expr = m.group(1).strip()
-    try:
-        eval_scope = loader.vars_dict.copy()
-        count = utils.safe_eval(count_expr, eval_scope)
-        count = int(count)
-    except Exception as e:
-        raise ValueError(f"Error evaluating repeat count '{count_expr}': {e}")
+    if not m: raise ValueError(f"Invalid repeat syntax: {line}")
+    try: count = int(utils.safe_eval(m.group(1).strip(), loader.vars_dict.copy()))
+    except Exception as e: raise ValueError(f"Error eval repeat count '{m.group(1)}': {e}")
         
-    line_num = getattr(loader, 'current_exec_info', {}).get('num', None)
-    rest = line[m.end():].strip()
-    body_items, _ = collect_block_body(rest, program_iter, line_num)
+    line_num = getattr(loader, 'current_exec_info', {}).get('num')
+    body_items, _ = collect_block_body(line[m.end():].strip(), program_iter, line_num)
     
     for _ in range(count):
-        body_iter = iter(body_items)
-        for item in body_iter:
+        b_iter = iter(body_items)
+        for item in b_iter:
             if isinstance(item, dict):
-                loader.current_exec_info = {
-                    "line": item["exec"],
-                    "raw": item["raw"],
-                    "num": item["num"],
-                    "ctx": item.get("ctx", "")
-                }
-                line_to_proc = item["exec"]
+                loader.current_exec_info = {"line": item["exec"], "raw": item.get("raw", ""), "num": item.get("num"), "ctx": item.get("ctx", "")}
+                process_line(item["exec"], b_iter)
             elif isinstance(item, tuple) and len(item) == 2:
-                line_num_val, raw_line = item
-                loader.current_exec_info = {
-                    "line": raw_line,
-                    "raw": raw_line,
-                    "num": line_num_val,
-                    "ctx": ""
-                }
-                line_to_proc = raw_line
-            elif isinstance(item, str):
-                line_to_proc = item
+                loader.current_exec_info = {"line": item[1], "raw": item[1], "num": item[0], "ctx": ""}
+                process_line(item[1], b_iter)
             else:
-                line_to_proc = str(item)
-            process_line(line_to_proc, body_iter)
+                process_line(str(item), b_iter)
 
 def handle_eval_expression(line):
     expr = line[5:-1].strip()
-    expr = re.sub(r'\bpr_length\b', 'sizeof()', expr)
-    expanded_expr = expr
+    expanded_expr = re.sub(r'\bpr_length\b', 'sizeof()', expr)
     
     if loader.vars_dict:
-        pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in loader.vars_dict) + r')\b')
-        expanded_expr = pattern.sub(lambda m: str(loader.vars_dict[m.group(1)]), expanded_expr)
+        pat = re.compile(r'\b(' + '|'.join(re.escape(k) for k in loader.vars_dict) + r')\b')
+        expanded_expr = pat.sub(lambda m: str(loader.vars_dict[m.group(1)]), expanded_expr)
 
-    def repl_dist(match):
-        name = match.group(1)
-        return f'dist("{name}")'
+    expanded_expr = re.sub(r'\bdist\.(\w+)\b', r'dist("\1")', expanded_expr)
+    expanded_expr = re.sub(r'\bsizeof\((.*?)\)', lambda m: f'sizeof("{m.group(1).strip()}")', expanded_expr)
 
-    expanded_expr = re.sub(r'\bdist\.(\w+)\b', repl_dist, expanded_expr)
+    eval_scope = {'pr_length': len(loader.result), **loader.vars_dict}
 
-    def repl_sizeof(match):
-        name = match.group(1).strip()
-        return f'sizeof("{name}")'
-
-    expanded_expr = re.sub(r'\bsizeof\((.*?)\)', repl_sizeof, expanded_expr)
-
-    def eval_nested(s, eval_scope):
-        pattern = re.compile(r'\beval\(([^()]*(?:\([^()]*\)[^()]*)*)\)')
+    def eval_nested(s):
         while 'eval(' in s:
-            matches = list(pattern.finditer(s))
-            if not matches:
-                break
-            for m in reversed(matches):
-                inner = m.group(1)
-                inner_result = eval_nested(inner.strip(), eval_scope)
-
-                if 'adr(' in inner_result:
-                    replacement = f'({inner_result})'
-                    s = s[:m.start()] + replacement + s[m.end():]
-                    continue
-                try:
-                    val = utils.safe_eval(inner_result, eval_scope)
-                except Exception as e:
-                    raise ValueError(f"Eval error in nested eval('{inner}') (expanded: '{inner_result}'): {e}")
-                if isinstance(val, int):
-                    val_str = str(val)
-                elif isinstance(val, str):
-                    val_str = repr(val)
-                elif isinstance(val, list) and val:
-                    val_str = str(val[0])
-                else:
-                    raise ValueError(f"Unsupported nested eval result type: {type(val)}")
-                s = s[:m.start()] + val_str + s[m.end():]
+            s_old = s
+            for m in reversed(list(re.finditer(r'\beval\(([^()]*(?:\([^()]*\)[^()]*)*)\)', s))):
+                inner = m.group(1).strip()
+                inner_res = eval_nested(inner)
+                if 'adr(' in inner_res: s = s[:m.start()] + f"({inner_res})" + s[m.end():]
+                else: s = s[:m.start()] + str(utils.safe_eval(inner_res, eval_scope) if type(utils.safe_eval(inner_res, eval_scope)) is not list else utils.safe_eval(inner_res, eval_scope)[0]) + s[m.end():]
+            if s == s_old: break
         return s
-
-    eval_scope = {}
-    eval_scope['pr_length'] = len(loader.result)
-    for k, v in loader.vars_dict.items():
-        eval_scope[k] = v
         
-    expanded_expr = eval_nested(expanded_expr, eval_scope)
+    expanded_expr = eval_nested(expanded_expr)
     
     if 'adr(' in expanded_expr or 'sizeof(' in expr or 'dist.' in expr:
         loader.deferred_evals.append((len(loader.result), expanded_expr))
         loader.result.extend((0, 0))
         return
         
-    eval_scope = {}
-    eval_scope['pr_length'] = len(loader.result)
-    try:
-        val = utils.safe_eval(expanded_expr, eval_scope)
-    except Exception as e:
-        raise ValueError(f"Eval error in '{expr}' (expanded: '{expanded_expr}'): {e}")
-        
-    if isinstance(val, int) or isinstance(val, list):
-        max_len = 2
-        matches = re.findall(r'\b0x([0-9a-fA-F]+)\b', expanded_expr)
-        if matches:
-            for m in matches:
-                length = len(m)
-                if length % 2 != 0:
-                    length += 1
-                if length > max_len:
-                    max_len = length
-        
-        if isinstance(val, int):
-            process_line(f'0x{val:0{max_len}x}')
-        else:
-            for item in val:
-                if isinstance(item, int):
-                    process_line(f'0x{item:0{max_len}x}')
-                elif isinstance(item, str):
-                    process_line(f'"{item}"')
+    val = utils.safe_eval(expanded_expr, eval_scope)
+    
+    if isinstance(val, (int, list)):
+        max_len = max([2] + [(len(m) + len(m)%2) for m in re.findall(r'\b0x([0-9a-fA-F]+)\b', expanded_expr)])
+        for item in (val if isinstance(val, list) else [val]):
+            process_line(f'0x{item:0{max_len}x}' if isinstance(item, int) else f'"{item}"')
     elif isinstance(val, str):
         process_line(f'"{val}"')
-    else:
-        raise ValueError(f"Unsupported eval result type: {type(val)}")
+    else: raise ValueError(f"Unsupported eval type: {type(val)}")
 
 def handle_list_command(line, program_iter):
-    if line.startswith('['):
-        content = line[1:]
-        if ']' in content:
-            content = content.split(']')[0]
-        else:
-            parts = [content]
-            for item in program_iter:
-                current = item[1] if isinstance(item, tuple) else item.get("exec") if isinstance(item, dict) else str(item)
-                s = current.strip()
-                if not s:
-                    continue
-                if ']' in s:
-                    parts.append(s.split(']')[0])
-                    break
-                parts.append(s)
-            content = "\n".join(parts)
-        line = content.replace('\n', ';')
-        process_line(line)
+    content = line[1:]
+    parts = [content.split(']')[0]] if ']' in content else [content] + [s.split(']')[0] if ']' in s else s for s in (item[1].strip() if isinstance(item, tuple) else item.get("exec", "").strip() if isinstance(item, dict) else str(item).strip() for item in program_iter) if s]
+    process_line("\n".join(parts).replace('\n', ';'))
 
 def handle_hex_data(line):
-    """Syntax: 
-        0x<hex_digits>
-        hex <hex_digits_reversed>
-    """
     if line.startswith('0x'):
-        hex_str = line[2:]
-        if len(hex_str) % 2 != 0:
-            hex_str = '0' + hex_str
-        n_byte = len(hex_str) // 2
-        data = int(hex_str, 16)
-        for _ in range(n_byte):
-            loader.result.append(data & 0xFF)
-            data >>= 8
-    elif line.startswith('hex'):
-        data_str = line[3:].strip()
-        assert len(data_str.replace(" ", "")) % 2 == 0, f'Invalid data length'
-        data_bytes = bytes.fromhex(data_str)
-        loader.result.extend(data_bytes)
+        h = line[2:]
+        if len(h) % 2: h = '0' + h
+        val = int(h, 16)
+        for _ in range(len(h) // 2):
+            loader.result.append(val & 0xFF)
+            val >>= 8
+    else:
+        loader.result.extend(bytes.fromhex(line[3:].strip()))
 
 def handle_call_command(line):
-    """Syntax: `call <address>` or `call <built-in>`."""
-    try:
-        adr = int(line[4:], 16)
+    cmd = line[4:].strip()
+    try: adr = int(cmd, 16)
     except ValueError:
-        func_name = line[4:].strip()
-        adr, tags = loader.commands[func_name]
-        for tag in tags:
-            if tag.startswith('warning'):
-                utils.note(tag + '\n')
-
+        adr, tags = loader.commands[cmd]
+        for t in tags: 
+            if t.startswith('warning'): utils.note(t + '\n')
+            
     assert 0 <= adr <= max_call_adr, f'Invalid address: {adr}'
-    try:
-        input_range = loader.datalabels['input_range'] if 'input_range' in loader.datalabels else loader.datalabels['input_area']
-        if loader.home >= input_range and loader.home < input_range + 0xc8:
-            process_line(f'0x{adr + 0x30300000:0{8}x}')
-        else:
-            process_line(f'0x{adr + 0x00000000:0{8}x}')
-    except TypeError:
-        process_line(f'0x{adr + 0x30300000:0{8}x}')
+    try: irange = loader.datalabels['input_range'] if 'input_range' in loader.datalabels else loader.datalabels['input_area']
+    except Exception: irange = -1
+    
+    process_line(f'0x{adr + (0x30300000 if loader.home and irange <= loader.home < irange + 0xc8 else 0):08x}')
 
 def handle_goto_command(line):
-    """Syntax: 
-        goto <label>
-        goto_er14 <label>
-        goto_er6 <label>
-    """
-    if line.startswith('goto_er14'):
-        label = to_lowercase(line[9:])
-        process_line(f'er14 = eval(adr({label}) - 0x02);call sp=er14,pop er14')
-    elif line.startswith('goto_er6'):
-        label = to_lowercase(line[8:])
-        process_line(f'er6 = eval(adr({label}) - 0x02);call sp=er6,pop er8')
-    else:
-        label = to_lowercase(line[4:])
-        process_line(f'er14 = eval(adr({label}) - 0x02);call sp=er14,pop er14')
+    lbl = line.split(maxsplit=1)[1].lower()
+    reg = 'er6' if line.startswith('goto_er6') else 'er14'
+    process_line(f'{reg} = eval(adr({lbl}) - 0x02);call sp={reg},pop {"er8" if reg=="er6" else reg}')
 
 def handle_address_command(line):
-    line_strip = line.strip()
-    if not (line_strip.startswith('adr(') and line_strip.endswith(')')):
-        raise ValueError(f"Unrecognized adr command: {line}")
-        
-    inner_content = line_strip[4:-1].strip()
-    parts = [p.strip() for p in inner_content.split(',')]
+    inner = line.strip()[4:-1].strip()
+    parts = [p.strip() for p in inner.split(',')]
+    if not parts or not parts[0] or len(parts) > 3: raise ValueError(f"Invalid adr syntax: {line}")
     
-    if not parts or not parts[0]:
-        raise ValueError(f"Invalid adr(...) syntax: {line}")
-        
-    label_name = parts[0]
-    expr_parts = [f'adr("{label_name}")']
-    
-    if len(parts) > 1 and parts[1]:
-        offset = parts[1].replace(" ", "")
-        if not offset.startswith('+') and not offset.startswith('-'):
-            offset = '+' + offset
-        expr_parts.append(offset)
-        
+    expr = [f'adr("{parts[0]}")']
+    if len(parts) > 1 and parts[1]: expr.append(parts[1] if parts[1].startswith(('+','-')) else '+' + parts[1].replace(" ",""))
     if len(parts) > 2 and parts[2]:
-        base_addr = parts[2].replace(" ", "")
-        base_val = int(base_addr, 0)
-        current_home = loader.home or 0
-        diff = base_val - current_home
-        if diff >= 0:
-            expr_parts.append(f'+{diff}')
-        else:
-            expr_parts.append(str(diff))
-            
-    if len(parts) > 3:
-        raise ValueError(f"Invalid adr(...) syntax: {line}")
-
-    if len(expr_parts) == 1:
-        loader.deferred_evals.append((len(loader.result), expr_parts[0]))
+        diff = int(parts[2].replace(" ",""), 0) - (loader.home or 0)
+        expr.append(f'+{diff}' if diff >= 0 else str(diff))
+        
+    if len(expr) == 1:
+        loader.deferred_evals.append((len(loader.result), expr[0]))
         loader.result.extend((0, 0))
-    else:
-        process_line(f'eval({" ".join(expr_parts)})')
-
-def handle_data_label(line):
-    """`<label>`."""
-    line = loader.datalabels[line.strip()]
-    process_line(f'0x{line:x}')
-
-def handle_builtin_command(line):
-    """`<built-in>`. Equivalent to `call <built-in>`."""
-    line = to_lowercase(line)
-    process_line('call ' + line)
+    else: process_line(f'eval({" ".join(expr)})')
 
 def handle_define_gadget_command(line):
-    line = line[3:].strip()
-    i = line.index(':')
-    command, address_str = line[:i].strip(), line[i+1:].strip()
-    
-    command = utils.canonicalize(command)
-    command = to_lowercase(command)
-
+    cmd, addr_str = [x.strip() for x in line[3:].strip().split(':', 1)]
+    cmd = utils.canonicalize(cmd).lower()
     tags = []
-    while command and command[0] == '{':
-        j = command.find('}')
-        if j < 0:
-            raise Exception(f'Unmatched "{{" in inline def command: {line}')
-        tags.append(command[1:j])
-        command = command[j + 1:].strip()
-
-    address = int(address_str, 16)
-    loader.add_command(loader.commands, address, command, tags, 'inline def')
-    utils.note(f"Gadget {command} is {hex(address)}\n")
+    while cmd.startswith('{'):
+        end = cmd.find('}')
+        if end < 0: raise Exception(f'Unmatched "{{" in inline def command: {line}')
+        tags.append(cmd[1:end])
+        cmd = cmd[end+1:].strip()
+    
+    loader.add_command(loader.commands, int(addr_str, 16), cmd, tags, 'inline def')
+    utils.note(f"Gadget {cmd} is {addr_str}\n")
 
 def handle_assignment_command(line, program_iter):
-    i = line.index('=')
-    left, right = line[:i].strip(), line[i+1:].strip()
+    l, r = [x.strip() for x in line.split('=', 1)]
     
-    m_func = re.match(r'^(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)$', right)
+    m_func = re.match(r'^(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)$', r)
     if m_func and m_func.group(1) in getattr(loader, 'defined_functions', {}):
-        called_func_name = m_func.group(1)
-        func = loader.defined_functions[called_func_name]
-        
-        if "return_expr" not in func:
-            raise ValueError(f"Function {called_func_name} does not have a return statement, so it cannot be assigned.")
-            
-        call_args_str = m_func.group(2)
-        call_args = re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', call_args_str)
-        call_args = [arg.strip() for arg in call_args]
-        if call_args == [''] and not call_args_str: call_args = []
+        f = loader.defined_functions[m_func.group(1)]
+        if "return_expr" not in f: raise ValueError(f"Func {m_func.group(1)} cannot be assigned (no return)")
+        args = [a.strip() for a in re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', m_func.group(2))]
+        if args == [''] and not m_func.group(2): args = []
+        if len(args) != len(f["args"]): raise ValueError(f"Args mismatch in {r}")
+        r = f["return_expr"]
+        for p, a in zip(f["args"], args): r = re.sub(r'\b' + re.escape(p) + r'\b', a, r)
 
-        if len(call_args) != len(func["args"]):
-            raise ValueError(f"Error calling function {right}: args mismatch")
+    if r.startswith('['):
+        parts = [r[1:].split(']')[0]] if ']' in r[1:] else [r[1:]] + [s.split(']')[0] if ']' in s else s for s in (i[1] if isinstance(i, tuple) else i.get("exec", "") if isinstance(i, dict) else str(i) for i in program_iter) if s]
+        r = "\n".join(parts).replace('\n', ';')
 
-        ret_expr = func["return_expr"]
-        for param, arg in zip(func["args"], call_args):
-            ret_expr = re.sub(r'\b' + re.escape(param) + r'\b', arg, ret_expr)
-            
-        right = ret_expr
-    
-    if right.startswith('['):
-        content = right[1:]
-        if ']' in content:
-            content = content.split(']')[0]
-        else:
-            parts = [content] if content.strip() else []
-            for item in program_iter:
-                current = item[1] if isinstance(item, tuple) else item.get("exec") if isinstance(item, dict) else str(item)
-                s = current.strip()
-                if not s:
-                    continue
-                if ']' in s:
-                    parts.append(s.split(']')[0])
-                    break
-                parts.append(s)
-            content = "\n".join(parts)
-        right = content.replace('\n', ';')
-
-    if left.startswith("var "):
-        var_name = left[4:].strip()
-        val = right
-        loader.vars_dict[var_name] = val
-        utils.note(f"Variable '{var_name}' set to {val}\n")
-    elif left.startswith("reg ") or re.match(r'^(?:ea|(r|er|xr|qr)\d+)$', left):
-        register = left[4:].strip() if left.startswith("reg ") else left
-        right = right.lower()
-        new_right = []
-        paren_balance = 0
-        for char in right:
-            if char == '(':paren_balance += 1
-            elif char == ')':paren_balance -= 1
-            if char == ',' and paren_balance == 0:new_right.append(';')
-            else:new_right.append(char)
-        value = "".join(new_right)
-        process_line(f'call pop {register}')
+    if l.startswith("var "):
+        loader.vars_dict[l[4:].strip()] = r
+        utils.note(f"Variable '{l[4:].strip()}' set to {r}\n")
+    elif l.startswith("reg ") or re.match(r'^(?:ea|(r|er|xr|qr)\d+)$', l):
+        reg = l[4:].strip() if l.startswith("reg ") else l
+        paren_balance, new_right = 0, []
+        for char in r.lower():
+            if char == '(': paren_balance += 1
+            elif char == ')': paren_balance -= 1
+            new_right.append(';' if char == ',' and paren_balance == 0 else char)
+        process_line(f'call pop {reg}')
         l1 = len(loader.result)
-        process_line(value)
-        assert len(loader.result) - l1 == sizeof_register(register), f'Line {line!r} source/destination target mismatches'
-    elif left.startswith("lbl "):
-        process_line(left)
-        process_line(right)
+        process_line("".join(new_right))
+        assert len(loader.result) - l1 == sizeof_register(reg), f'Line {line!r} source/dest target mismatches'
+    elif l.startswith("lbl "):
+        process_line(l)
+        process_line(r)
     else:
-        val = right
-        loader.vars_dict[left] = val
-        utils.note(f"Variable '{left}' set to {val}\n")
-
-def resolve_index(value, index):
-    value = str(value).strip()
-    if value.startswith('"') and value.endswith('"'):
-        inner = value[1:-1]
-        return f'"{inner[index]}"' if 0 <= index < len(inner) else ''
-    if ';' in value:
-        items = [x.strip() for x in value.split(';') if x.strip()]
-        return items[index] if 0 <= index < len(items) else ''
-    return value
+        loader.vars_dict[l] = r
+        utils.note(f"Variable '{l}' set to {r}\n")
 
 def handle_variable_expansion(line):
-    if not loader.vars_dict:
-        process_line(line)
-        return
-    expanded = line
-    def replace_index(match):
-        var_name = match.group(1)
-        index = int(match.group(2))
-        if var_name in loader.vars_dict:
-            return str(resolve_index(loader.vars_dict[var_name], index))
-        return match.group(0)
-    
-    keys_pattern = '|'.join(re.escape(k) for k in loader.vars_dict)
-    expanded = re.sub(r'\b(' + keys_pattern + r')\[(\d+)\]', replace_index, expanded)
-    
-    def replace_var(match):
-        return str(loader.vars_dict[match.group(1)])
-        
-    expanded = re.sub(r'\b(' + keys_pattern + r')\b', replace_var, expanded)
-    process_line(expanded)
-
-def handle_org_command(line):
-    ''' Syntax: `org <expr>`
-    Specify the address of this location after mapping.
-    Only use this for loader mode.
-    '''
-    hx = utils.safe_eval(line[3:])
-    new_home = hx - len(loader.result)
-    assert loader.home is None or loader.home == new_home, 'Inconsistent value of `home`'
-    loader.home = new_home
-
-def handle_backup_command(line):
-    """Syntax: backup <expr>"""
-    expr = line[6:].strip()
-    try:
-        val = utils.safe_eval(expr)
-        if not isinstance(val, int):
-             raise ValueError(f"Backup address must evaluate to an integer, got {type(val)}")
-        loader.backup_address = val
-    except Exception as e:
-        raise ValueError(f"Error evaluating backup address '{expr}': {e}")
-
-def handle_pr_length_command(line):
-    ''' Syntax: `pr_length`
-    Defers the calculation of the program length until the end of processing.
-    '''
-    handle_sizeof_command("sizeof()")
-
-def handle_sizeof_command(line):
-    """Syntax: sizeof(<section>) or sizeof()"""
-    m = re.match(r'^sizeof\((.*?)\)$', line.strip())
-    if not m:
-        raise ValueError(f"Invalid sizeof syntax: {line}")
-    sec_name = m.group(1).strip()
-    if not sec_name:
-        sec_name = getattr(loader, 'current_section_name', None)
-    
-    loader.sizeof_cmds.append((len(loader.result), sec_name))
-    loader.result.extend((0, 0))
+    if not loader.vars_dict: return process_line(line)
+    def repl(m):
+        v, idx = m.group(1), m.group(2) if len(m.groups()) > 1 else None
+        val = str(loader.vars_dict[v])
+        if idx is not None:
+            i = int(idx)
+            if val.startswith('"') and val.endswith('"'): return f'"{val[1:-1][i]}"' if 0 <= i < len(val)-2 else ''
+            if ';' in val: items = [x.strip() for x in val.split(';') if x.strip()]; return items[i] if 0 <= i < len(items) else ''
+        return val
+    pat = r'\b(' + '|'.join(re.escape(k) for k in loader.vars_dict) + r')(?:\s*\[(\d+)\])?\b'
+    process_line(re.sub(pat, repl, line))
 
 def handle_string_command(line):
-    line_strip = line.strip()
-    match = re.search(r'"(.*)"', line_strip)
-    if not match:
-        return
-    content = match.group(1)
-    def replace_calc(m):
-        return process_line(f"eval({m.group(1)})") or ''
-    content = re.sub(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', replace_calc, content)
-    content = content.encode("latin1").decode("utf-8")
-    utils.note(f"Processing string: {content.replace('~', ' ')}\n")
-    processed_text = re.sub(r"\s", "~", content)
-    for c in processed_text:
+    m = re.search(r'"(.*)"', line.strip())
+    if not m: return
+    content = re.sub(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', lambda x: process_line(f"eval({x.group(1)})") or '', m.group(1))
+    for c in re.sub(r"\s", "~", content.encode("latin1").decode("utf-8")):
         try:
-            hex_val = char_to_hex[c]
-            if len(hex_val) == 2:
-                loader.result.append(int(hex_val, 16))
-            elif len(hex_val) == 4:
-                loader.result.extend([int(hex_val[:2], 16), int(hex_val[2:], 16)])
-        except KeyError:
-            raise ValueError(f"Character '{c}' not found in conversion table")
-        
+            hx = char_to_hex[c]
+            if len(hx) == 2: loader.result.append(int(hx, 16))
+            else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
+        except KeyError: raise ValueError(f"Char '{c}' not found")
+
 def handle_token_literal(line):
-    content = line[1:-1].strip()
-    content = content.replace(" ", "")
-    utils.note(f"Processing token sequence: {content}\n")
-    tokens = []
+    content = line.strip()[1:-1].replace(" ", "")
     i = 0
     while i < len(content):
         for t in sorted_tokens:
             if content.startswith(t, i):
-                tokens.append(t)
+                hx = token_to_hex[t]
+                if len(hx) == 2: loader.result.append(int(hx, 16))
+                else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
                 i += len(t)
                 break
         else:
-            tokens.append(content[i])
+            hx = token_to_hex.get(content[i])
+            if not hx: raise ValueError(f"Unknown token: {content[i]}")
+            if len(hx) == 2: loader.result.append(int(hx, 16))
+            else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
             i += 1
-    for t in tokens:
-        if t in token_to_hex:
-            hex_val = token_to_hex[t]
-
-            if len(hex_val) == 2:
-                loader.result.append(int(hex_val, 16))
-            elif len(hex_val) == 4:
-                loader.result.extend([
-                    int(hex_val[:2], 16),
-                    int(hex_val[2:], 16)
-                ])
-        else:
-            raise ValueError(f"Unknown token/char: {t}")
 
 def handle_adr_of_hd_command(line):
-    line_strip = line.strip()
-    if not line_strip.startswith('adr_of'):
-        raise ValueError(f"Unrecognized adr_of command: {line}")
-    content = line_strip[6:].strip()
-    match = re.match(r'^(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$', content)
-    if not match:
-        raise ValueError(f"Invalid adr_of syntax: {line}")
-    offset_part = match.group(1)
-    base_address = match.group(2)
-    label_name = match.group(3)
-    offset_part = "+ 0" if offset_part is None else offset_part.strip()
-    if base_address is not None:
-        expr = f'adr({label_name}, {offset_part}, {base_address})'
-    else:
-        expr = f'adr({label_name}, {offset_part})'
-    process_line(expr)
+    m = re.match(r'^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$', line.strip())
+    if not m: raise ValueError(f"Invalid adr_of syntax: {line}")
+    offset, base, lbl = m.group(1) or "+ 0", m.group(2), m.group(3)
+    process_line(f'adr({lbl}, {offset.strip()}{f", {base}" if base else ""})')
 
 def handle_adr_arith_hd_command(line):
-    line_strip = line.strip()
-    if not line_strip.startswith('adr_arith'):
-        raise ValueError(f"Unrecognized adr_arith command: {line}")
-    content = line_strip[9:].strip()
-    content = re.sub(r'\badr_arith\b', '', content).strip()
-    pattern = r'(?:\[([^\]]+)\])?\s*([a-zA-Z_]\w*)'
-    pairs = re.findall(pattern, content)
-    operators = re.findall(r'\]\s*([+-])\s*(?:\[|\w)|(?:\s|[a-zA-Z_]\w*)\s*([+-])\s*(?:\[|[a-zA-Z_]\w*)', content)
-    operators = [op[0] or op[1] for op in operators]
-    if not pairs or (len(pairs) - 1 != len(operators)):
-        raise ValueError(f"Invalid adr_arith syntax: {line}")
+    content = line.strip()[9:].strip()
+    pairs = re.findall(r'(?:\[([^\]]+)\])?\s*([a-zA-Z_]\w*)', content)
+    ops = [o[0] or o[1] for o in re.findall(r'\]\s*([+-])\s*(?:\[|\w)|(?:\s|[a-zA-Z_]\w*)\s*([+-])\s*(?:\[|[a-zA-Z_]\w*)', content)]
+    if not pairs or len(pairs)-1 != len(ops): raise ValueError(f"Invalid adr_arith syntax: {line}")
     expr_parts = []
-    for i, (offset, label) in enumerate(pairs):
-        sub_expr = f'adr("{label}")'
-        if offset:
-            offset = offset.strip()
-            if not offset.startswith('+') and not offset.startswith('-'):
-                sub_expr += f' {offset[0]} {offset[1:].strip()}'
-        else:
-            sub_expr += ' + 0'
-        expr_parts.append(f'({sub_expr})')
-        if i < len(operators):
-            expr_parts.append(operators[i])
-    expr = ' '.join(expr_parts)
-    process_line(f'eval({expr})')
+    for (off, lbl), op in zip(pairs, ops + ['']):
+        off = off.strip() if off else None
+        sub = f'adr("{lbl}")' if not off else f'adr("{lbl}") {off[0]} {off[1:].strip()}' if off.startswith(('+','-')) else f'adr("{lbl}") + {off}'
+        expr_parts.append(f'({sub}) {op}'.strip())
+    process_line(f"eval({' '.join(expr_parts)[:-2].strip() if not expr_parts[-1][-1].isalnum() else ' '.join(expr_parts)})")
 
 def handle_str_hd_command(line):
-    line_strip = line.strip()
-    if not line_strip.startswith('str'):
-        raise ValueError(f"Unrecognized str command: {line}")
-        
-    content = line_strip[3:].strip()
-    
-    def encode_and_process_string(string_val):
-        string_val = string_val.encode("latin1").decode("utf-8")
-        processed_text = re.sub(r"\s", "~", string_val)
-        for c in processed_text:
-            try:
-                hex_val = char_to_hex[c]
-                if len(hex_val) == 2:
-                    loader.result.append(int(hex_val, 16))
-                elif len(hex_val) == 4:
-                    loader.result.extend([int(hex_val[:2], 16), int(hex_val[2:], 16)])
-            except KeyError:
-                raise ValueError(f"Character '{c}' not found in conversion table")
-
-    match_var_str = re.match(r'^([a-zA-Z_]\w*)\s+"([^"]*)"$', content)
-    if match_var_str:
-        var_name = match_var_str.group(1)
-        string_val = match_var_str.group(2)
-        loader.vars_dict[var_name] = string_val
-        utils.note(f"Variable '{var_name}' set to string: {string_val}\n")
-        return
-
-    match_str_only = re.match(r'^"([^"]*)"$', content)
-    if match_str_only:
-        string_val = match_str_only.group(1)
-        utils.note(f"Processing string: {string_val}\n")
-        encode_and_process_string(string_val)
-        return
-
-    match_var_only = re.match(r'^([a-zA-Z_]\w*)$', content)
-    if match_var_only:
-        var_name = match_var_only.group(1)
-        if var_name not in loader.vars_dict:
-            raise ValueError(f"Variable '{var_name}' not found in vars_dict")
-        
-        string_val = str(loader.vars_dict[var_name])
-        utils.note(f"Processing string from variable '{var_name}': {string_val}\n")
-        encode_and_process_string(string_val)
-        return
-
-    raise ValueError(f"Invalid str syntax: {line}")
-
-def handle_dist_command(line):
-    """Syntax: dist.<section_name>"""
-    section_name = line[5:].strip()
-    if not section_name:
-        raise ValueError("Invalid dist syntax: missing section name")
-    loader.dist_cmds.append((len(loader.result), section_name))
-    loader.result.extend((0, 0))
+    content = line.strip()[3:].strip()
+    m_var_str = re.match(r'^([a-zA-Z_]\w*)\s+"([^"]*)"$', content)
+    if m_var_str: loader.vars_dict[m_var_str.group(1)] = m_var_str.group(2); return
+    val = content[1:-1] if re.match(r'^"([^"]*)"$', content) else str(loader.vars_dict.get(content, "")) if re.match(r'^([a-zA-Z_]\w*)$', content) else None
+    if val is None: raise ValueError(f"Invalid str syntax: {line}")
+    for c in re.sub(r"\s", "~", val.encode("latin1").decode("utf-8")):
+        hx = char_to_hex[c]
+        if len(hx) == 2: loader.result.append(int(hx, 16))
+        else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
 
 def dispatch_command_handler(line, program_iter=None, defined_functions=None):
-    line_strip = line.strip()
-
-    if line.startswith('org'):
-        handle_org_command(line)
-
-    elif line_strip.startswith('backup '):
-        handle_backup_command(line_strip)
-
-    elif line_strip.startswith('"'):
-        handle_string_command(line_strip)
-
-    elif line_strip.startswith("'"):
-        handle_token_literal(line_strip)
-
-    elif line.startswith('0x') or (line.startswith('hex') and 'hex_' not in line):
-        if line.startswith('0x') and not re.match(r'^0x[0-9a-fA-F]+$', line):
-            handle_eval_expression(f"eval({line})")
-        else:
-            handle_hex_data(line)
-
-    elif line in loader.datalabels:
-        handle_data_label(line)
-
-    elif line in loader.commands:
-        handle_builtin_command(line)
-
-    elif line.startswith('call'):
-        handle_call_command(line)
-
-    elif line.startswith('def') or line.startswith('@def'):
-        handle_define_gadget_command(line)
-
-    elif '=' in line:
-        handle_assignment_command(line, program_iter)
-
-    elif (line_strip.lower().startswith('lbl ') or ":" in line_strip) and ('def' not in line_strip):
-        handle_label_definition(line)
-
-    elif line_strip.startswith("func "):
-        if program_iter is None:
-            raise ValueError("Function handling requires program_iter")
-        handle_function_definition(line, program_iter)
-
-    elif line_strip.startswith("repeat ") or line_strip.startswith("loop "):
-        if program_iter is None:
-            raise ValueError("Repeat handling requires program_iter")
-        handle_repeat_command(line, program_iter)
-
-    elif (line.startswith('eval(') or line.startswith('calc(')) and line.endswith(')'):
-        handle_eval_expression(line)
-
-    elif line.startswith('goto') or line.startswith('goto_er14') or line.startswith('goto_er6'):
-        handle_goto_command(line)
-
-    elif line.startswith('adr('):
-        handle_address_command(line)
-
-    elif re.match(r'^\w+(\[\d+\])?$', line) and re.match(r'^\w+', line).group(0) in loader.vars_dict:
-        handle_variable_expansion(line)
-
-    elif line.startswith('pr_length'):
-        handle_pr_length_command(line)
-
-    elif line.startswith('sizeof(') or line == 'sizeof()':
-        handle_sizeof_command(line)
-
-    elif line_strip.startswith('['):
-        if program_iter is None:
-            raise ValueError("List handling requires program_iter")
-        handle_list_command(line, program_iter)
-
-    elif line_strip.startswith('adr_of'):
-        handle_adr_of_hd_command(line_strip)
-    
-    elif line_strip.startswith('adr_arith'):
-        handle_adr_arith_hd_command(line_strip)
-    
-    elif line_strip.startswith('str'):
-        handle_str_hd_command(line_strip)
-
-    elif line_strip.startswith('dist.'):
-        handle_dist_command(line_strip)
-
-    else:
-        assert False, f'Unrecognized command: {line!r}'
+    ls = line.strip()
+    if ls.startswith('org'):
+        new_home = utils.safe_eval(ls[3:]) - len(loader.result)
+        assert loader.home is None or loader.home == new_home, 'Inconsistent value of `home`'
+        loader.home = new_home
+    elif ls.startswith('backup '): loader.backup_address = int(utils.safe_eval(ls[6:]))
+    elif ls.startswith('"'): handle_string_command(ls)
+    elif ls.startswith("'"): handle_token_literal(ls)
+    elif ls.startswith('0x') or (ls.startswith('hex') and 'hex_' not in ls):
+        if ls.startswith('0x') and not re.match(r'^0x[0-9a-fA-F]+$', ls): handle_eval_expression(f"eval({ls})")
+        else: handle_hex_data(ls)
+    elif ls in loader.datalabels: process_line(f'0x{loader.datalabels[ls]:x}')
+    elif ls in loader.commands: process_line('call ' + ls)
+    elif ls.startswith('call'): handle_call_command(ls)
+    elif ls.startswith(('def', '@def')): handle_define_gadget_command(ls)
+    elif '=' in ls: handle_assignment_command(ls, program_iter)
+    elif (ls.lower().startswith('lbl ') or ":" in ls) and 'def' not in ls: handle_label_definition(ls)
+    elif ls.startswith("func "): handle_function_definition(ls, program_iter)
+    elif ls.startswith(("repeat ", "loop ")): handle_repeat_command(ls, program_iter)
+    elif (ls.startswith('eval(') or ls.startswith('calc(')) and ls.endswith(')'): handle_eval_expression(ls)
+    elif ls.startswith(('goto', 'goto_er14', 'goto_er6')): handle_goto_command(ls)
+    elif ls.startswith('adr('): handle_address_command(ls)
+    elif re.match(r'^\w+(\[\d+\])?$', ls) and re.match(r'^\w+', ls).group(0) in loader.vars_dict: handle_variable_expansion(ls)
+    elif ls.startswith('pr_length'): loader.sizeof_cmds.append((len(loader.result), getattr(loader, 'current_section_name', None))); loader.result.extend((0, 0))
+    elif ls.startswith('sizeof(') or ls == 'sizeof()':
+        m = re.match(r'^sizeof\((.*?)\)$', ls)
+        loader.sizeof_cmds.append((len(loader.result), m.group(1).strip() if m and m.group(1).strip() else getattr(loader, 'current_section_name', None)))
+        loader.result.extend((0, 0))
+    elif ls.startswith('['): handle_list_command(ls, program_iter)
+    elif ls.startswith('adr_of'): handle_adr_of_hd_command(ls)
+    elif ls.startswith('adr_arith'): handle_adr_arith_hd_command(ls)
+    elif ls.startswith('str'): handle_str_hd_command(ls)
+    elif ls.startswith('dist.'): loader.dist_cmds.append((len(loader.result), ls[5:].strip())); loader.result.extend((0, 0))
+    else: assert False, f'Unrecognized command: {ls!r}'
