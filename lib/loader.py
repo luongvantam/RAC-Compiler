@@ -18,7 +18,6 @@ def add_command(command_dict, address, command, tags, debug_info=''):
 def get_commands(gadgets_file, labels_file):
     global commands, datalabels
     with open(gadgets_file, 'r', encoding='utf-8') as f:
-        # ponytail: simple inline regex replaces state machine
         raw = re.sub(r'/\*.*?\*/', '', f.read(), flags=re.DOTALL)
         for i, line in enumerate(raw.splitlines()):
             line = del_inline_comment(line).strip()
@@ -79,7 +78,6 @@ def get_commands(gadgets_file, labels_file):
 def get_disassembly(filename):
     global disasm
     with open(filename, 'r', encoding='u8') as f:
-        # ponytail: dict comprehension replaces 262K pre-allocated list array
         disasm = {int(p[1].split('|', 1)[0].strip(), 16): p[0].strip() 
                   for line in f if line.startswith('\t') and ';' in line 
                   for p in [line.split(';', 1)] if '|' in p[1]}

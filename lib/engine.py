@@ -103,7 +103,6 @@ def run_func(line_strip, raw_line, line_num, final_lines_to_process):
 # ----------------- Line Splitting and Merging ----------------- #
 
 def split_lines(line):
-    # ponytail: Keep custom split logic to avoid blowing up on mixed quotes. Built-in csv/shlex aren't suited for this.
     parts, current, in_double, in_single = [], [], False, False
     for i, char in enumerate(line):
         if char == '"' and not in_single and (i == 0 or line[i-1] != '\\'): in_double = not in_double
@@ -117,7 +116,6 @@ def split_lines(line):
     return [p for p in parts if p]
 
 def merge_lines(program_lines):
-    # ponytail: single pass merge for line continuations (\) and parenthesis nesting
     final_merged, current_line, current_num, paren_depth = [], "", None, 0
     for idx, item in enumerate(program_lines):
         line_num, raw_line = item if isinstance(item, tuple) else (idx + 1, item)
@@ -146,7 +144,6 @@ def merge_lines(program_lines):
 # ----------------- Math Evaluation ----------------- #
 
 def build_env():
-    # ponytail: inline simple lambdas for memory evaluations to save classes and overhead
     env = {k: int.from_bytes(bytes(v), 'little') if isinstance(v, list) else v for k, v in loader.vars_dict.items()}
     env.update({k: k for k in loader.labels if k not in env})
 
