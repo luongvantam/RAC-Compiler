@@ -36,6 +36,14 @@ def safe_eval(expr_str, scope=None):
             return _OPS[type(node.op)](_eval(node.left), _eval(node.right))
         elif isinstance(node, ast.UnaryOp): return _OPS[type(node.op)](_eval(node.operand))
         elif isinstance(node, (ast.List, ast.Tuple)): return [_eval(x) for x in node.elts]
+        elif isinstance(node, ast.Call):
+            func = _eval(node.func)
+            if not callable(func): raise ValueError(f"Not callable: {func}")
+            return func(*[_eval(a) for a in node.args], **{k.arg: _eval(k.value) for k in node.keywords})
+        elif isinstance(node, ast.Attribute):
+            obj = _eval(node.value)
+            if callable(obj): return obj(node.attr)
+            raise ValueError(f"Unsupported attribute access: {node.attr}")
         raise ValueError(f"Unsupported syntax: {type(node).__name__}")
     
     try: return _eval(ast.parse(expr_str.strip(), mode='eval'))
