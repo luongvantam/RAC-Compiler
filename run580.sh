@@ -1,5 +1,10 @@
 #!/bin/bash
 
+python3 lib/check_update.py
+if [ $? -eq 2 ]; then
+    exit 0
+fi
+
 last_name=""
 
 while true; do

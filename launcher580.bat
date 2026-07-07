@@ -1,4 +1,8 @@
 @echo off
+
+python lib\check_update.py
+if errorlevel 2 exit /b
+
 set "last_name="
 
 :loop
