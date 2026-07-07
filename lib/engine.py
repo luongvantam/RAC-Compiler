@@ -5,8 +5,6 @@ import utils
 import loader
 from handlers import dispatch_command_handler, handle_function_definition
 
-# ----------------- Macros and Aliases ----------------- #
-
 def register_alias(name, target):
     if not hasattr(loader, 'aliases'):
         loader.aliases = {}
@@ -70,8 +68,6 @@ def run_macro(line_strip, line_num, remaining_lines):
             return True
     return False
 
-# ----------------- Functions ----------------- #
-
 def run_func(line_strip, raw_line, line_num, final_lines_to_process):
     m = re.match(r'(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)', line_strip)
     if not m or m.group(1) not in getattr(loader, "defined_functions", {}): return False
@@ -99,8 +95,6 @@ def run_func(line_strip, raw_line, line_num, final_lines_to_process):
         f_line_num, line_in_func = item if isinstance(item, tuple) else (line_num, item)
         final_lines_to_process.append({"exec": line_in_func, "raw": line_in_func, "num": f_line_num, "ctx": f"inside '{called_func_name}'"})
     return True
-
-# ----------------- Line Splitting and Merging ----------------- #
 
 def split_lines(line):
     parts, current, in_double, in_single = [], [], False, False
@@ -140,8 +134,6 @@ def merge_lines(program_lines):
 
     if current_line: final_merged.append((current_num or len(program_lines), current_line.strip()))
     return final_merged
-
-# ----------------- Math Evaluation ----------------- #
 
 def build_env():
     env = {k: int.from_bytes(bytes(v), 'little') if isinstance(v, list) else v for k, v in loader.vars_dict.items()}
@@ -200,8 +192,6 @@ def eval_all():
         else:
             home_deps.append((pos, val))
     return home_deps
-
-# ----------------- Core Engine Processing ----------------- #
 
 def report_error(e, args):
     info = getattr(loader, 'current_exec_info', {})
@@ -362,8 +352,6 @@ def run_lines(args, program_lines, overflow_initial_sp):
     print(' '.join(f'{b:02x}' for b in loader.result))
     print('======')
     return loader.home, loader.result
-
-# ----------------- API ----------------- #
 
 def process_program(args, program_lines, overflow_initial_sp):
     loader.global_labels, loader.section_addresses, loader.aliases, loader.aliases_pattern = {}, {}, {}, None
