@@ -146,9 +146,12 @@ def merge_lines(program_lines):
 def build_env():
     env = {k: int.from_bytes(bytes(v), 'little') if isinstance(v, list) else v for k, v in loader.vars_dict.items()}
     env.update({k: k for k in loader.labels if k not in env})
+    if hasattr(loader, 'global_labels'):
+        env.update({k: k for k in loader.global_labels if k not in env})
 
     def adr_eval(label, offset=0):
         if not isinstance(label, str): raise ValueError(f"Label must be str, got {type(label)}")
+        if label == '$': return getattr(loader, 'current_pos', 0) + offset
         if label in loader.labels: return loader.labels[label] + offset
         if hasattr(loader, 'global_labels') and label in loader.global_labels: return loader.global_labels[label] + offset
         if getattr(loader, 'is_pass1', False): return 0
@@ -177,6 +180,7 @@ def eval_all():
     loader.deferred_evals.clear()
 
     for pos, expr in temp_deferred:
+        loader.current_pos = pos
         try:
             val = utils.safe_eval(expr, env)
         except Exception:

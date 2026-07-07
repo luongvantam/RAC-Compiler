@@ -62,8 +62,11 @@ def get_commands(gadgets_file, labels_file):
                     if l_match and last_global is not None: addr = last_global + int(l_match.group(1), 16)
             
             if addr is not None:
-                tags = ('del lr',) if disasm.get(addr, '').startswith('push lr') else ('rt',)
-                if tags[0] != 'del lr':
+                if disasm.get(addr, '').startswith('push lr'):
+                    tags = ('del lr',)
+                    addr += 2
+                else:
+                    tags = ('rt',)
                     a1 = addr + 2
                     while a1 <= 0x3ffff and not any(disasm.get(a1, '').startswith(x) for x in ('push lr', 'pop pc', 'rt')): a1 += 2
                     if not disasm.get(a1, '').startswith('rt'): tags += ('del lr',)
@@ -384,7 +387,7 @@ token_to_hex = {
     "*" : "a8",
     "÷" : "a9",
     "//" : "a9",
-    "mod(" : "aa",
+    "mod" : "aa",
     "−" : "c0",
     "⌟" : "c8",
     "/" : "c8",

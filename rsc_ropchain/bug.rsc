@@ -1,3 +1,3 @@
 org 0xe9e0
 
-eval(1)
+line_print

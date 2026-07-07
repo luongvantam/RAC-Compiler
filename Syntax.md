@@ -127,6 +127,7 @@ loop <range> {
 ```
 # label declaration
 lbl <label>
+lbl <label> at <address>
 <label>:
 
 # get the label address
@@ -136,6 +137,7 @@ adr(<label>, <offset>, <base_addr>)
 adr_of <label>
 adr_of [<offset>] <label>
 adr_of [<offset>][<base_addr>] <label>
+adr($)      # địa chỉ hiện tại của dòng này
 
 # jump to label
 goto <label>            # it's `er14 = adr(<label>, -2); sp = er14, pop er14`

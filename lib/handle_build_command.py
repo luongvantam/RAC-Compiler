@@ -16,7 +16,7 @@ def parse_build_block(raw_content):
     if os.path.exists("local.txt"): _parse_config_lines(open("local.txt", "r", encoding="utf-8").read().replace("\n", ";").split(";"), cfg)
     
     text = "\n".join(raw_content)
-    if m := re.search(r'@build\s*(?:{)?(.*?)(?:})?', text, re.DOTALL):
+    if m := re.search(r'@build\s*\{([^}]*)\}', text, re.DOTALL):
         _parse_config_lines(m.group(1).replace("\n", ";").split(";"), cfg)
         text = text[:m.start()] + text[m.end():]
     return cfg, text.splitlines()

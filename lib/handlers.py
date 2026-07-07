@@ -12,6 +12,25 @@ def process_line(line, program_iter=None):
 def handle_label_definition(line):
     line_str = line.strip()
     label = line_str[4:].strip().lower() if line_str.lower().startswith('lbl ') else line_str[:-1].strip().lower()
+    
+    at_match = re.search(r'\s+at\s+(.+)$', label)
+    if at_match:
+        address_expr = at_match.group(1)
+        label_name = label[:at_match.start()].strip()
+        address = int(utils.safe_eval(address_expr))
+        
+        assert label_name not in loader.labels, f'Duplicate label: {label_name}'
+        if hasattr(loader, 'global_labels'):
+            if label_name in loader.global_labels and loader.global_labels[label_name] != address:
+                pass # allow across passes if address matches? Actually just overwrite or keep. Overwrite is safe.
+            loader.global_labels[label_name] = address
+            if getattr(loader, 'current_section_name', None) is not None or not getattr(loader, 'is_pass1', False):
+                # We need to make sure we don't print twice, but just printing is fine.
+                pass
+            if not getattr(loader, 'is_pass1', False):
+                utils.note(f'Label {label_name} is at address {address:04X} (absolute)\n')
+        return
+
     assert label not in loader.labels, f'Duplicate label: {label}'
     loader.labels[label] = len(loader.result)
 
@@ -87,6 +106,7 @@ def handle_repeat_command(line, program_iter):
 
 def handle_eval_expression(line):
     expr = line[5:-1].strip()
+    expr = re.sub(r'adr\(\s*\$\s*\)', 'adr("$")', expr)
     expanded_expr = re.sub(r'\bpr_length\b', 'sizeof()', expr)
     
     if loader.vars_dict:
