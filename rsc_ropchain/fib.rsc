@@ -8,7 +8,7 @@ var_x = n
 */
 
 lbl start
-    setlr_pc
+    setlr
     setsfr
     clear()
 
@@ -23,7 +23,7 @@ lbl main
     calc_func
 
 lbl loop_n
-    setlr_pc
+    setlr
     er0 = var_x
     r0 = [er0]
     r1=0,rt
@@ -65,19 +65,23 @@ lbl addr_calc_x
 
 lbl calc_a
     # A = B
-    'B _'
+    'B'
+    hex 00
 
 lbl calc_b
     # B = C
-    'C _'
+    'C'
+    hex 00
 
 lbl calc_c
     # C = A + B
-    'A + B _'
+    'A + B'
+    hex 00
 
 lbl calc_x
     # x -= 1
-    'x - 1 _'
+    'x - 1'
+    hex 00
 
 lbl table
     eval(adr(restore) - 0x2)
@@ -90,7 +94,7 @@ lbl end
 @section.launcher at 0xd180
 
 hex fd 24 30 30
-setlr_pc
+setlr
 setsfr
 xr0 = 0xd730, 0xe9e0
 call 09451
