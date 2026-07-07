@@ -45,7 +45,7 @@ while true; do
 
     clear
     printf "Compiling %s...\n\n" "$name"
-    python3 lib/main.py 580vnx "$name"
+    python3 lib/main.py 880btg "$name"
 
     printf "\n===================================================\n"
     printf "Done! Press any key to try another file...\n"

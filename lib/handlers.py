@@ -1,7 +1,7 @@
 import re
 import utils
 import loader
-from loader import sizeof_register, max_call_adr, char_to_hex, token_to_hex
+from loader import sizeof_register, char_to_hex, token_to_hex
 
 sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
 
@@ -170,7 +170,6 @@ def handle_call_command(line):
         for t in tags: 
             if t.startswith('warning'): utils.note(t + '\n')
             
-    assert 0 <= adr <= max_call_adr, f'Invalid address: {adr}'
     try: irange = loader.datalabels['input_range'] if 'input_range' in loader.datalabels else loader.datalabels['input_area']
     except Exception: irange = -1
     

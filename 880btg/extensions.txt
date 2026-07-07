@@ -11,3 +11,16 @@ pop {reg}
 @set.{section}
 org {org}
 ---
+
+---syntax---
+smallprint({f},{y},{addr})
+---output---
+xr0 = {f}, {y}, {addr}
+smallprint
+---
+
+---syntax---
+render()
+---output---
+render.ca54
+---

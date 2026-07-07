@@ -4,7 +4,7 @@ set "last_name="
 
 :loop
 cls
-echo Enter your filename to compile (for 580VNX only):
+echo Enter your filename to compile (for 880BTG only):
 set /p name=
 
 if "%name%"=="" (
@@ -36,7 +36,7 @@ set "last_name=%name%"
 
 cls
 echo Compiling: %name%...
-python lib\main.py 580vnx "%name%"
+python lib\main.py 880btg "%name%"
 
 echo.
 echo ===================================================

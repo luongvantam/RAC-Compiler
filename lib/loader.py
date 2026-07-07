@@ -1,7 +1,6 @@
 import re
 from utils import note, canonicalize, del_inline_comment
 
-max_call_adr = 0x3ffff
 commands, datalabels, labels, vars_dict, disasm = {}, {}, {}, {}, {}
 disas_filename, home, current_section_name, in_comment = None, None, None, False
 result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals = [], [], [], [], []
