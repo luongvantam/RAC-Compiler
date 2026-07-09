@@ -257,7 +257,7 @@ def handle_assignment_command(line, program_iter):
     if l.startswith("var "):
         loader.vars_dict[l[4:].strip()] = r
         utils.note(f"Variable '{l[4:].strip()}' set to {r}\n")
-    elif l.startswith("reg ") or re.match(r'^(?:ea|lr|(r|er|xr|qr)\d+)$', l):
+    elif l.startswith("reg ") or re.match(r'^(?:ea|lr|(?:r|er|xr|qr)\d+)\b', l):
         reg = l[4:].strip() if l.startswith("reg ") else l
         paren_balance, new_right = 0, []
         for char in r.lower():
