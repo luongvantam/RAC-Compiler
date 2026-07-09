@@ -1,28 +1,15 @@
-@section.main
-org 0xe9e0
+@section.main at 0xe9e0
 
-var dista = 0x100
-var text = "world"
+setlr_pc
+setsfr
+getkeycode
+er4 = 0xd400
+[er4] = er0, pop er0, rt
+hex 30 30
+brk
 
-func main(a) {
-    a
-}
+@section.launhcer at 0xd180
+hex fd 24
+0xe9de
+sp = er14, pop er14
 
-lbl main
-    er0 = hex 30 30
-    er2 = adr_of text
-    er4 = eval(adr(text) + dista)
-    call line_print
-    main(0x02)
-    loop 4 {
-        hex 30
-    }
-
-    KEY_0
-    KEY_1
-    KEY_2
-
-text:
-    "hello, {text}"
-
-'sin( 9 0 )'

@@ -1,4 +1,5 @@
 import sys, os, argparse, json, engine, io, contextlib
+import loader, handlers
 from extensions import expand_extensions_in_program, load_extensions
 from loader import get_disassembly, get_commands
 
@@ -22,6 +23,11 @@ def main():
     if not os.path.exists(config_file): sys.exit(f"Error: Config not found at {config_file}")
         
     config = json.load(open(config_file, "r", encoding="utf-8"))
+    
+    loader.char_to_hex.update(config.get("char_to_hex", {}))
+    loader.token_to_hex.update(config.get("token_to_hex", {}))
+    handlers.sorted_tokens = sorted(loader.token_to_hex.keys(), key=len, reverse=True)
+
     get_disassembly(os.path.join(args.model, config["disassembly_file"]))
     get_commands(os.path.join(args.model, config["gadgets_file"]), os.path.join(args.model, config["labels_file"]))
     ext_list = load_extensions(os.path.join(args.model, config["extensions_file"]))
@@ -34,6 +40,8 @@ def main():
         build_config, raw_content = hbc.parse_build_block(raw_content)
         build_config.setdefault("emu.inj_var", os.path.splitext(os.path.basename(file_path))[0])
     except ImportError: build_config, hbc = {}, None
+    
+    loader.build_config = build_config
 
     program = expand_extensions_in_program(raw_content, ext_list)
     

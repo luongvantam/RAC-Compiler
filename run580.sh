@@ -32,6 +32,12 @@ while true; do
         name="$name.rsc"
     elif [ -f "./asm_ropchain/$name.asm" ]; then
         name="$name.asm"
+    elif [ -f "./$name" ]; then
+        :
+    elif [ -f "./$name.rsc" ]; then
+        name="$name.rsc"
+    elif [ -f "./$name.asm" ]; then
+        name="$name.asm"
     else
         clear
         printf "Error: File '%s' not found in ./rsc_ropchain/ or ./asm_ropchain/\n" "$name"

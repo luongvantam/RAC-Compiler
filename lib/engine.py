@@ -171,8 +171,9 @@ def eval_all():
     temp_deferred = list(loader.deferred_evals)
     loader.deferred_evals.clear()
 
-    for pos, expr in temp_deferred:
+    for pos, expr, exec_info in temp_deferred:
         loader.current_pos = pos
+        loader.current_exec_info = exec_info
         try:
             val = utils.safe_eval(expr, env)
         except Exception:
@@ -234,7 +235,8 @@ def set_memory(overflow_initial_sp, resolved_adr_cmds, home_deps):
     if loader.current_section_name:
         loader.section_addresses[loader.current_section_name] = {'org': loader.home, 'backup': loader.backup_address, 'length': len(loader.result)}
 
-    for pos, sec in loader.dist_cmds:
+    for pos, sec, exec_info in loader.dist_cmds:
+        loader.current_exec_info = exec_info
         if sec not in loader.section_addresses or loader.section_addresses[sec]['backup'] is None:
             if getattr(loader, 'is_pass1', False): continue
             raise ValueError(f"Section '{sec}' missing dist info")
@@ -252,7 +254,8 @@ def finish_math():
         if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] adr overwrite at {pos:04X}")
         loader.result[pos], loader.result[pos+1] = res & 0xFF, res >> 8
 
-    for pos, sec in getattr(loader, 'sizeof_cmds', []):
+    for pos, sec, exec_info in getattr(loader, 'sizeof_cmds', []):
+        loader.current_exec_info = exec_info
         val = len(loader.result) if not sec or sec == getattr(loader, 'current_section_name', None) else loader.section_addresses.get(sec, {}).get('length', 0) if hasattr(loader, 'section_addresses') and sec in loader.section_addresses else 0 if getattr(loader, 'is_pass1', False) else None
         if val is None: raise ValueError(f"Section '{sec}' not found for sizeof calculation")
         if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] sizeof overwrite at {pos:04X}")
@@ -332,18 +335,26 @@ def run_lines(args, program_lines, overflow_initial_sp):
         utils.note = orig_note
         if note_log and not getattr(loader, 'is_pass1', False): utils.note(note_log)
 
-    home_deps = eval_all()
-    finish_math()
+    try:
+        home_deps = eval_all()
+        finish_math()
 
-    resolved_adr = []
-    for s_adr, offset, target in loader.address_requests:
-        if target in loader.labels: resolved_adr.append((s_adr, loader.labels[target] + offset))
-        elif target in loader.global_labels: resolved_adr.append((s_adr, loader.global_labels[target] - loader.home + offset))
-        elif getattr(loader, 'is_pass1', False): resolved_adr.append((s_adr, 0))
-        else: raise ValueError(f'Label not found: {target}')
-    loader.address_requests.clear()
+        resolved_adr = []
+        for req in loader.address_requests:
+            if len(req) == 4:
+                s_adr, offset, target, exec_info = req
+                loader.current_exec_info = exec_info
+            else:
+                s_adr, offset, target = req
+            if target in loader.labels: resolved_adr.append((s_adr, loader.labels[target] + offset))
+            elif target in loader.global_labels: resolved_adr.append((s_adr, loader.global_labels[target] - loader.home + offset))
+            elif getattr(loader, 'is_pass1', False): resolved_adr.append((s_adr, 0))
+            else: raise ValueError(f'Label not found: {target}')
+        loader.address_requests.clear()
 
-    set_memory(overflow_initial_sp, resolved_adr, home_deps)
+        set_memory(overflow_initial_sp, resolved_adr, home_deps)
+    except Exception as e:
+        report_error(e, args)
 
     if getattr(loader, 'is_pass1', False) or (loader.home == loader.home + len(loader.result) and loader.current_section_name is None): return None, None
     
