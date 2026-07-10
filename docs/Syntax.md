@@ -78,9 +78,6 @@ hex <int(hex)>
 "<string>"
 "<f-string (ex : "hello {name}")>"
 '<token string>'
-str "<string>"
-str <var> "<var_string>"        # variable declaration
-str <var>           # it's `str "<var_string>"`
 
 [
     <list>
@@ -113,7 +110,7 @@ func <function>(<args>) {
 # tuy nhiên chỉ khả dụng 1 dòng
 ```
 
-# repeat
+# repeat & padding
 ```
 repeat <range> {
     <code>
@@ -121,6 +118,11 @@ repeat <range> {
 loop <range> {
     <code>
 }
+
+fill(<count>, [<value>])        # fill <count> bytes with <value> (default 0)
+align(<size>, [<value>])        # pad bytes until address is multiple of <size>
+pad(<offset>, [<value>])        # pad bytes until section length reaches <offset>
+pad_abs(<address>, [<value>])   # pad bytes until absolute address reaches <address>
 ```
 
 # label
@@ -134,9 +136,6 @@ lbl <label> at <address>
 adr(<label>)
 adr(<label>, <offset>)
 adr(<label>, <offset>, <base_addr>)
-adr_of <label>
-adr_of [<offset>] <label>
-adr_of [<offset>][<base_addr>] <label>
 adr($)      # địa chỉ hiện tại của dòng này
 
 # jump to label
@@ -151,8 +150,6 @@ call <address/function_name>        # like `call 0x17b34`
 
 # calculate
 ```
-adr_arith <label1> <+/-> adr_arith <label2> <+/-> ...
-adr_arith [<offset1>] <label1> <+/-> adr_arith [<offset2>] <label2> <+/-> ...
 eval(<expression>)
 calc(<expression>)          # function like `eval`
 ```
@@ -191,4 +188,20 @@ def my_macro(<addr>, <val>) => {
     er0 = <addr>
     er2 = <val>
 }
+```
+
+### Cú pháp cũ (Legacy - HD Compiler)
+Đây là các cú pháp từ bản HD compiler. Chúng vẫn được hỗ trợ để giữ thói quen viết, nhưng không khuyến khích dùng chung với các biểu thức `eval()` mới vì dễ gây lỗi parse.
+
+```
+str "<string>"
+str <var> "<var_string>"        # variable declaration
+str <var>                       # it's `str "<var_string>"`
+
+adr_of <label>
+adr_of [<offset>] <label>
+adr_of [<offset>][<base_addr>] <label>
+
+adr_arith <label1> <+/-> adr_arith <label2> <+/-> ...
+adr_arith [<offset1>] <label1> <+/-> adr_arith [<offset2>] <label2> <+/-> ...
 ```

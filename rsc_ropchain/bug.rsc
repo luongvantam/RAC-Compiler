@@ -1,3 +1,4 @@
-@set.test at 0x1000
+@set.test at 0xd630
 
-qr0, rt = hex 00 00 00 00 00 00 00 00
+xr0 = hex 30 30 30 30
+line_print

@@ -10,6 +10,101 @@ def process_line(line, program_iter=None):
     from engine import process_line as _process_line
     return _process_line(line, program_iter)
 
+def handle_fill_command(line):
+    inner = line.strip()[5:-1].strip()
+def _parse_two_args(inner):
+    paren_balance = 0
+    split_idx = -1
+    for i, c in enumerate(inner):
+        if c == '(': paren_balance += 1
+        elif c == ')': paren_balance -= 1
+        elif c == ',' and paren_balance == 0:
+            split_idx = i
+            break
+            
+    if split_idx == -1:
+        return inner.strip(), "0"
+        
+    return inner[:split_idx].strip(), inner[split_idx+1:].strip()
+
+def _eval_fill_args(expr1, expr2):
+    eval_scope = {'pr_length': len(loader.result), **loader.vars_dict}
+    
+    for k in loader.labels:
+        if k not in eval_scope: eval_scope[k] = k
+    if hasattr(loader, 'global_labels'):
+        for k in loader.global_labels:
+            if k not in eval_scope: eval_scope[k] = k
+
+    def pass1_adr(label, offset=0):
+        if not isinstance(label, str): raise ValueError(f"Label must be str, got {type(label)}")
+        if label in loader.labels:
+            return (loader.home or 0) + loader.labels[label] + offset
+        if hasattr(loader, 'global_labels') and label in loader.global_labels:
+            sec = getattr(loader, 'label_sections', {}).get(label)
+            sec_home = 0
+            if sec and hasattr(loader, 'section_addresses') and sec in loader.section_addresses:
+                sec_home = loader.section_addresses[sec].get('org', 0)
+            return sec_home + loader.global_labels[label] + offset
+        raise ValueError(f"Label '{label}' not found (padding requires previously defined labels)")
+        
+    eval_scope['adr'] = pass1_adr
+    
+    def prepare_expr(expr):
+        expanded = re.sub(r'\bpr_length\b', str(len(loader.result)), expr)
+        if loader.vars_dict:
+            pat = re.compile(r'\b(' + '|'.join(re.escape(k) for k in loader.vars_dict) + r')\b')
+            expanded = pat.sub(lambda m: str(loader.vars_dict[m.group(1)]), expanded)
+        return expanded
+        
+    val1 = int(utils.safe_eval(prepare_expr(expr1), eval_scope))
+    val2 = int(utils.safe_eval(prepare_expr(expr2), eval_scope))
+    return val1, val2
+
+def _do_fill(count, value):
+    if count < 0: raise ValueError(f"Padding count cannot be negative: {count}")
+    if count == 0: return
+    h = f"{value:x}"
+    if len(h) % 2: h = '0' + h
+    val = int(h, 16)
+    byte_seq = []
+    for _ in range(len(h) // 2):
+        byte_seq.append(val & 0xFF)
+        val >>= 8
+    loader.result.extend(byte_seq * count)
+
+def handle_fill_command(line):
+    inner = line.strip()[5:-1].strip()
+    expr1, expr2 = _parse_two_args(inner)
+    count, value = _eval_fill_args(expr1, expr2)
+    _do_fill(count, value)
+
+def handle_align_command(line):
+    inner = line.strip()[6:-1].strip()
+    expr1, expr2 = _parse_two_args(inner)
+    size, value = _eval_fill_args(expr1, expr2)
+    if size <= 0: raise ValueError(f"Align size must be > 0, got {size}")
+    
+    current_addr = (loader.home or 0) + len(loader.result)
+    rem = current_addr % size
+    count = (size - rem) % size
+    _do_fill(count, value)
+
+def handle_pad_command(line):
+    is_abs = line.strip().startswith('pad_abs')
+    inner = line.strip()[8:-1].strip() if is_abs else line.strip()[4:-1].strip()
+    expr1, expr2 = _parse_two_args(inner)
+    target, value = _eval_fill_args(expr1, expr2)
+    
+    if is_abs:
+        if loader.home is None: raise ValueError("pad_abs requires section origin to be known (use @set.sec at address)")
+        current_addr = loader.home + len(loader.result)
+        count = target - current_addr
+    else:
+        count = target - len(loader.result)
+        
+    _do_fill(count, value)
+
 def handle_label_definition(line):
     line_str = line.strip()
     label = line_str[4:].strip().lower() if line_str.lower().startswith('lbl ') else line_str[:-1].strip().lower()
@@ -25,6 +120,9 @@ def handle_label_definition(line):
             if label_name in loader.global_labels and loader.global_labels[label_name] != address:
                 pass # allow across passes if address matches? Actually just overwrite or keep. Overwrite is safe.
             loader.global_labels[label_name] = address
+            if getattr(loader, 'is_pass1', False):
+                if not hasattr(loader, 'label_sections'): loader.label_sections = {}
+                loader.label_sections[label_name] = getattr(loader, 'current_section_name', None)
             if getattr(loader, 'current_section_name', None) is not None or not getattr(loader, 'is_pass1', False):
                 # We need to make sure we don't print twice, but just printing is fine.
                 pass
@@ -198,10 +296,11 @@ def handle_address_command(line):
     if not parts or not parts[0] or len(parts) > 3: raise ValueError(f"Invalid adr syntax: {line}. Expected 'adr(label, offset, base)'")
     
     expr = [f'adr("{parts[0]}")']
-    if len(parts) > 1 and parts[1]: expr.append(parts[1] if parts[1].startswith(('+','-')) else '+' + parts[1].replace(" ",""))
+    if len(parts) > 1 and parts[1]: 
+        expr.append(parts[1] if parts[1].startswith(('+','-')) else '+' + parts[1].replace(" ",""))
     if len(parts) > 2 and parts[2]:
-        diff = int(parts[2].replace(" ",""), 0) - (loader.home or 0)
-        expr.append(f'+{diff}' if diff >= 0 else str(diff))
+        base_val = parts[2].replace(" ","")
+        expr.append(f'+ {base_val} - homeof("{parts[0]}")')
         
     if len(expr) == 1:
         loader.deferred_evals.append((len(loader.result), expr[0], getattr(loader, 'current_exec_info', {})))
@@ -237,7 +336,11 @@ def handle_assignment_command(line, program_iter):
         if args == [''] and not m_func.group(2): args = []
         if len(args) != len(f["args"]): raise ValueError(f"Args mismatch in {r}")
         r = f["return_expr"]
-        for p, a in zip(f["args"], args): r = re.sub(r'\b' + re.escape(p) + r'\b', a, r)
+        for p, a in zip(f["args"], args):
+            parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', r)
+            for i in range(0, len(parts), 2):
+                parts[i] = re.sub(r'\b' + re.escape(p) + r'\b', a, parts[i])
+            r = ''.join(parts)
 
     if r.startswith('['):
         if ']' in r[1:]:
@@ -291,13 +394,25 @@ def handle_variable_expansion(line):
 def handle_string_command(line):
     m = re.search(r'"(.*)"', line.strip())
     if not m: return
-    content = re.sub(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', lambda x: process_line(f"eval({x.group(1)})") or '', m.group(1))
-    for c in re.sub(r"\s", "~", content.encode("latin1").decode("utf-8")):
-        try:
-            hx = char_to_hex[c]
-            if len(hx) == 2: loader.result.append(int(hx, 16))
-            else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
-        except KeyError: raise ValueError(f"Char '{c}' not found")
+    text = m.group(1)
+    
+    def append_chars(content):
+        for c in re.sub(r"\s", "~", content.encode("latin1").decode("utf-8")):
+            try:
+                hx = char_to_hex[c]
+                if len(hx) == 2: loader.result.append(int(hx, 16))
+                else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
+            except KeyError: raise ValueError(f"Char '{c}' not found")
+
+    last_idx = 0
+    for match in re.finditer(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', text):
+        before = text[last_idx:match.start()]
+        if before: append_chars(before)
+        process_line(f"eval({match.group(1)})")
+        last_idx = match.end()
+        
+    after = text[last_idx:]
+    if after: append_chars(after)
 
 def handle_token_literal(line):
     content = line.strip()[1:-1].replace(" ", "")
@@ -367,6 +482,9 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif ls.startswith("func"): handle_function_definition(ls, program_iter)
     elif ls.startswith(("repeat", "loop")) and not ls.startswith('loop_'): handle_repeat_command(ls, program_iter)
     elif (ls.startswith('eval(') or ls.startswith('calc(')) and ls.endswith(')'): handle_eval_expression(ls)
+    elif ls.startswith('fill(') and ls.endswith(')'): handle_fill_command(ls)
+    elif ls.startswith('align(') and ls.endswith(')'): handle_align_command(ls)
+    elif (ls.startswith('pad(') or ls.startswith('pad_abs(')) and ls.endswith(')'): handle_pad_command(ls)
     elif ls.startswith(('goto', 'goto_er14', 'goto_er6')): handle_goto_command(ls)
     elif ls.startswith('adr('): handle_address_command(ls)
     elif re.match(r'^\w+(\[\d+\])?$', ls) and re.match(r'^\w+', ls).group(0) in loader.vars_dict: handle_variable_expansion(ls)

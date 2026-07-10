@@ -83,7 +83,10 @@ def run_func(line_strip, raw_line, line_num, final_lines_to_process):
     if "return_expr" in func:
         ret_expr = func["return_expr"]
         for param, arg in zip(func["args"], call_args):
-            ret_expr = re.sub(r'\b' + re.escape(param) + r'\b', arg, ret_expr)
+            parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', ret_expr)
+            for i in range(0, len(parts), 2):
+                parts[i] = re.sub(r'\b' + re.escape(param) + r'\b', arg, parts[i])
+            ret_expr = ''.join(parts)
         final_lines_to_process.append({"exec": ret_expr, "raw": raw_line, "num": line_num, "ctx": f"inside '{called_func_name}'"})
         return True
 
@@ -163,7 +166,17 @@ def build_env():
         if getattr(loader, 'is_pass1', False): return 0
         raise ValueError(f"Section '{sec_name}' dist information missing")
 
-    env.update({'adr': adr_eval, 'sizeof': sizeof_eval, 'dist': dist_eval})
+    def homeof_eval(label):
+        if label in loader.labels: return loader.home or 0
+        if hasattr(loader, 'global_labels') and label in loader.global_labels:
+            sec = getattr(loader, 'label_sections', {}).get(label)
+            if sec and hasattr(loader, 'section_addresses') and sec in loader.section_addresses:
+                return loader.section_addresses[sec].get('org', 0)
+            return 0
+        if getattr(loader, 'is_pass1', False): return 0
+        raise ValueError(f"Home of label '{label}' not found")
+
+    env.update({'adr': adr_eval, 'sizeof': sizeof_eval, 'dist': dist_eval, 'homeof': homeof_eval})
     return env
 
 def eval_all():
@@ -230,6 +243,8 @@ def set_memory(overflow_initial_sp, resolved_adr_cmds, home_deps):
 
     for lbl, offset in loader.labels.items():
         loader.global_labels[lbl] = loader.home + offset
+        if not hasattr(loader, 'label_sections'): loader.label_sections = {}
+        loader.label_sections[lbl] = loader.current_section_name
         if not getattr(loader, 'is_pass1', False): utils.note(f'Label {lbl} is at address {loader.home + offset:04X}\n')
 
     if loader.current_section_name:
@@ -265,7 +280,7 @@ def finish_math():
     if hasattr(loader, 'sizeof_cmds'): loader.sizeof_cmds.clear()
 
 def run_lines(args, program_lines, overflow_initial_sp):
-    for attr in ('global_labels', 'section_addresses'):
+    for attr in ('global_labels', 'section_addresses', 'label_sections'):
         if not hasattr(loader, attr): setattr(loader, attr, {})
     
     loader.result, loader.labels, loader.address_requests = [], {}, []
@@ -365,7 +380,7 @@ def run_lines(args, program_lines, overflow_initial_sp):
     return loader.home, loader.result
 
 def process_program(args, program_lines, overflow_initial_sp):
-    loader.global_labels, loader.section_addresses, loader.aliases, loader.aliases_pattern = {}, {}, {}, None
+    loader.global_labels, loader.section_addresses, loader.label_sections, loader.aliases, loader.aliases_pattern = {}, {}, {}, {}, None
     sections, current_name, current_lines = [], None, []
 
     for idx, item in enumerate(program_lines):
