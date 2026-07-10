@@ -97,7 +97,7 @@ def get_disassembly(filename):
 
 def sizeof_register(reg_name):
     return {
-        'r': 1, 
+        'r': 2, 
         'e': 2, 
         'x': 4, 
         'q': 8,

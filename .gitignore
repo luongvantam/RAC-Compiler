@@ -1,5 +1,6 @@
 __pycache__/
+**/__pycache__/
+**/tests/
 tests/
-rsc_ropchain/tests/
 .DS_Store
 **/.DS_Store
