@@ -199,6 +199,7 @@ r1 = 0x5
     emu.inj_file = "payload.txt"
     emu.inj_var = "payload"
     line.bytes = 16
+    line.gadgets = 0x30300000
     output.file = true
     output.file_name = "build_output.txt"
 }
