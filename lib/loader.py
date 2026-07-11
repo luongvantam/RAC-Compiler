@@ -1,5 +1,6 @@
 import re
 from utils import note, canonicalize, del_inline_comment
+import utils
 
 commands, datalabels, labels, vars_dict, disasm, char_to_hex, token_to_hex = {}, {}, {}, {}, {}, {}, {}
 disas_filename, home, current_section_name, in_comment = None, None, None, False
@@ -7,15 +8,15 @@ result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals = 
 
 def add_command(command_dict, address, command, tags, debug_info=''):
     if not command or type(command_dict) is not dict:
-        raise ValueError(f'Empty command/dict {debug_info}')
+        raise utils.CompilerError(f'Empty command/dict {debug_info}')
     if any(command.startswith(p) for p in ('0x', 'call', 'goto')):
-        raise ValueError(f'Command starts with disallowed {debug_info}')
+        raise utils.CompilerError(f'Command starts with disallowed {debug_info}')
     if command.endswith(':') or ';' in command:
-        raise ValueError(f'Invalid command syntax {debug_info}')
+        raise utils.CompilerError(f'Invalid command syntax {debug_info}')
     if command in command_dict:
         if command_dict[command] == (address, tuple(tags)):
             return
-        raise ValueError(f'Command {command} appears twice {debug_info}')
+        raise utils.CompilerError(f'Command {command} appears twice {debug_info}')
     command_dict[command] = (address, tuple(tags))
 
 def get_commands(gadgets_file, labels_file):

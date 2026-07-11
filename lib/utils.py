@@ -1,6 +1,53 @@
+import sys
+import os
 import re
 import ast
 import operator
+
+def get_os_info():
+    if hasattr(sys, 'getandroidapilevel') or os.environ.get('PREFIX') == '/data/data/com.termux/files/usr':
+        return "Android (Termux)"
+    elif sys.platform.startswith('win'):
+        return "Windows"
+    elif sys.platform.startswith('darwin'):
+        return "MacOS"
+    elif sys.platform.startswith('linux'):
+        return "Linux"
+    else:
+        return "Unknown OS"
+
+class CompilerError(Exception):
+    pass
+
+def report_error(e, input_file=None, exec_info=None):
+    info = exec_info or {}
+    line_num = info.get("num")
+    raw = info.get("raw")
+    ctx = info.get("ctx", "")
+    fname = os.path.basename(input_file) if input_file else "source".upper()
+    
+    is_tty = sys.stderr.isatty()
+    if is_tty and get_os_info() == 'Windows':
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            h_err, mode = kernel32.GetStdHandle(-12), ctypes.c_ulong()
+            if kernel32.GetConsoleMode(h_err, ctypes.byref(mode)): kernel32.SetConsoleMode(h_err, mode.value | 0x0004)
+        except Exception: is_tty = False
+
+    c_red, c_blu, c_bld, c_rst = ('\033[1;31m', '\033[1;34m', '\033[1m', '\033[0m') if is_tty else ('', '', '', '')
+
+    if raw is None:
+        sys.stderr.write(f"\n{c_red}{c_bld}error:{c_rst} {c_bld}{str(e)}{c_rst}\n\n")
+        sys.exit(1)
+
+    caret = " " * (len(raw) - len(raw.lstrip())) + "^" * max(1, len(raw.strip()))
+    pfx, arw = " " * (len(str(line_num)) + 1), " " * max(1, len(str(line_num)) - 2)
+
+    sys.stderr.write(f"\n{c_red}{c_bld}error:{c_rst} {c_bld}{str(e)}{f' (inside {ctx})' if ctx else ''}{c_rst}\n")
+    sys.stderr.write(f"{arw}{c_blu}-->{c_rst} {fname}:{line_num}\n{pfx}{c_blu}|{c_rst}\n")
+    sys.stderr.write(f"{c_blu}{line_num} |{c_rst} {raw.rstrip()}\n{pfx}{c_blu}|{c_rst} {c_red}{caret}{c_rst}\n\n")
+    sys.exit(1)
 
 notes_buffer = []
 def note(st): notes_buffer.append(str(st))
@@ -32,19 +79,19 @@ def safe_eval(expr_str, scope=None):
         elif isinstance(node, ast.Name): return scope.get(node.id, 0)
         elif isinstance(node, ast.BinOp):
             if isinstance(node.op, ast.Pow) and (right := _eval(node.right)) > 1000:
-                raise ValueError("Exponent too large (Memory Protection)")
+                raise CompilerError("Exponent too large (Memory Protection)")
             return _OPS[type(node.op)](_eval(node.left), _eval(node.right))
         elif isinstance(node, ast.UnaryOp): return _OPS[type(node.op)](_eval(node.operand))
         elif isinstance(node, (ast.List, ast.Tuple)): return [_eval(x) for x in node.elts]
         elif isinstance(node, ast.Call):
             func = _eval(node.func)
-            if not callable(func): raise ValueError(f"Not callable: {func}")
+            if not callable(func): raise CompilerError(f"Not callable: {func}")
             return func(*[_eval(a) for a in node.args], **{k.arg: _eval(k.value) for k in node.keywords})
         elif isinstance(node, ast.Attribute):
             obj = _eval(node.value)
             if callable(obj): return obj(node.attr)
-            raise ValueError(f"Unsupported attribute access: {node.attr}")
-        raise ValueError(f"Unsupported syntax: {type(node).__name__}")
+            raise CompilerError(f"Unsupported attribute access: {node.attr}")
+        raise CompilerError(f"Unsupported syntax: {type(node).__name__}")
     
     try: return _eval(ast.parse(expr_str.strip(), mode='eval'))
-    except Exception as e: raise ValueError(f"Eval error: {expr_str} - {e}")
+    except Exception as e: raise CompilerError(f"Eval error: {expr_str} - {e}")

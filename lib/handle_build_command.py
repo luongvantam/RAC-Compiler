@@ -11,17 +11,25 @@ def _parse_config_lines(lines, cfg):
             except ValueError: pass
         cfg[k] = v
 
-def parse_build_block(raw_content):
+def parse_build_block(raw_content, safe_mode=False):
     cfg = {}
-    if os.path.exists("local.txt"): _parse_config_lines(open("local.txt", "r", encoding="utf-8").read().replace("\n", ";").split(";"), cfg)
+    if not safe_mode and os.path.exists("local.txt"): _parse_config_lines(open("local.txt", "r", encoding="utf-8").read().replace("\n", ";").split(";"), cfg)
     
     text = "\n".join(raw_content)
     if m := re.search(r'@build\s*\{([^}]*)\}', text, re.DOTALL):
         _parse_config_lines(m.group(1).replace("\n", ";").split(";"), cfg)
         text = text[:m.start()] + text[m.end():]
+        
+    if 'line.gadgets' in cfg:
+        import loader
+        offset = cfg['line.gadgets']
+        for cmd, (adr, tags) in loader.commands.items():
+            loader.commands[cmd] = (adr + offset, tags)
+        loader.gadgets_offset_applied = True
+        
     return cfg, text.splitlines()
 
-def handle_build_output(cfg, results, stdout_str):
+def handle_build_output(cfg, results, stdout_str, safe_mode=False):
     fmt_lines, lb = [], cfg.get("line.bytes")
     for ln in stdout_str.splitlines():
         if isinstance(lb, int) and lb > 0:
@@ -39,6 +47,9 @@ def handle_build_output(cfg, results, stdout_str):
         
     if final_out := "\n".join(fmt_lines): print(final_out)
     
+    if safe_mode:
+        return
+        
     if cfg.get("output.file") and (fn := cfg.get("output.file_name")):
         open(fn, "w", encoding="utf-8").write(final_out + "\n")
         print(f"Output written to: {fn}")
