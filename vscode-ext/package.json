@@ -1,7 +1,7 @@
 {
-    "name": "rsc-syntax",
-    "displayName": "RSC Syntax Highlight",
-    "description": "Syntax highlighting for custom RSC scripts",
+    "name": "rac-compiler",
+    "displayName": "RAC Compiler",
+    "description": "Language support, build, and run integration for RAC Compiler",
     "version": "0.0.1",
     "publisher": "luongvantam",
 

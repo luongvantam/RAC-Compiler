@@ -29,23 +29,28 @@ git clone https://github.com/luongvantam/RAC-Compiler.git
 Để mã nguồn hiển thị trực quan và dễ đọc hơn trên Visual Studio Code:
 
 1. Mở VS Code, nhấn tổ hợp phím `Ctrl + Shift + X` để vào mục Extensions.
-2. Tìm kiếm từ khóa: `"RSC Syntax Highlight"`.
-3. Nhấn **Install** để cài đặt.
+2. Bấm vào biểu tượng dấu ba chấm `...` ở góc trên bên phải khung Extensions.
+3. Chọn **Install from VSIX...**
+4. Trỏ tới file `rsc.vsix` có sẵn trong thư mục dự án để cài đặt.
 
 #### 3. Cách chạy chương trình và Biên dịch (Running & Compiling)
 
-Tùy thuộc vào hệ điều hành bạn đang sử dụng, hãy khởi chạy file script tương ứng trong thư mục:
+Tùy thuộc vào hệ điều hành, hãy khởi chạy file script khởi động trình biên dịch:
 
-* **Trên Windows:** Click đúp vào file `launcher580.bat` (hoặc chạy qua Terminal).
-* **Trên Linux / macOS:** Mở Terminal tại thư mục gốc và thực thi file `run580.sh`:
+* **Trên Windows:** Click đúp vào file `run.bat` (hoặc mở Terminal/CMD gõ `run.bat`).
+* **Trên Linux / macOS:** Mở Terminal tại thư mục gốc và thực thi file `run.sh`:
 ```bash
-chmod +x run580.sh
-./run580.sh
-
+chmod +x run.sh
+./run.sh
 ```
 
-
-* **Quy trình biên dịch:** Sau khi giao diện dòng lệnh hiện lên, hệ thống sẽ yêu cầu bạn **nhập tên file muốn dịch** (ví dụ: `main.rsc`). Hãy nhập chính xác tên file (không nhập đuôi file) và nhấn `Enter` để trình biên dịch bắt đầu xử lý và xuất file mã máy cuối cùng.
+* **Quy trình biên dịch:** 
+  1. Ở lần đầu chạy, hệ thống sẽ hỏi chọn model máy tính mục tiêu (ví dụ: `580vnx`, `880btg`).
+  2. Tại màn hình chính, gõ đường dẫn hoặc tên file mã nguồn (ví dụ: `main.rsc`) và nhấn `Enter` để biên dịch.
+  3. Bạn có thể sử dụng các lệnh đặc biệt sau trong dòng lệnh của compiler:
+     - `!q`: Thoát trình biên dịch.
+     - `!m`: Đổi sang model máy tính khác.
+     - `!u`: Cập nhật (Update).
 
 ---
 
@@ -71,23 +76,28 @@ git clone https://github.com/luongvantam/RAC-Compiler.git
 To secure code visual enhancement when coding on Visual Studio Code:
 
 1. Open VS Code and open the Extension tab using `Ctrl + Shift + X` (or `Cmd + Shift + X` on macOS).
-2. Search for the marketplace identifier keyword: `"RSC Syntax Highlight"`.
-3. Click **Install**.
+2. Click the `...` (Views and More Actions) button at the top right of the Extensions view.
+3. Select **Install from VSIX...**
+4. Browse and select the `rsc.vsix` file included in this repository to install it.
 
 #### 3. Running & Compiling Code
 
 Depending on your host operating system platform, launch the dedicated automated script file located inside the compiler directory:
 
-* **On Windows Platforms:** Double-click on `launcher580.bat` (or execute via PowerShell/CMD environment).
-* **On Linux / macOS Environments:** Launch terminal in the root directory path and execute `run580.sh`:
+* **On Windows Platforms:** Double-click on `run.bat` (or execute via PowerShell/CMD environment).
+* **On Linux / macOS Environments:** Launch terminal in the root directory path and execute `run.sh`:
 ```bash
-chmod +x run580.sh
-./run580.sh
-
+chmod +x run.sh
+./run.sh
 ```
 
-
-* **Compilation Process:** When the command line prompt initializes, the script will request you to **enter the input file name you want to compile** (e.g., `main.rsc`). Type the exact source file name explicitly and press `Enter` to run the processor layout compilation block (Do not include .rsc in the file name).
+* **Compilation Process:** 
+  1. On first run, it will prompt you to enter the target calculator model (e.g., `580vnx`, `880btg`).
+  2. At the main prompt, enter the exact source file name or full path to compile and press `Enter`.
+  3. You can use the following interactive commands:
+     - `!q`: Quit the compiler.
+     - `!m`: Change the target model.
+     - `!u`: Check for updates.
 
 
 ---

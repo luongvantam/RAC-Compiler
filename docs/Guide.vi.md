@@ -57,6 +57,8 @@ count                  # Gọi/đánh giá biến count
     - `pr_length` / `sizeof()` (kích thước byte của phân vùng hiện tại)
     - `sizeof(<phân_vùng>)` (kích thước byte của phân vùng cụ thể)
     - `dist.<phân_vùng>` (khoảng cách byte giữa org và backup)
+    - `pr_org(<phân_vùng>)` (địa chỉ gốc của phân vùng)
+    - `pr_backup(<phân_vùng>)` (địa chỉ sao lưu của phân vùng)
 
 ```assembly
 var ten = "World"
@@ -95,6 +97,7 @@ tmp = 0x12000                            # Dịch thành: er0 = 0x12
     - `adr(<label>)`
     - `adr(<label>, <offset>)`
     - `adr(<label>, <offset>, <base_addr>)`
+    - `adr($)` (địa chỉ hiện tại của dòng này)
     - `adr_of <label>`
     - `adr_of [<offset>] <label>`
     - `adr_of [<offset>][<base_addr>] <label>`
@@ -132,7 +135,21 @@ def {memcpy} memcpy_auto_jmp: 0x12345
 call 0x1234 ; goto end
 ```
 
-## 8. Hàm (Functions)
+## 8. Macros động (Dynamic Macros)
+* **Cú pháp:**
+  - Dạng 1 dòng: `def <tên_macro>(<các_tham_số>) => <biểu_thức_1_dòng>`
+  - Dạng khối lệnh: `def <tên_macro>(<các_tham_số>) => { <khối_lệnh> }`
+
+```assembly
+def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
+
+def my_macro(<addr>, <val>) => {
+    er0 = <addr>
+    er2 = <val>
+}
+```
+
+## 9. Hàm (Functions)
 * **Cú pháp:**
   - Hàm nhiều dòng:
     ```assembly
@@ -154,7 +171,7 @@ func add(x, y) { return x + y }
 r1 = add(5, 10)
 ```
 
-## 9. Chỉ thị vị trí nạp (`org` & `backup`)
+## 10. Chỉ thị vị trí nạp (`org` & `backup`)
 * **Cú pháp:**
   - `org <addr_org>` (địa chỉ gốc nạp chương trình; bỏ qua nếu dùng `@set` inline `at`)
   - `backup <addr_backup>` (địa chỉ sao lưu vùng nhớ)
@@ -164,7 +181,7 @@ org 0xe9e0
 backup 0xd000
 ```
 
-## 10. Phân vùng bộ nhớ (Sections)
+## 11. Phân vùng bộ nhớ (Sections)
 * **Cú pháp:**
   - `@section.<tên> [at <địa_chỉ_gốc> backup <địa_chỉ_sao_lưu>]`
   - `@set.<tên> [at <địa_chỉ_gốc> backup <địa_chỉ_sao_lưu>]`
@@ -177,7 +194,7 @@ backup 0xd000
 r1 = 0x5
 ```
 
-## 11. Cấu hình Build (`@build`)
+## 12. Cấu hình Build (`@build`)
 * **Cú pháp:**
   - Khối nhiều dòng:
     ```assembly
@@ -205,7 +222,7 @@ r1 = 0x5
 }
 ```
 
-## 12. Phép toán thời gian biên dịch (Evaluation)
+## 13. Phép toán thời gian biên dịch (Evaluation)
 * **Cú pháp:**
   - `eval(<biểu_thức>)`
   - `calc(<biểu_thức>)`
@@ -219,18 +236,53 @@ adr_arith start - adr_arith end
 adr_arith [+4] start - adr_arith [-2] end
 ```
 
-## 13. Vòng lặp biên dịch (Loops / Repeat)
-* **Cú pháp:**
+## 14. Vòng lặp & Đệm dữ liệu (Loops & Padding)
+* **Vòng lặp:**
   - `loop <range> { <code> }`
   - `repeat <range> { <code> }`
+* **Đệm dữ liệu (Padding):**
+  - `fill(<count>, [<value>])`: Điền `<count>` byte với giá trị `<value>` (mặc định 0).
+  - `align(<size>, [<value>])`: Điền byte đến khi địa chỉ chia hết cho `<size>`.
+  - `pad(<offset>, [<value>])`: Điền byte đến khi kích thước phân vùng đạt `<offset>`.
+  - `pad_abs(<address>, [<value>])`: Điền byte đến khi địa chỉ tuyệt đối đạt `<address>`.
 
 ```assembly
 loop 4 {
   0x67
 }
+
+fill(16, 0xFF)
+align(4)
+pad(0x100, 0x00)
 ```
 
-## 14. Ánh xạ phím quét (fx-580VN X)
+## 15. Khối lệnh Python nhúng (Embedded Python)
+* **Cú pháp:** `@python { <mã_python> }`
+* Chạy mã Python trực tiếp khi biên dịch. Có thể cấu hình biến thông qua `loader.vars_dict`.
+
+```assembly
+@python {
+    # Tính toán phức tạp trong python
+    loader.vars_dict["my_val"] = 0x1234 * 2
+}
+r1 = my_val
+```
+
+## 16. Ghép nối & Xuống dòng (Line Continuation)
+* **Cú pháp:**
+  - Dùng `\` ở cuối dòng để nối tiếp câu lệnh thô.
+  - Các khối biểu thức `(...)`, `[...]` hoặc `{...}` tự động hỗ trợ viết trên nhiều dòng.
+
+```assembly
+hex 30 \
+31
+
+eval(
+    0x01 + 0x02
+)
+```
+
+## 17. Ánh xạ phím quét (fx-580VN X)
 * Hằng số quét phím phần cứng. Chi tiết tại `labels.txt`.
 
 ```assembly

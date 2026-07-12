@@ -57,6 +57,8 @@ count                  # Recalls/evaluates count
     - `pr_length` / `sizeof()` (size of current section)
     - `sizeof(<section>)` (size of specified section)
     - `dist.<section>` (byte distance between org and backup)
+    - `pr_org(<section>)` (origin address of the specified section)
+    - `pr_backup(<section>)` (backup address of the specified section)
 
 ```assembly
 var ten = "World"
@@ -95,6 +97,7 @@ tmp = 0x1200                             # Compiles to: er0 = 0x12
     - `adr(<label>)`
     - `adr(<label>, <offset>)`
     - `adr(<label>, <offset>, <base_addr>)`
+    - `adr($)` (gets the current address of this line)
     - `adr_of <label>`
     - `adr_of [<offset>] <label>`
     - `adr_of [<offset>][<base_addr>] <label>`
@@ -132,7 +135,21 @@ def {memcpy} memcpy_auto_jmp: 0x12345
 call 0x1234 ; goto end
 ```
 
-## 8. Functions
+## 8. Dynamic Macros
+* **Syntax:**
+  - Single-line: `def <macro_name>(<args>) => <single_line_expr>`
+  - Block form: `def <macro_name>(<args>) => { <block_of_code> }`
+
+```assembly
+def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
+
+def my_macro(<addr>, <val>) => {
+    er0 = <addr>
+    er2 = <val>
+}
+```
+
+## 9. Functions
 * **Syntax:**
   - Multi-line block:
     ```assembly
@@ -154,7 +171,7 @@ func add(x, y) { return x + y }
 r1 = add(5, 10)
 ```
 
-## 9. Location & Alignment Directives
+## 10. Location & Alignment Directives
 * **Syntax:**
   - `org <addr_org>` (sets mapping origin address; skip if using `@set` inline `at`)
   - `backup <addr_backup>` (sets backup storage address)
@@ -164,7 +181,7 @@ org 0xe9e0
 backup 0xd000
 ```
 
-## 10. Phased Memory Blocks (Sections)
+## 11. Phased Memory Blocks (Sections)
 * **Syntax:**
   - `@section.<section> [at <addr_org> backup <addr_backup>]`
   - `@set.<section> [at <addr_org> backup <addr_backup>]`
@@ -177,7 +194,7 @@ backup 0xd000
 r1 = 0x5
 ```
 
-## 11. Build Configuration (`@build`)
+## 12. Build Configuration (`@build`)
 * **Syntax:**
   - Block form:
     ```assembly
@@ -205,7 +222,7 @@ r1 = 0x5
 }
 ```
 
-## 12. Compile-Time Evaluation & Arithmetic
+## 13. Compile-Time Evaluation & Arithmetic
 * **Syntax:**
   - `eval(<expression>)`
   - `calc(<expression>)`
@@ -219,18 +236,53 @@ adr_arith start - adr_arith end
 adr_arith [+4] start - adr_arith [-2] end
 ```
 
-## 13. Compile-Time Loops / Repeat
-* **Syntax:**
+## 14. Compile-Time Loops & Padding
+* **Loops:**
   - `loop <range> { <code> }`
   - `repeat <range> { <code> }`
+* **Padding:**
+  - `fill(<count>, [<value>])`: Fills `<count>` bytes with `<value>` (default 0).
+  - `align(<size>, [<value>])`: Pads bytes until the address is a multiple of `<size>`.
+  - `pad(<offset>, [<value>])`: Pads bytes until the section length reaches `<offset>`.
+  - `pad_abs(<address>, [<value>])`: Pads bytes until the absolute address reaches `<address>`.
 
 ```assembly
 loop 4 {
   0x67
 }
+
+fill(16, 0xFF)
+align(4)
+pad(0x100, 0x00)
 ```
 
-## 14. Hardware Key Mapping (fx-580VN X target)
+## 15. Embedded Python Scripting
+* **Syntax:** `@python { <python_code> }`
+* Allows executing Python code directly during compilation. Variables can be injected into the compiler environment (`loader.vars_dict`).
+
+```assembly
+@python {
+    # Complex Python logic
+    loader.vars_dict["calculated_val"] = 0x1234 * 2
+}
+var my_val = calculated_val
+```
+
+## 16. Line Continuation & Multi-line
+* **Syntax:**
+  - Use `\` at the end of a line to continue a raw statement.
+  - Parentheses `()`, brackets `[]`, or braces `{}` automatically support multi-line without `\`.
+
+```assembly
+hex 30 \
+31
+
+eval(
+    0x01 + 0x02
+)
+```
+
+## 17. Hardware Key Mapping (fx-580VN X target)
 * Traverses standard scan-code labels defined in `labels.txt`.
 
 ```assembly
