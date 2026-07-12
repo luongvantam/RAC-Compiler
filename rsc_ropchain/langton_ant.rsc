@@ -3,7 +3,6 @@ def check_bit_coord : 094c8
 def black_pixel_draw : 091ea
 def white_pixel_draw : 091e6
 def r0 & r5, pop r4,rt : 1620e
-def memcpy_auto_jump : 2b2ba
 def num_to_hex : 1ed58
 
 lbl setup
@@ -137,11 +136,10 @@ lbl increase_degree
 lbl decrease_degree
     'M - 9 0 _'
 
-set_addr 0xd180
-set_block launcher
+@section.launcher at 0xd180
 
 lbl save_register
-    an
+    hex fd 20
     adr(setup)
     hex fe 01
     hex 30 30 30 30

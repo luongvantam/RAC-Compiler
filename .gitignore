@@ -4,5 +4,4 @@ __pycache__/
 tests/
 .DS_Store
 **/.DS_Store
-.last_update_check
-.skipped_update
+.config

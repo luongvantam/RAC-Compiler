@@ -4,7 +4,7 @@ import utils
 
 commands, datalabels, labels, vars_dict, disasm, char_to_hex, token_to_hex = {}, {}, {}, {}, {}, {}, {}
 disas_filename, home, current_section_name, in_comment = None, None, None, False
-result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals = [], [], [], [], []
+result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals, pr_org_cmds, pr_backup_cmds = [], [], [], [], [], [], []
 
 def add_command(command_dict, address, command, tags, debug_info=''):
     if not command or type(command_dict) is not dict:

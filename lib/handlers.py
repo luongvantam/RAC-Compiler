@@ -399,7 +399,13 @@ def execute_python_block(raw_block):
         exec(code_str, env)
         for k, v in env.items():
             if k not in ["loader", "utils", "__builtins__"]:
-                loader.vars_dict[k] = str(v) if isinstance(v, int) else v
+                if isinstance(v, str):
+                    if len(v) >= 2 and ((v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'"))):
+                        loader.vars_dict[k] = v
+                    else:
+                        loader.vars_dict[k] = f'"{v}"'
+                else:
+                    loader.vars_dict[k] = str(v) if isinstance(v, int) else v
     except Exception as e:
         raise utils.CompilerError(f"Error executing @python block: {e}")
 
@@ -439,6 +445,8 @@ def handle_eval_expression(line):
 
     expanded_expr = re.sub(r'\bdist\.(\w+)\b', r'dist("\1")', expanded_expr)
     expanded_expr = re.sub(r'\bsizeof\((.*?)\)', lambda m: f'sizeof("{m.group(1).strip()}")', expanded_expr)
+    expanded_expr = re.sub(r'\bpr_org\((.*?)\)', lambda m: f'pr_org("{m.group(1).strip()}")', expanded_expr)
+    expanded_expr = re.sub(r'\bpr_backup\((.*?)\)', lambda m: f'pr_backup("{m.group(1).strip()}")', expanded_expr)
 
     eval_scope = {'pr_length': len(loader.result), **loader.vars_dict}
 
@@ -455,7 +463,7 @@ def handle_eval_expression(line):
         
     expanded_expr = eval_nested(expanded_expr)
     
-    if 'adr(' in expanded_expr or 'sizeof(' in expr or 'dist.' in expr:
+    if 'adr(' in expanded_expr or 'sizeof(' in expr or 'dist.' in expr or 'pr_org(' in expr or 'pr_backup(' in expr:
         loader.deferred_evals.append((len(loader.result), expanded_expr, getattr(loader, 'current_exec_info', {})))
         loader.result.extend((0, 0))
         return
@@ -503,7 +511,7 @@ def handle_call_command(line):
         try: 
             irange = loader.datalabels['input_range'] if 'input_range' in loader.datalabels else loader.datalabels['input_area']
             offset = 0x30300000 if loader.home and irange <= loader.home < irange + 0xc8 else 0
-        except Exception: 
+        except Exception:
             offset = 0x30300000
     
     process_line(f'0x{adr + offset:08x}')
@@ -725,8 +733,18 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif ls.startswith('adr_arith'): handle_adr_arith_hd_command(ls)
     elif ls.startswith('str'): handle_str_hd_command(ls)
     elif ls.startswith('dist.'): loader.dist_cmds.append((len(loader.result), ls[5:].strip(), getattr(loader, 'current_exec_info', {}))); loader.result.extend((0, 0))
+    elif ls.startswith('pr_org(') or ls == 'pr_org()':
+        m = re.match(r'^pr_org\((.*?)\)$', ls)
+        sec = m.group(1).strip() if m and m.group(1).strip() else getattr(loader, 'current_section_name', None)
+        loader.pr_org_cmds.append((len(loader.result), sec, getattr(loader, 'current_exec_info', {})))
+        loader.result.extend((0, 0))
+    elif ls.startswith('pr_backup(') or ls == 'pr_backup()':
+        m = re.match(r'^pr_backup\((.*?)\)$', ls)
+        sec = m.group(1).strip() if m and m.group(1).strip() else getattr(loader, 'current_section_name', None)
+        loader.pr_backup_cmds.append((len(loader.result), sec, getattr(loader, 'current_exec_info', {})))
+        loader.result.extend((0, 0))
     else:
-        valid_commands = ['org', 'backup', 'call', 'def', '@def', 'lbl', 'func', 'repeat', 'loop', 'eval(', 'calc(', 'goto', 'goto_er14', 'goto_er6', 'adr(', 'pr_length', 'sizeof(', 'adr_of', 'adr_arith', 'str', 'dist.']
+        valid_commands = ['org', 'backup', 'call', 'def', '@def', 'lbl', 'func', 'repeat', 'loop', 'eval(', 'calc(', 'goto', 'goto_er14', 'goto_er6', 'adr(', 'pr_length', 'sizeof(', 'adr_of', 'adr_arith', 'str', 'dist.', 'pr_org(', 'pr_backup(']
         valid_commands.extend(loader.commands.keys())
         valid_commands.extend(loader.datalabels.keys())
         valid_commands.extend(loader.vars_dict.keys())

@@ -32,7 +32,8 @@ def main():
     
     if not args.input_name or args.model == '.':
         clean_args = [a for a in sys.argv[1:] if not a.startswith('-')]
-        if len(clean_args) < 2: raise utils.CompilerError("Usage: python run.py <model> <name>")
+        entry = os.path.basename(sys.argv[0])
+        if len(clean_args) < 2: raise utils.CompilerError(f"Usage: python {entry} <model> <name>")
         args.model, args.input_name = clean_args[0:2]
         
     if not (file_path := resolve_file(args.input_name)): raise utils.CompilerError(f"File not found in search paths: {args.input_name}")

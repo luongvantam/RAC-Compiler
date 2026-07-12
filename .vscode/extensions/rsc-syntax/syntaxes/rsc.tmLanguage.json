@@ -123,7 +123,7 @@
         "directives": {
             "patterns": [
                 {
-                    "match": "^\\s*(@build)\\b",
+                    "match": "^\\s*(@build|@python)\\b",
                     "captures": {
                         "1": {
                             "name": "keyword.control.directive.rsc"
@@ -184,7 +184,7 @@
                 },
                 {
                     "name": "support.function.builtin.rsc",
-                    "match": "\\b(adr|adr_of|adr_arith|eval|calc|sizeof|pr_length)\\b"
+                    "match": "\\b(adr|adr_of|adr_arith|eval|calc|sizeof|pr_length|fill|align|pad|pad_abs|pr_org|pr_backup)\\b"
                 }
             ]
         },

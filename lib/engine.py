@@ -43,7 +43,23 @@ def build_env():
         if getattr(loader, 'is_pass1', False): return 0
         raise utils.CompilerError(f"Home of label '{label}' not found")
 
-    env.update({'adr': adr_eval, 'sizeof': sizeof_eval, 'dist': dist_eval, 'homeof': homeof_eval})
+    def pr_org_eval(sec_name=""):
+        sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
+        org = sec.get('org')
+        if not sec_name or sec_name == getattr(loader, 'current_section_name', None): org = getattr(loader, 'home', None)
+        if org is not None: return org & 0xFFFF
+        if getattr(loader, 'is_pass1', False): return 0
+        raise utils.CompilerError(f"Section '{sec_name}' org information missing")
+
+    def pr_backup_eval(sec_name=""):
+        sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
+        backup = sec.get('backup')
+        if not sec_name or sec_name == getattr(loader, 'current_section_name', None): backup = getattr(loader, 'backup_address', None)
+        if backup is not None: return backup & 0xFFFF
+        if getattr(loader, 'is_pass1', False): return 0
+        raise utils.CompilerError(f"Section '{sec_name}' backup information missing")
+
+    env.update({'adr': adr_eval, 'sizeof': sizeof_eval, 'dist': dist_eval, 'homeof': homeof_eval, 'pr_org': pr_org_eval, 'pr_backup': pr_backup_eval})
     return env
 
 def eval_all():
@@ -155,15 +171,31 @@ def finish_math():
         if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] sizeof overwrite at {pos:04X}")
         loader.result[pos], loader.result[pos+1] = val & 0xFF, val >> 8
 
+    for pos, sec, exec_info in getattr(loader, 'pr_org_cmds', []):
+        loader.current_exec_info = exec_info
+        val = loader.home if not sec or sec == getattr(loader, 'current_section_name', None) else loader.section_addresses.get(sec, {}).get('org') if hasattr(loader, 'section_addresses') and sec in loader.section_addresses else 0 if getattr(loader, 'is_pass1', False) else None
+        if val is None: raise utils.CompilerError(f"Section '{sec}' not found for pr_org calculation")
+        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] pr_org overwrite at {pos:04X}")
+        loader.result[pos], loader.result[pos+1] = val & 0xFF, (val >> 8) & 0xFF
+
+    for pos, sec, exec_info in getattr(loader, 'pr_backup_cmds', []):
+        loader.current_exec_info = exec_info
+        val = loader.backup_address if not sec or sec == getattr(loader, 'current_section_name', None) else loader.section_addresses.get(sec, {}).get('backup') if hasattr(loader, 'section_addresses') and sec in loader.section_addresses else 0 if getattr(loader, 'is_pass1', False) else None
+        if val is None: raise utils.CompilerError(f"Section '{sec}' not found for pr_backup calculation")
+        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] pr_backup overwrite at {pos:04X}")
+        loader.result[pos], loader.result[pos+1] = val & 0xFF, (val >> 8) & 0xFF
+
     loader.relocation_expressions.clear()
     if hasattr(loader, 'sizeof_cmds'): loader.sizeof_cmds.clear()
+    if hasattr(loader, 'pr_org_cmds'): loader.pr_org_cmds.clear()
+    if hasattr(loader, 'pr_backup_cmds'): loader.pr_backup_cmds.clear()
 
 def run_lines(args, program_lines, overflow_initial_sp):
     for attr in ('global_labels', 'section_addresses', 'label_sections'):
         if not hasattr(loader, attr): setattr(loader, attr, {})
     
     loader.result, loader.labels, loader.address_requests = [], {}, []
-    loader.relocation_expressions, loader.deferred_evals, loader.dist_cmds = [], [], []
+    loader.relocation_expressions, loader.deferred_evals, loader.dist_cmds, loader.pr_org_cmds, loader.pr_backup_cmds = [], [], [], [], []
     loader.home, loader.backup_address, loader.in_comment = None, None, False
     loader.defined_functions, loader.dynamic_macros = {}, []
 

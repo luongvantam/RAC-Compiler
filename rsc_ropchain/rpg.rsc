@@ -2,7 +2,6 @@
 @section.main at 0xd730 backup 0xe9e0
 
 def buffer_to_input : 0x27738
-def memcpy_auto_jump : 0x2b2ba
 
 lbl program
     lbl print

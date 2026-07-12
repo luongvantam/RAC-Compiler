@@ -41,6 +41,57 @@
                 "uiTheme": "vs-dark",
                 "path": "./themes/rsc-color-theme.json"
             }
+        ],
+        "commands": [
+            {
+                "command": "rsc.run",
+                "title": "RSC: Run",
+                "icon": "$(play)"
+            },
+            {
+                "command": "rsc.selectModel",
+                "title": "RSC: Select Model"
+            },
+            {
+                "command": "rsc.selectMode",
+                "title": "RSC: Select Mode"
+            },
+            {
+                "command": "rsc.debug",
+                "title": "RSC: Run & Debug",
+                "icon": "$(debug-alt)"
+            }
+        ],
+        "menus": {
+            "editor/title/run": [
+                {
+                    "command": "rsc.run",
+                    "when": "resourceLangId == rsc",
+                    "group": "navigation"
+                }
+            ]
+        },
+        "debuggers": [
+            {
+                "type": "rsc",
+                "label": "RAC Compiler",
+                "languages": [
+                    "rsc"
+                ],
+                "initialConfigurations": [
+                    {
+                        "type": "rsc",
+                        "request": "launch",
+                        "name": "Run RSC File",
+                        "program": "${file}"
+                    }
+                ]
+            }
         ]
-    }
+    },
+    "main": "./src/extension.js",
+    "activationEvents": [
+        "onLanguage:rsc",
+        "onDebugResolve:rsc"
+    ]
 }
