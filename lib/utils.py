@@ -19,7 +19,9 @@ def get_os_info():
 class CompilerError(Exception):
     pass
 
-def report_error(e, input_file=None, exec_info=None):
+error_buffer = []
+
+def report_error(e, input_file=None, exec_info=None, fatal=True):
     info = exec_info or {}
     line_num = info.get("num")
     raw = info.get("raw")
@@ -37,17 +39,35 @@ def report_error(e, input_file=None, exec_info=None):
 
     c_red, c_blu, c_bld, c_rst = ('\033[1;31m', '\033[1;34m', '\033[1m', '\033[0m') if is_tty else ('', '', '', '')
 
+    err_msg = ""
     if raw is None:
-        sys.stderr.write(f"\n{c_red}{c_bld}error:{c_rst} {c_bld}{str(e)}{c_rst}\n\n")
+        err_msg = f"\n{c_red}{c_bld}error:{c_rst} {c_bld}{str(e)}{c_rst}\n\n"
+    else:
+        caret = " " * (len(raw) - len(raw.lstrip())) + "^" * max(1, len(raw.strip()))
+        pfx, arw = " " * (len(str(line_num)) + 1), " " * max(1, len(str(line_num)) - 2)
+
+        err_msg += f"\n{c_red}{c_bld}error:{c_rst} {c_bld}{str(e)}{f' (inside {ctx})' if ctx else ''}{c_rst}\n"
+        err_msg += f"{arw}{c_blu}-->{c_rst} {fname}:{line_num}\n{pfx}{c_blu}|{c_rst}\n"
+        err_msg += f"{c_blu}{line_num} |{c_rst} {raw.rstrip()}\n{pfx}{c_blu}|{c_rst} {c_red}{caret}{c_rst}\n\n"
+
+    if fatal:
+        for err in error_buffer:
+            sys.stderr.write(err)
+        error_buffer.clear()
+        sys.stderr.write(err_msg)
         sys.exit(1)
+    else:
+        error_buffer.append(err_msg)
+        if len(error_buffer) >= 50:
+            error_buffer.append(f"\n{c_red}{c_bld}error:{c_rst} {c_bld}Too many errors, aborting.{c_rst}\n\n")
+            check_errors()
 
-    caret = " " * (len(raw) - len(raw.lstrip())) + "^" * max(1, len(raw.strip()))
-    pfx, arw = " " * (len(str(line_num)) + 1), " " * max(1, len(str(line_num)) - 2)
-
-    sys.stderr.write(f"\n{c_red}{c_bld}error:{c_rst} {c_bld}{str(e)}{f' (inside {ctx})' if ctx else ''}{c_rst}\n")
-    sys.stderr.write(f"{arw}{c_blu}-->{c_rst} {fname}:{line_num}\n{pfx}{c_blu}|{c_rst}\n")
-    sys.stderr.write(f"{c_blu}{line_num} |{c_rst} {raw.rstrip()}\n{pfx}{c_blu}|{c_rst} {c_red}{caret}{c_rst}\n\n")
-    sys.exit(1)
+def check_errors():
+    if error_buffer:
+        for err in error_buffer:
+            sys.stderr.write(err)
+        error_buffer.clear()
+        sys.exit(1)
 
 notes_buffer = []
 def note(st): notes_buffer.append(str(st))

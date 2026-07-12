@@ -260,7 +260,7 @@ def run_lines(args, program_lines, overflow_initial_sp):
             handlers.process_line(line_to_process, lines_iter)
         except Exception as e:
             utils.note = orig_note
-            utils.report_error(e, getattr(args, 'input_file', None), getattr(loader, 'current_exec_info', None))
+            utils.report_error(e, getattr(args, 'input_file', None), getattr(loader, 'current_exec_info', None), fatal=False)
 
         utils.note = orig_note
         if note_log and not getattr(loader, 'is_pass1', False): utils.note(note_log)
@@ -302,12 +302,15 @@ def process_program(args, program_lines, overflow_initial_sp):
     if len(sections) == 1:
         loader.is_pass1, loader.current_section_name = False, sections[0][0]
         out_addr, out_bytes = run_lines(args, sections[0][1], overflow_initial_sp)
+        utils.check_errors()
         return [(loader.current_section_name, out_addr, out_bytes)] if out_addr is not None else []
 
     loader.is_pass1 = True
     for name, lines in sections:
         loader.current_section_name = name
         run_lines(args, lines, overflow_initial_sp)
+
+    utils.check_errors()
 
     loader.is_pass1, results = False, []
     for name, lines in sections:
@@ -316,5 +319,6 @@ def process_program(args, program_lines, overflow_initial_sp):
         out_addr, out_bytes = run_lines(args, lines, overflow_initial_sp)
         if out_addr is not None: results.append((name, out_addr, out_bytes))
 
+    utils.check_errors()
     loader.current_section_name = None
     return results
