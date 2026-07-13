@@ -40,7 +40,7 @@ while true; do
         ask_model
         continue
     elif [ "$name" = "!u" ]; then
-        python3 lib/check_update.py
+        python3 check_update.py
         printf "\nPress any key to continue...\n"
         read -n 1 -s -r
         continue

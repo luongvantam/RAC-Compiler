@@ -4,10 +4,10 @@ import os
 import tempfile
 import shutil
 import time
-from utils import get_os_info
+from libcompiler.utils import get_os_info
 
 def get_config():
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     config_file = os.path.join(base_dir, '.config')
     config = {}
     if os.path.exists(config_file):
@@ -24,7 +24,7 @@ def save_config(config, config_file):
             f.write(f"{k}={v}\n")
 
 def check_update_available(auto_mode=False):
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     config, config_file = get_config()
     last_check = config.get("UPDATE_LAST_CHECK")
     skipped_hash = config.get("UPDATE_SKIP_HASH")
@@ -65,7 +65,7 @@ def perform_update(remote_hash, force_overwrite, log_callback=None):
     if log_callback is None:
         log_callback = print
         
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     config, config_file = get_config()
     
     log_callback("Backing up rsc_ropchain/ and asm_ropchain/...")

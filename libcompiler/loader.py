@@ -1,6 +1,6 @@
 import re
-from utils import note, canonicalize, del_inline_comment
-import utils
+from libcompiler.utils import note, canonicalize, del_inline_comment
+from libcompiler import utils
 
 commands, datalabels, labels, vars_dict, disasm, char_to_hex, token_to_hex = {}, {}, {}, {}, {}, {}, {}
 disas_filename, home, current_section_name, in_comment = None, None, None, False

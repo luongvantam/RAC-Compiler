@@ -34,7 +34,7 @@ if /i "!name!"=="!m" (
     goto :loop
 )
 if /i "!name!"=="!u" (
-    python lib\check_update.py
+    python check_update.py
     pause
     goto :loop
 )

@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSC IDE</title>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="rsc-highlighter.js"></script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+            border-left: 1px solid var(--border-color);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f4f4f;
+        }
+
+        :root {
+            --bg-dark: #1e1e1e;
+            --sidebar-bg: #333333;
+            --activity-bg: #2c2c2c;
+            --header-bg: #252526;
+            --border-color: #3e3e42;
+            --text-color: #cccccc;
+            --accent-blue: #007acc;
+            --status-bg: var(--bg-dark);
+            --tab-active: #1e1e1e;
+            --tab-inactive: #2d2d2d;
+            --font-editor: 'Consolas', 'Monaco', 'Courier New', monospace;
+
+            /* Tông màu hiển thị Output chuyên nghiệp */
+            --terminal-bg: #151515;
+            --color-addr: #9cdcfe;
+            /* Xanh biển nhạt của VS Code */
+            --color-hex: #ce9178;
+            /* Màu cam đất ấm áp */
+            --color-text: #e0e0e0;
+            /* Trắng xám sang trọng */
+            --color-error: #f08c8c;
+            /* Hồng phấn / đỏ pastel dịu mắt */
+            --color-warning: #e5c07b;
+            /* Vàng đất mềm mại */
+            --color-success: #a3d19f;
+            /* Xanh lá xám pastel */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Menu Bar */
+        .menu-bar {
+            height: 30px;
+            background-color: var(--header-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
+            gap: 10px;
+        }
+
+        .menu-item {
+            padding: 4px 10px;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-item:hover {
+            background-color: #3c3c3c;
+            border-radius: 3px;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: var(--sidebar-bg);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            z-index: 1000;
+            text-align: left;
+            font-size: 12px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .menu-item:hover .dropdown-content {
+            display: block;
+        }
+
+        .dropdown-content div {
+            padding: 8px 12px;
+            cursor: pointer;
+            color: #ccc;
+        }
+
+        .dropdown-content div:hover {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        .layout-wrapper {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Activity Bar */
+        .activity-bar {
+            width: 48px;
+            background-color: var(--activity-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 10px;
+            gap: 5px;
+            color: #858585;
+        }
+
+        .activity-bar i {
+            font-size: 20px;
+            cursor: pointer;
+            padding: 12px;
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .activity-bar i:hover,
+        .activity-bar i.active {
+            color: #fff;
+        }
+
+        .activity-bar i.active {
+            border-left: 2px solid #fff;
+        }
+
+        /* Find Widget */
+        #find-widget {
+            position: absolute;
+            top: 10px;
+            right: 30px;
+            background: var(--header-bg);
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            display: none;
+            z-index: 200;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+        }
+
+        #find-widget input {
+            background: #3c3c3c;
+            border: 1px solid var(--accent-blue);
+            color: white;
+            padding: 4px;
+            outline: none;
+            font-size: 13px;
+        }
+
+        .find-btn {
+            cursor: pointer;
+            color: #ccc;
+            font-size: 12px;
+            padding: 4px;
+        }
+
+        .find-btn:hover {
+            color: #fff;
+        }
+
+        /* Editor Core */
+        .main-container {
+            display: flex;
+            flex: 1;
+            background-color: var(--bg-dark);
+        }
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .tab-container {
+            height: 35px;
+            background-color: #252526;
+            display: flex;
+            align-items: flex-end;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 0 15px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: #ccc;
+            background: var(--tab-inactive);
+            border-right: 1px solid var(--border-color);
+            cursor: pointer;
+            border-top: 1px solid transparent;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            margin-right: 1px;
+        }
+
+        .tab.active {
+            background: var(--tab-active);
+            color: #fff;
+            border-top-color: var(--accent-blue);
+        }
+
+        .tab i.close-btn {
+            margin-left: 8px;
+            font-size: 10px;
+            color: #888;
+            padding: 3px;
+            border-radius: 3px;
+        }
+
+        .tab i.close-btn:hover {
+            background: #555;
+            color: #fff;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+        }
+
+        #highlighting,
+        .editor-textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 15px;
+            margin: 0;
+            font-family: var(--font-editor);
+            font-size: 14px;
+            line-height: 22px;
+            box-sizing: border-box;
+            border: none;
+            outline: none;
+            white-space: pre;
+            overflow: auto;
+            tab-size: 4;
+        }
+
+        .editor-textarea {
+            background: transparent;
+            color: transparent;
+            caret-color: #fff;
+            resize: none;
+            z-index: 2;
+        }
+
+        #highlighting {
+            color: #d4d4d4;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        code {
+            font-family: inherit !important;
+        }
+
+        .find-match {
+            background-color: rgba(255, 255, 0, 0.3);
+            border-bottom: 1px dotted orange;
+        }
+
+        .find-match.current {
+            background-color: #f57c00;
+            color: white;
+            border: 1px solid #fff;
+        }
+
+        /* Output & Console Area CSS */
+        .output-area {
+            flex: 1;
+            padding: 15px;
+            background-color: var(--terminal-bg);
+            font-family: var(--font-editor);
+            font-size: 13px;
+            overflow-y: auto;
+            min-height: 0;
+            color: var(--color-text);
+            line-height: 20px;
+        }
+
+        .output-row {
+            display: flex;
+            margin-bottom: 2px;
+        }
+
+        .out-addr {
+            color: var(--color-addr);
+            margin-right: 15px;
+            font-weight: 500;
+        }
+
+        .out-hex {
+            color: var(--color-hex);
+            flex: 1;
+        }
+
+        .out-normal {
+            color: var(--color-text);
+            white-space: pre-wrap;
+        }
+
+        .out-error-block {
+            color: var(--color-error);
+            white-space: pre-wrap;
+        }
+
+        .out-warning-block {
+            color: var(--color-warning);
+            white-space: pre-wrap;
+        }
+
+        .out-success-block {
+            color: var(--color-success);
+            white-space: pre-wrap;
+        }
+
+        /* Settings View */
+        #settings-view {
+            display: none;
+            padding: 20px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #ccc;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        #settings-view h2 {
+            margin-top: 0;
+            color: white;
+            font-weight: normal;
+        }
+
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .setting-group select,
+        .setting-group input {
+            background: #3c3c3c;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            width: 250px;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 22px;
+            background-color: var(--status-bg);
+            border-top: 1px solid var(--border-color);
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 768px) {
+            .menu-bar {
+                display: none !important;
+            }
+
+            .activity-bar {
+                width: 100%;
+                height: 45px;
+                flex-direction: row;
+                justify-content: space-between;
+                padding: 0;
+                z-index: 1000;
+                border-bottom: 1px solid var(--border-color);
+                border-right: none;
+                overflow: visible;
+                background-color: var(--header-bg);
+            }
+
+            .activity-bar>* {
+                display: flex;
+                align-items: center;
+            }
+
+            .activity-bar i.icon-btn {
+                font-size: 16px;
+                padding: 0 15px;
+                height: 45px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                color: #858585;
+                width: auto !important;
+                margin: 0 !important;
+            }
+
+            .activity-bar i.icon-btn:hover,
+            .activity-bar i.icon-btn.active {
+                color: #fff;
+            }
+
+            .activity-bar i.icon-btn.active {
+                border-bottom: 2px solid var(--accent-blue);
+                border-left: none;
+                color: var(--accent-blue);
+            }
+
+            .activity-bar .mobile-only.icon-btn {
+                display: flex !important;
+            }
+
+            .layout-wrapper {
+                flex-direction: column;
+                margin-top: 0;
+            }
+
+            #left-panel {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                height: calc(100vh - 45px);
+                min-height: 0;
+            }
+
+            #right-panel {
+                display: none !important;
+            }
+
+            .dropdown-content {
+                top: 45px;
+                left: 0;
+                border-top-left-radius: 0;
+            }
+
+            .menu-item {
+                height: 100%;
+                width: auto !important;
+            }
+
+            #find-widget {
+                top: 55px;
+                right: 10px;
+            }
+
+            .output-area {
+                flex: 1;
+                height: 100%;
+                width: 100%;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <input type="file" id="file-input" style="display:none;" onchange="handleFileSelect(event)">
+
+    <div class="menu-bar">
+        <div class="menu-item" onclick="triggerUndo()" title="Undo"><i class="fa-solid fa-arrow-left"></i></div>
+        <div class="menu-item" onclick="triggerRedo()" title="Redo"><i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+
+    <div class="layout-wrapper">
+        <div class="activity-bar">
+            <div class="menu-item"
+                style="padding: 0; margin: 0; width: 100%; display: flex; justify-content: center; position: relative;">
+                <i class="fa-regular fa-folder-open icon-btn active" title="File Menu"></i>
+                <div class="dropdown-content" style="left: 100%; top: 0; border-top-left-radius:0;">
+                    <div onclick="newFile()" id="btn-new">New File</div>
+                    <div onclick="document.getElementById('file-input').click()" id="btn-open">Open File...</div>
+                    <div onclick="downloadFile()" id="btn-download">Download Code</div>
+                    <hr style="border-color: #444; border-style:solid; border-width: 1px 0 0 0; margin: 5px 0;">
+                    <div
+                        style="padding: 4px 12px; color:#888; font-size: 10px; cursor:default; background:transparent;">
+                        SYSTEM FILES</div>
+                    <div onclick="openSystemFile('580vnx/labels.txt')">labels.txt</div>
+                    <div onclick="openSystemFile('580vnx/disas.asm')" style="display:none;">disas.asm</div>
+                    <div onclick="openSystemFile('580vnx/extensions.txt')">extensions.txt</div>
+                    <div onclick="openSystemFile('580vnx/gadgets.txt')">gadgets.txt</div>
+                </div>
+            </div>
+
+            <i class="fa-solid fa-magnifying-glass icon-btn" title="Find (Ctrl+F)" onclick="toggleFind()"></i>
+            <i class="fa-solid fa-arrow-left mobile-only icon-btn" style="display:none;" onclick="triggerUndo()"
+                title="Undo"></i>
+            <i class="fa-solid fa-arrow-right mobile-only icon-btn" style="display:none;" onclick="triggerRedo()"
+                title="Redo"></i>
+            <i class="fa-solid fa-play icon-btn" style="color:#89d185;" title="Compile" onclick="compileCode()"></i>
+            <i class="fa-solid fa-gear icon-btn" style="margin-top: auto;" title="Settings"
+                onclick="openSettingsTab()"></i>
+        </div>
+
+        <div id="find-widget">
+            <input type="text" id="find-input" placeholder="Find" oninput="doFind()">
+            <span id="find-count" style="font-size: 11px; color: #aaa;">0/0</span>
+            <i class="fa-solid fa-arrow-up find-btn" onclick="navFind(-1)"></i>
+            <i class="fa-solid fa-arrow-down find-btn" onclick="navFind(1)"></i>
+            <i class="fa-solid fa-times find-btn" onclick="toggleFind()"></i>
+        </div>
+
+        <div class="main-container">
+            <div class="panel" id="left-panel">
+                <div class="tab-container" id="editor-tabs">
+                    <!-- dynamically filled -->
+                </div>
+                <!-- Editor View -->
+                <div class="editor-wrapper" id="editor-wrapper">
+                    <pre id="highlighting"><code id="highlighting-content" class="language-rsc"></code></pre>
+                    <textarea id="code-editor" class="editor-textarea" spellcheck="false" oninput="onEditorInput()"
+                        onscroll="syncScroll(this)" placeholder="-- Enter ROP code --"></textarea>
+                </div>
+                <!-- Settings View -->
+                <div id="settings-view">
+                    <h2 id="lbl-settings-title">Settings</h2>
+                    <div class="setting-group">
+                        <label>Language</label>
+                        <select id="lang-select" onchange="changeLanguage()">
+                            <option value="en">English</option>
+                            <option value="vi">Tiếng Việt</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Editor Font Family</label>
+                        <input type="text" id="font-family" value="'Consolas', 'Monaco', 'Courier New', monospace"
+                            onchange="updateSettings()">
+                    </div>
+                    <div class="setting-group">
+                        <label>Editor Font Size (px)</label>
+                        <input type="number" id="font-size" value="14" onchange="updateSettings()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" id="right-panel">
+                <div class="tab-container">
+                    <div class="tab active" id="lbl-output-tab" style="border-right:none;"><span
+                            id="lbl-output">OUTPUT</span></div>
+                </div>
+                <div id="output-display" class="output-area"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-left"><span id="status-msg">Ready</span></div>
+        <div class="status-right" style="display: flex; gap: 15px;">
+            <span id="status-bytes">Bytes: 0</span>
+        </div>
+    </div>
+
+    <script>
+        const translations = {
+            en: { new: "New File", open: "Open File...", down: "Download Code", output: "OUTPUT", compiling: "Compiling...", bytes: "Bytes: ", placeholder: "-- Enter ROP code --", settitle: "Settings" },
+            vi: { new: "Tạo mới", open: "Mở tệp...", down: "Tải code", output: "KẾT QUẢ", compiling: "Đang biên dịch...", bytes: "Tổng byte: ", placeholder: "-- Nhập mã ROP --", settitle: "Cài đặt" }
+        };
+
+        let currentLang = 'en';
+        let findMatches = [];
+        let currentFindIdx = -1;
+        let isFindActive = false;
+        let isMobile = false;
+
+        function handleResize() {
+            const mobileNow = window.innerWidth <= 768;
+            if (mobileNow !== isMobile) {
+                isMobile = mobileNow;
+
+                const leftPanel = document.getElementById('left-panel');
+                const rightPanel = document.getElementById('right-panel');
+                const outDisplay = document.getElementById('output-display');
+
+                if (isMobile) {
+                    leftPanel.appendChild(outDisplay);
+                    if (currentTabId === 'Output') {
+                        outDisplay.style.display = 'block';
+                    } else {
+                        outDisplay.style.display = 'none';
+                    }
+                } else {
+                    rightPanel.appendChild(outDisplay);
+                    outDisplay.style.display = 'block';
+                    if (currentTabId === 'Output') {
+                        switchTab('script.rsc');
+                    }
+                }
+                renderTabs();
+            }
+        }
+        window.addEventListener('resize', handleResize);
+
+        // Tabs Logic
+        let tabs = {
+            'script.rsc': { content: localStorage.getItem('script.rsc') || '', history: [], hIdx: -1 }
+        };
+        let currentTabId = 'script.rsc';
+
+        function renderTabs() {
+            let html = '';
+            const ids = Object.keys(tabs);
+            if (document.getElementById('settings-view').style.display === 'block' || currentTabId === 'Settings') {
+                if (!ids.includes('Settings')) ids.push('Settings');
+            }
+
+            ids.forEach(id => {
+                const isActive = (id === currentTabId);
+                const fileDisplay = id.split('/').pop();
+                let closeHtml = (id !== 'script.rsc') ? `<i class="fa-solid fa-times close-btn" onclick="closeTab(event, '${id}')"></i>` : '';
+
+                if (id === 'Settings') {
+                    html += `<div class="tab ${isActive ? 'active' : ''}" onclick="switchTab('${id}')">Settings <i class="fa-solid fa-times close-btn" onclick="closeSettings(event)"></i></div>`;
+                } else {
+                    html += `<div class="tab ${isActive ? 'active' : ''}" onclick="switchTab('${id}')">${fileDisplay}${closeHtml}</div>`;
+                }
+            });
+
+            if (isMobile) {
+                const outActive = (currentTabId === 'Output') ? 'active' : '';
+                let t = translations[currentLang];
+                html += `<div class="tab ${outActive}" onclick="switchTab('Output')">${t.output}</div>`;
+            }
+
+            document.getElementById('editor-tabs').innerHTML = html;
+        }
+
+        function switchTab(id) {
+            if (currentTabId && currentTabId !== 'Settings' && currentTabId !== 'Output' && tabs[currentTabId]) {
+                tabs[currentTabId].content = document.getElementById('code-editor').value;
+            }
+            currentTabId = id;
+
+            document.getElementById('editor-wrapper').style.display = 'none';
+            document.getElementById('settings-view').style.display = 'none';
+
+            if (isMobile) {
+                document.getElementById('output-display').style.display = 'none';
+                if (id === 'Output') document.getElementById('output-display').style.display = 'block';
+            }
+
+            if (id === 'Settings') {
+                document.getElementById('settings-view').style.display = 'block';
+            } else if (id !== 'Output') {
+                document.getElementById('editor-wrapper').style.display = 'block';
+                document.getElementById('code-editor').readOnly = (id === '580vnx/disas.asm');
+                document.getElementById('code-editor').value = tabs[id].content || '';
+                updateUI();
+            }
+            renderTabs();
+        }
+
+        function closeTab(e, id) {
+            e.stopPropagation();
+            delete tabs[id];
+            if (currentTabId === id) switchTab('script.rsc');
+            else renderTabs();
+        }
+
+        function openSettingsTab() {
+            switchTab('Settings');
+        }
+
+        function closeSettings(e) {
+            e.stopPropagation();
+            switchTab('script.rsc');
+        }
+
+        async function openSystemFile(filename) {
+            if (!tabs[filename]) {
+                let content = filename === '580vnx/disas.asm' ? null : localStorage.getItem(filename);
+                if (content === null) {
+                    try {
+                        let res = await fetch(`/${filename}`);
+                        if (res.ok) content = await res.text();
+                        else content = "// File not found, created new.\n";
+                    } catch (e) { content = ""; }
+                    if (filename !== '580vnx/disas.asm') {
+                        localStorage.setItem(filename, content);
+                    }
+                }
+                tabs[filename] = { content: content, history: [content], hIdx: 0 };
+            }
+            switchTab(filename);
+        }
+
+        function onEditorInput() {
+            if (currentTabId && currentTabId !== 'Settings' && tabs[currentTabId]) {
+                const val = document.getElementById('code-editor').value;
+                tabs[currentTabId].content = val;
+                if (currentTabId !== '580vnx/disas.asm') {
+                    localStorage.setItem(currentTabId, val);
+                }
+
+                let t = tabs[currentTabId];
+                if (t.hIdx < t.history.length - 1) {
+                    t.history = t.history.slice(0, t.hIdx + 1);
+                }
+                t.history.push(val);
+                t.hIdx++;
+            }
+            updateUI();
+        }
+
+        function triggerUndo() {
+            if (currentTabId !== 'Settings' && tabs[currentTabId]) {
+                let t = tabs[currentTabId];
+                if (t.hIdx > 0) {
+                    t.hIdx--;
+                    t.content = t.history[t.hIdx];
+                    document.getElementById('code-editor').value = t.content;
+                    localStorage.setItem(currentTabId, t.content);
+                    updateUI();
+                }
+            }
+        }
+
+        function triggerRedo() {
+            if (currentTabId !== 'Settings' && tabs[currentTabId]) {
+                let t = tabs[currentTabId];
+                if (t.hIdx < t.history.length - 1) {
+                    t.hIdx++;
+                    t.content = t.history[t.hIdx];
+                    document.getElementById('code-editor').value = t.content;
+                    localStorage.setItem(currentTabId, t.content);
+                    updateUI();
+                }
+            }
+        }
+
+        function updateSettings() {
+            const family = document.getElementById('font-family').value;
+            const size = document.getElementById('font-size').value;
+            document.documentElement.style.setProperty('--font-editor', family);
+            document.getElementById('highlighting').style.fontSize = size + 'px';
+            document.getElementById('code-editor').style.fontSize = size + 'px';
+        }
+
+        function updateUI() {
+            const code = document.getElementById('code-editor').value;
+            renderEditor(code);
+        }
+
+        function renderEditor(text) {
+            const container = document.getElementById("highlighting-content");
+            let safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            if (isFindActive && findMatches.length > 0) {
+                let lastIdx = 0;
+                let newHtml = "";
+                const queryLen = document.getElementById('find-input').value.length;
+
+                findMatches.forEach((pos, i) => {
+                    newHtml += safeText.substring(lastIdx, pos);
+                    const isCurrent = (i === currentFindIdx);
+                    newHtml += `<span class="find-match ${isCurrent ? 'current' : ''}">${safeText.substr(pos, queryLen)}</span>`;
+                    lastIdx = pos + queryLen;
+                });
+                newHtml += safeText.substring(lastIdx);
+                container.innerHTML = newHtml + (safeText.endsWith("\n") ? " " : "");
+            } else {
+                container.innerHTML = safeText + (safeText.endsWith("\n") ? " " : "");
+                Prism.highlightElement(container);
+            }
+        }
+
+        function syncScroll(el) {
+            const high = document.getElementById("highlighting");
+            high.scrollTop = el.scrollTop;
+            high.scrollLeft = el.scrollLeft;
+        }
+
+        // Find Logic
+        function toggleFind() {
+            const widget = document.getElementById('find-widget');
+            isFindActive = (widget.style.display !== 'flex');
+            widget.style.display = isFindActive ? 'flex' : 'none';
+
+            if (isFindActive) {
+                document.getElementById('find-input').focus();
+                doFind();
+            } else {
+                findMatches = [];
+                currentFindIdx = -1;
+                document.getElementById('find-input').value = "";
+                updateUI();
+            }
+        }
+
+        function doFind() {
+            const query = document.getElementById('find-input').value.toLowerCase();
+            const text = document.getElementById('code-editor').value.toLowerCase();
+            findMatches = [];
+
+            if (query && isFindActive) {
+                let idx = text.indexOf(query);
+                while (idx !== -1) {
+                    findMatches.push(idx);
+                    idx = text.indexOf(query, idx + 1);
+                }
+            }
+            currentFindIdx = (findMatches.length > 0) ? 0 : -1;
+            updateFindResult();
+        }
+
+        function navFind(dir) {
+            if (findMatches.length === 0) return;
+            currentFindIdx = (currentFindIdx + dir + findMatches.length) % findMatches.length;
+            updateFindResult();
+        }
+
+        function updateFindResult() {
+            document.getElementById('find-count').innerText = `${findMatches.length > 0 ? currentFindIdx + 1 : 0}/${findMatches.length}`;
+            updateUI();
+            const currentMatchEl = document.querySelector('.find-match.current');
+            if (currentMatchEl) {
+                currentMatchEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                setTimeout(() => { document.getElementById('code-editor').scrollTop = document.getElementById('highlighting').scrollTop; }, 100);
+            }
+        }
+
+        function newFile() {
+            if (confirm(currentLang === 'en' ? "Clear all code?" : "Xóa toàn bộ mã?")) {
+                document.getElementById('code-editor').value = '';
+                onEditorInput();
+            }
+        }
+
+        function downloadFile() {
+            const code = document.getElementById('code-editor').value;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.download = currentTabId.split('/').pop();
+            a.href = URL.createObjectURL(blob);
+            a.click();
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('code-editor').value = ev.target.result;
+                onEditorInput();
+            };
+            reader.readAsText(file);
+        }
+
+        function changeLanguage() {
+            currentLang = document.getElementById('lang-select').value;
+            const t = translations[currentLang];
+            document.getElementById('btn-new').innerText = t.new;
+            document.getElementById('btn-open').innerText = t.open;
+            document.getElementById('btn-download').innerText = t.down;
+            document.getElementById('lbl-output').innerText = t.output;
+            document.getElementById('lbl-settings-title').innerText = t.settitle;
+            document.getElementById('code-editor').placeholder = t.placeholder;
+        }
+
+        // Compiler Bridge
+        async function compileCode() {
+            if (currentTabId && currentTabId !== 'Settings' && tabs[currentTabId]) {
+                tabs[currentTabId].content = document.getElementById('code-editor').value;
+            }
+            const code = tabs['script.rsc'].content;
+
+            const sysFiles = ['580vnx/labels.txt', '580vnx/extensions.txt', '580vnx/gadgets.txt'];
+            let filesPayload = {};
+            for (let f of sysFiles) {
+                let content = localStorage.getItem(f);
+                if (content) filesPayload[f.split('/')[1]] = content;
+            }
+
+            const out = document.getElementById('output-display');
+            out.innerHTML = `<div class="out-normal">Compiling...</div>`;
+            document.getElementById('status-msg').innerText = translations[currentLang].compiling;
+
+            try {
+                const res = await fetch('/compile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code, files: filesPayload })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    let safeErr = String(data.error).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    out.innerHTML = `<div class="out-error-block">${safeErr}</div>`;
+                } else if (data.returncode !== 0) {
+                    // Trộn stdout & stderr khi chương trình crash và render màu Warning ấm áp thanh lịch thay vì màu đỏ chói
+                    let errOut = (data.notes || '') + (data.output ? '\n' + data.output : '');
+                    let safeErr = errOut.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    out.innerHTML = `<div class="out-warning-block" style="font-size:12px; line-height:18px;">${safeErr}</div>`;
+                } else {
+                    // Tiến trình chạy thành công, bóc tách các dòng in ra màn hình
+                    let linesHtml = "";
+
+                    // Nếu có logs/thông báo stderr từ hệ thống nhưng không crash (warning nhạt)
+                    if (data.notes && data.notes.trim()) {
+                        let safeNotes = data.notes.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        linesHtml += `<div class="out-warning-block" style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px;">${safeNotes}</div>`;
+                    }
+
+                    if (data.output && data.output.trim()) {
+                        linesHtml += data.output.split('\n').map(l => {
+                            let safeL = l.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                            let m = safeL.match(/^([0-9A-Fa-f]{4})\b(.*)/);
+                            if (m) {
+                                // In địa chỉ và Hex theo palette VS Code
+                                return `<div class="output-row"><span class="out-addr">${m[1]}</span><span class="out-hex">${m[2]}</span></div>`;
+                            } else {
+                                return `<div class="out-normal">${safeL}</div>`;
+                            }
+                        }).join('');
+                    } else {
+                        linesHtml += `<div class="out-success-block">Process finished with exit code 0 (No output).</div>`;
+                    }
+
+                    out.innerHTML = linesHtml;
+                    document.getElementById('status-bytes').innerText = translations[currentLang].bytes + (data.bytes_count || 0);
+                }
+            } catch (e) {
+                out.innerHTML = `<div class="out-error-block">Server connection failed.</div>`;
+            } finally {
+                document.getElementById('status-msg').innerText = "Ready";
+                if (isMobile) {
+                    // Tự động chuyển tab Output trên điện thoại để xem kết quả nhanh nhất
+                    switchTab('Output');
+                }
+            }
+        }
+
+        // Init
+        window.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key === 'f') { e.preventDefault(); toggleFind(); }
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            let initVal = document.getElementById('code-editor').value;
+            if (!initVal) {
+                document.getElementById('code-editor').value = tabs['script.rsc'].content;
+            }
+            if (tabs['script.rsc'].history.length === 0) {
+                tabs['script.rsc'].history.push(document.getElementById('code-editor').value);
+                tabs['script.rsc'].hIdx = 0;
+            }
+            localStorage.removeItem('580vnx/disas.asm');
+
+            isMobile = !(window.innerWidth <= 768);
+            handleResize();
+
+            changeLanguage();
+            switchTab('script.rsc');
+        });
+    </script>
+</body>
+
+</html>

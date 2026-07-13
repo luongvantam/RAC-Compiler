@@ -1,9 +1,9 @@
 import re
 import os
 import sys
-import utils
-import loader
-import handlers
+from libcompiler import utils
+from libcompiler import loader
+from libcompiler import handlers
 
 def build_env():
     env = {k: int.from_bytes(bytes(v), 'little') if isinstance(v, list) else v for k, v in loader.vars_dict.items()}

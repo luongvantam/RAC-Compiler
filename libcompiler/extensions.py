@@ -37,7 +37,7 @@ def expand_extensions_in_program(program_lines, extensions, safe_mode=False):
                     try:
                         exec(ext["logic"], {}, env)
                     except Exception as e:
-                        import utils
+                        from libcompiler import utils
                         utils.report_error(f"Extension logic error in '{ext['syntax']}': {e}")
                 
                 outputs = []

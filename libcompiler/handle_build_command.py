@@ -21,7 +21,7 @@ def parse_build_block(raw_content, safe_mode=False):
         text = text[:m.start()] + text[m.end():]
         
     if 'line.gadgets' in cfg:
-        import loader
+        from libcompiler import loader
         offset = cfg['line.gadgets']
         for cmd, (adr, tags) in loader.commands.items():
             loader.commands[cmd] = (adr + offset, tags)

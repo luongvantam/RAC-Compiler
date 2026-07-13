@@ -1,8 +1,8 @@
 import re
-import utils
-import loader
+from libcompiler import utils
+from libcompiler import loader
 import difflib
-from loader import sizeof_register, char_to_hex, token_to_hex
+from libcompiler.loader import sizeof_register, char_to_hex, token_to_hex
 
 sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
 

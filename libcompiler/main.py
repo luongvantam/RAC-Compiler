@@ -1,7 +1,8 @@
-import sys, os, argparse, json, engine, io, contextlib
-import loader, handlers, utils
-from extensions import expand_extensions_in_program, load_extensions
-from loader import get_disassembly, get_commands
+import sys, os, argparse, json, io, contextlib
+from libcompiler import engine
+from libcompiler import loader, handlers, utils
+from libcompiler.extensions import expand_extensions_in_program, load_extensions
+from libcompiler.loader import get_disassembly, get_commands
 
 def resolve_file(name):
     if not name: return None
@@ -10,7 +11,7 @@ def resolve_file(name):
 
 def main():
     try:
-        import check_update
+        from . import check_update
         check_update.check_update(auto_mode=True)
     except Exception:
         pass
@@ -24,7 +25,7 @@ def main():
     
     if args.update:
         try:
-            import check_update
+            from . import check_update
             check_update.check_update(auto_mode=False)
         except Exception as e:
             print(f"Update failed: {e}")
@@ -95,5 +96,5 @@ if __name__ == "__main__":
     try: main()
     except EOFError: print("Error: stdin closed.")
     except Exception as e:
-        import utils
+        from libcompiler import utils
         utils.report_error(e)

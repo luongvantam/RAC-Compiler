@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-from lib import main
+from libcompiler import main
 
 if __name__ == "__main__":
     try:
@@ -10,5 +9,5 @@ if __name__ == "__main__":
     except EOFError:
         print("Error: stdin closed.")
     except Exception as e:
-        import utils
+        from libcompiler import utils
         utils.report_error(e)

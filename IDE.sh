@@ -20,7 +20,7 @@ if ! $PY -c "import textual" &> /dev/null; then
 fi
 
 while true; do
-    $PY lib/ide.py
+    $PY tui-ide/app.py
     if [ $? -ne 3 ]; then
         break
     fi

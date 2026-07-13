@@ -11,7 +11,7 @@ if errorlevel 1 (
     )
 )
 :run_ide
-python lib\ide.py
+python tui-ide\app.py
 if %errorlevel% equ 3 (
     echo [RSC IDE] Restarting...
     goto run_ide
