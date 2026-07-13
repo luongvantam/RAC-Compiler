@@ -1,60 +1,10 @@
 # RAC COMPILER
 
-🌐 **Language / Ngôn ngữ:**
-
-* **Tiếng Việt:** Cuộn xuống [Phần A: Hướng dẫn Tiếng Việt](https://www.google.com/search?q=%23phan-a-huong-dan-tieng-viet).
-* **English:** Scroll down to [Section B: English Guide](https://www.google.com/search?q=%23section-b-english-guide).
+*Đọc bằng ngôn ngữ khác: [Tiếng Việt](README.vi.md).*
 
 ---
 
-## PHẦN A: HƯỚNG DẪN TIẾNG VIỆT
-
-### I. CÀI ĐẶT & KHỞI CHẠY (INSTALLATION & EXECUTION)
-
-#### 1. Tải bộ biên dịch (Download)
-
-Bạn có thể tải phiên bản mới nhất của RAC Compiler từ kho lưu trữ GitHub chính thức:
-
-* **Repository Link:** [https://github.com/luongvantam/RAC-Compiler](https://github.com/luongvantam/RAC-Compiler)
-* **Cách tải:** Chọn nút **Code** -> **Download ZIP** và giải nén, hoặc sử dụng lệnh Git:
-```bash
-git clone https://github.com/luongvantam/RAC-Compiler.git
-
-```
-
-
-
-#### 2. Cài đặt Tiện ích hiển thị cú pháp (Syntax Highlighting)
-
-Để mã nguồn hiển thị trực quan và dễ đọc hơn trên Visual Studio Code:
-
-1. Mở VS Code, nhấn tổ hợp phím `Ctrl + Shift + X` để vào mục Extensions.
-2. Bấm vào biểu tượng dấu ba chấm `...` ở góc trên bên phải khung Extensions.
-3. Chọn **Install from VSIX...**
-4. Trỏ tới file `rsc.vsix` có sẵn trong thư mục dự án để cài đặt.
-
-#### 3. Cách chạy chương trình và Biên dịch (Running & Compiling)
-
-Tùy thuộc vào hệ điều hành, hãy khởi chạy file script khởi động trình biên dịch:
-
-* **Trên Windows:** Click đúp vào file `run.bat` (hoặc mở Terminal/CMD gõ `run.bat`).
-* **Trên Linux / macOS:** Mở Terminal tại thư mục gốc và thực thi file `run.sh`:
-```bash
-chmod +x run.sh
-./run.sh
-```
-
-* **Quy trình biên dịch:** 
-  1. Ở lần đầu chạy, hệ thống sẽ hỏi chọn model máy tính mục tiêu (ví dụ: `580vnx`, `880btg`).
-  2. Tại màn hình chính, gõ đường dẫn hoặc tên file mã nguồn (ví dụ: `main.rsc`) và nhấn `Enter` để biên dịch.
-  3. Bạn có thể sử dụng các lệnh đặc biệt sau trong dòng lệnh của compiler:
-     - `!q`: Thoát trình biên dịch.
-     - `!m`: Đổi sang model máy tính khác.
-     - `!u`: Cập nhật (Update).
-
----
-
-## SECTION B: ENGLISH GUIDE
+## ENGLISH GUIDE
 
 ### I. INSTALLATION & EXECUTION
 
@@ -66,10 +16,7 @@ Get the latest source code and distribution releases from the official GitHub re
 * **Method:** Click the **Code** button -> **Download ZIP** and extract it, or execute via Git terminal clone:
 ```bash
 git clone https://github.com/luongvantam/RAC-Compiler.git
-
 ```
-
-
 
 #### 2. Syntax Highlighting Support
 
@@ -99,6 +46,18 @@ chmod +x run.sh
      - `!m`: Change the target model.
      - `!u`: Check for updates.
 
+#### 4. Using the IDE (New)
+
+The project now includes 2 Integrated Development Environments (IDEs):
+
+* **TUI IDE (Terminal UI):**
+  * Run `IDE.bat` on Windows or `./IDE.sh` on Linux/macOS.
+  * Features syntax highlighting directly in your terminal.
+  * Requires the `textual` Python module (installed automatically via scripts).
+
+* **Web IDE (Browser UI):**
+  * Run `web.bat` on Windows or `./web.sh` on Linux/macOS.
+  * Open your browser and navigate to the address shown in the terminal (usually `http://localhost:8000`).
 
 ---
 
