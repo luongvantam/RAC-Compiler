@@ -6,6 +6,12 @@
     * Use https://github.com/luongvantam/RAC-Compiler/ to compile this program.
 */
 
+@build {
+    emu.inj = true
+    #emu.inj_file = "hc-inj.txt"
+    emu.inj_adr[main] = 0xe9e0
+}
+
 @section.main at 0xd730 backup 0xe9e0
 
 /*
@@ -17,8 +23,8 @@ w_now = var_e
 n_now = var_f
 */
 
-
 lbl start
+    setlr_pc
     xr0 = eval(adr(var_i) + dist.main), 0xd0f5
     [er2]=r0,r2=0
     [er0]=r2
@@ -36,20 +42,17 @@ lbl draw_picture
         hex 44 01                       # er0
     lbl adr_line
         eval(adr(line_1)+dist.main)     # er2
-    hex 00 00                           # er4
+    eval(adr(counter_loop)+dist.main)   # er4
     hex 00 00                           # er6
     line_print
-    setlr_pc
     er0 = er6,er2 = er12
     [er8] += er2,pop xr8
     eval(adr(adr_line)+dist.main); hex 00 00
     er2 = hex 09 00
     [er8] += er2,pop xr8
-    eval(adr(counter_loop)+dist.main-0x5)
-    lbl addr_calc_sum_n
-        adr(calc_sum_n)
-    [er8+5]+=1,pop er8
-    adr(key)
+    adr(key); hex 00 00
+    setlr_pc
+    [er4]+=1,rt
     lbl counter_loop
         call 0981A
         eval(adr(table_key) - 0xa); eval(adr(table_key) - 0xa)      # xr12
@@ -79,21 +82,15 @@ lbl get_key
 lbl key_move
     er2=er0,er0+=er4,rt
     [er8]+=er2,pop xr8
-    eval(adr(jump_to_main_in_key_move) + dist.main)
-    lbl addr_calc_sum
-        adr(calc_sum_w)
-    sp = [er8],pop er8
-    lbl jump_to_main_in_key_move
-        eval(adr(jump_to_start) - 0x2)
-    eval(adr(cursor) + dist.main)
+    hex 00 00 00 00
+    goto key_loop
 
 lbl key_write
-    er4 = [er8], pop er8, rt
-    lbl addr_calc_y
-        adr(calc_y)
-    [er4] = er0, pop er0, rt
-    lbl addr_calc_threshold
-        adr(calc_threshold)
+    er2=er0,er0+=er4,rt
+    er0 = eval(adr(cursor) + dist.main)
+    er0 = [er0],pop xr8,rt
+    hex 00 00 00 00
+    [er0]=r2
 
 lbl key_loop
     er14 = eval(adr(jump_to_start) - 0x2)
@@ -105,7 +102,7 @@ lbl var_i
 lbl main
     setlr_pc
     clear()
-    xr0 = 0x3d, 0x1b, eval(adr(text_loading) + dist.main)
+    qr0 = 0x3d, 0x1b, eval(adr(text_loading) + dist.main), hex 00 00 00 00
     line_print
     render()
 
@@ -116,28 +113,28 @@ lbl check_n
     r0=[er0]
     r1=0,rt
     er0 - er2_eq,r0 = 1|r0 = 0,rt
-    r2 = r0,pop er0
-    var_f
-    num_frombyte
+    er2 = adr(var_n)
+    hex_to_dec
 
 lbl loop_w
     # var_w = var_w + weights[var_i] * picture[var_i]
-    setlr_pc
     r2 = r0,pop er0
     eval(adr(weights) + dist.main)
     er0+=er8,rt
     r0 = [er0]
     # er0 = picture[var_i], er2 = weights[var_i]
-    call 180d4          # er4 = 0,er6 = 0,er8 = 1,rt
     er0 *= r2,er2 = er0,er0 += er4,rt       # er2 = er0 = weights[var_i] * picture[var_i]
-    r2 = r0,pop er0
-    var_e
-    num_frombyte
+    er2 = adr(w_now)
+    hex_to_dec
+    xr0 = adr(addr_w_now), var_e
+    calc_func
     xr0 = adr(addr_calc_sum), var_a
     calc_func
 
 lbl loop_n
     #var_n = picture[var_i] + var_n
+    xr0 = adr(addr_var_n), var_f
+    calc_func
     xr0 = adr(addr_calc_sum_n), var_b
     calc_func
 
@@ -152,29 +149,23 @@ lbl store_threshold
 lbl loop_i
     # var_i += 0 if var_i == 72 else 1
     setlr_pc
-    xr0 = eval(adr(var_i) + dist.main), 0x0048
+    qr0 = eval(adr(var_i) + dist.main), 0x0048, eval(adr(add_i) - 0x2), hex 00 00
     r0 = [er0]
     r1=0,rt
     er0 - er2_eq,r0 = 1|r0 = 0,rt
-    er2 = er0,er0 = er2,pop er8,rt
-    eval(adr(var_i) + dist.main - 0x5)
-    er0 += er2,rt
-    xr12 = eval(adr(table_jump) + dist.main + 0x2), eval(adr(print_result) - 0x2)
-    call 11976      # BL [ER12+=R0]
-    lbl jump_to_restore_in_loop_i
-        eval(adr(restore) - 0x2)
-    lbl add_i
-        [er8+5]+=1,pop er8
-        eval(adr(jump_to_restore_in_loop_i)  + dist.main)
-    sp = [er8], pop er8
+    er2 = eval(adr(print_result) - adr(add_i))
+    er0 *= r2,er2 = er0,er0 += er4,rt
+    er14 = er0, pop xr0
+    var_c; var_d
+    sp = er14, pop er14
+    eval(adr(restore) - 0x2)
 
-lbl table_jump
-    hex 40 07 
-    hex 12 7b
-    hex 40 07 
+lbl add_i
+    er4 = eval(adr(var_i) + dist.main)
+    [er4] += 1,rt
+    sp=er14, pop er14
 
 lbl print_result
-    xr0 = var_c, var_d
     verify_gt
     /*
         if y > threshold:
@@ -186,17 +177,23 @@ lbl print_result
     setlr_pc
     clear()
     er0 = er2,rt
-    er0 += er2,rt
-    xr12 = eval(adr(table_jump) + dist.main), eval(adr(if_num_is_one) - 0x2)
-    call 11976      # BL [ER12+=R0]
-    adr(if_num_is_zero)
-    setlr_pc
-    [er4] += 1,rt   # if_num_is_one: call 23EC2
+    er2 = adr(table_text)
+    load_table
+    er14 = er0, pop xr0
+    hex 11 11
+    adr(text_one)
+    sp = er14,pop er14
+
+lbl table_text
+    eval(adr(if_num_is_zero) - 0x2)
+    eval(adr(if_num_is_one) - 0x2)
 
 lbl if_num_is_one
-    xr0 = hex 11 11, eval(adr(text_one) + dist.main)
-    lbl if_num_is_zero
-        call 23EC1      # er2 += 4, bl line_print.col_0
+    er4 = adr(if_num_is_zero)
+    [er4] += 1,rt   # if_num_is_zero: call 23EC2
+
+lbl if_num_is_zero
+    call 23EC1      # er2 += 4, bl line_print.col_0
 
 lbl print_output
     xr0 = 0x0101, eval(adr(tilte) + dist.main)
@@ -227,71 +224,94 @@ lbl length
     hex 00 00
     sp = er6, pop er8
 
+lbl addr_calc_y
+    adr(calc_y)
+
+lbl addr_calc_threshold
+    adr(calc_threshold)
+
+lbl addr_calc_sum
+    adr(calc_sum_w)
+
+lbl addr_var_n
+    adr(var_n)
+
+lbl addr_calc_sum_n
+    adr(calc_sum_n)
+
+lbl addr_w_now
+    adr(w_now)
+
 lbl calc_y
-    'A // 2 - 1 0 0 * B _'     # var_c
+    'A / 2 - 1 0 0 * B'     # var_c
+    hex 00
 
 lbl calc_threshold
-    '3 3 3 3 _ _'       # var_d
+    '3 3 3 3'       # var_d
+    hex 00
 
 lbl calc_sum_w
-    'E + A _'         # var_a
+    'E + A'         # var_a
+    hex 00
+
+lbl var_n
+    hex 00 00 00
+    # var_f
 
 lbl calc_sum_n
-    'F + B _'         # var_b
+    'F + B'         # var_b
+    hex 00
+
+lbl w_now
+    hex 00 00 00 00
+    # var_e
 
 lbl tilte
     "NEURAL NETWORK"
-    hex 00 00
+    hex 00
 
 lbl text
     "this is"
     hex 00
 
 lbl text_one
-    hex 31 00
-
-lbl cursor
-    eval(adr(picture) + dist.main)
+    hex 31 00 00 00
 
 lbl text_zero
     hex 30 00
 
 lbl text_cre
-    "cre:@luongvantam "
+    "cre:@luongvantam"
     hex 00
 
 lbl text_loading
     "loading... "
     hex 00
 
+lbl cursor
+    eval(adr(picture) + dist.main)
+
 lbl table_key
     KEY_UP
     eval(adr(key_move) - 0x2)
     hex f7 ff
-
     KEY_DOWN
     eval(adr(key_move) - 0x2)
     hex 09 00
-
     KEY_LEFT
     eval(adr(key_move) - 0x2)
     hex ff ff
-
     KEY_RIGHT
     eval(adr(key_move) - 0x2)
     hex 01 00
-
     KEY_1
     eval(adr(key_write) - 0x2)
     hex cc 00
-
     KEY_0
     eval(adr(key_write) - 0x2)
     hex cd 00
-    
     KEY_SHIFT
     eval(adr(restore) - 0x2)
-
     hex 00 00
     eval(adr(key_loop) - 0x2)
 
@@ -309,21 +329,21 @@ lbl weights
 
 lbl picture
     lbl line_1
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_2
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_3
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_4
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_5
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_6
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_7
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
     lbl line_8
-        loop 8 { hex CD }; hex 00
+        hex CD CD CD CD CD CD CD CD 00
 
 lbl end
     hex 00 00 00 00
