@@ -255,20 +255,31 @@ class MobileTabsContainer(Horizontal):
 
     def on_mouse_down(self, event: events.MouseDown):
         if event.button == 1:
-            self.capture_mouse()
-            self._is_dragging = True
+            self._is_dragging = False
             self._start_x = event.screen_x
             self._start_scroll_x = self.scroll_offset.x
 
     def on_mouse_move(self, event: events.MouseMove):
-        if self._is_dragging:
-            dx = event.screen_x - self._start_x
-            self.scroll_to(x=self._start_scroll_x - dx, animate=False)
+        if event.button == 1 and hasattr(self, "_start_x"):
+            if not self._is_dragging and abs(event.screen_x - self._start_x) > 2:
+                self._is_dragging = True
+                try:
+                    self.capture_mouse()
+                except Exception:
+                    pass
+            
+            if self._is_dragging:
+                dx = event.screen_x - self._start_x
+                self.scroll_to(x=self._start_scroll_x - dx, animate=False)
 
     def on_mouse_up(self, event: events.MouseUp):
         if event.button == 1:
+            if self._is_dragging:
+                try:
+                    self.release_mouse()
+                except Exception:
+                    pass
             self._is_dragging = False
-            self.release_mouse()
 
 class VerticalResizer(Label):
     def __init__(self, targets: list[str], is_right: bool = False, *args, **kwargs):
@@ -724,14 +735,16 @@ class RSC_IDE(App):
     .resizer:hover { background: $accent; }
     
     /* MOBILE TABS */
-    #mobile-tabs { height: 3; display: none; background: $boost; border-bottom: solid $primary; overflow-x: auto; scrollbar-size: 0 0; }
+    #mobile-tabs { height: 3; display: none; background: $boost; border-bottom: solid $primary; overflow-x: auto; scrollbar-size: 0 0; padding: 0 1; }
     .mtab-btn { min-width: 12; margin-right: 1; }
     
     /* ACTIVITY BAR */
     #activity-bar { width: 8; height: 100%; border-right: solid $primary; background: $boost; display: none; align: center top; }
-    .activity-btn { width: 100%; height: 3; min-width: 1; padding: 0; border: none; background: transparent; content-align: center middle; }
+    .activity-btn { width: 100%; height: 3; min-width: 1; padding: 0; border: none; background: transparent; content-align: center middle; margin-top: 1; }
     .activity-btn:hover { background: $accent; }
     .activity-btn.-active { background: $primary; color: $foreground; }
+    
+    Footer { padding: 0 1; }
 
     
     /* TOOLBAR */
@@ -776,6 +789,7 @@ class RSC_IDE(App):
         
         
         with MobileTabsContainer(id="mobile-tabs"):
+            yield Button("Cmd", id="mtab-cmd", classes="mtab-btn")
             yield Button("Workspace", id="mtab-workspace", classes="mtab-btn")
             yield Button("Editor", id="mtab-editor", classes="mtab-btn")
             yield Button("Models", id="mtab-models", classes="mtab-btn")
@@ -784,6 +798,7 @@ class RSC_IDE(App):
             
         with Horizontal(id="main-container"):
             with Vertical(id="activity-bar"):
+                yield Button("Cmd", id="act-cmd", classes="activity-btn")
                 yield Button("WS", id="act-workspace", classes="activity-btn -active")
                 yield Button("Find", id="act-find", classes="activity-btn")
                 yield Button("Run", id="act-run", classes="activity-btn")
@@ -1231,7 +1246,9 @@ class RSC_IDE(App):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id
-        if btn_id == "act-workspace":
+        if btn_id in ("act-cmd", "mtab-cmd"):
+            self.action_command_palette()
+        elif btn_id == "act-workspace":
             self.action_goto_workspace()
         elif btn_id == "act-find":
             self.action_toggle_search()
