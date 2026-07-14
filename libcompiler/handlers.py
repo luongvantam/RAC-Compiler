@@ -3,10 +3,12 @@ from libcompiler import utils
 from libcompiler import loader
 import difflib
 from libcompiler.loader import sizeof_register, char_to_hex, token_to_hex
+from libcompiler.i18n import t
 
 sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
 
 def register_alias(name, target):
+    utils.check_keyword(name)
     if not hasattr(loader, 'aliases'):
         loader.aliases = {}
     loader.aliases[name] = target
@@ -38,6 +40,7 @@ def add_macro(pattern, rest, program_iter):
     keyword = pattern.split('<', 1)[0].strip()
     m_kw = re.match(r'^([a-zA-Z_]\w*)', keyword)
     macro_keyword = utils.canonicalize(m_kw.group(1) if m_kw else keyword.rstrip('(').strip())
+    utils.check_keyword(macro_keyword)
 
     if not hasattr(loader, 'dynamic_macros'): loader.dynamic_macros = []
     loader.dynamic_macros.append({
@@ -78,7 +81,7 @@ def run_func(line_strip, raw_line, line_num, final_lines_to_process):
     call_args = [arg.strip() for arg in re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', call_args_str)]
     if call_args == [''] and not call_args_str: call_args = []
 
-    if len(call_args) != len(func["args"]): raise utils.CompilerError(f"Args mismatch: {line_strip}")
+    if len(call_args) != len(func["args"]): raise utils.CompilerError(t("err_args_mismatch_var0_7637", var0=line_strip))
 
     if "return_expr" in func:
         ret_expr = func["return_expr"]
@@ -233,7 +236,7 @@ def _eval_fill_args(expr1, expr2):
             if k not in eval_scope: eval_scope[k] = k
 
     def pass1_adr(label, offset=0):
-        if not isinstance(label, str): raise utils.CompilerError(f"Label must be str, got {type(label)}")
+        if not isinstance(label, str): raise utils.CompilerError(t("err_label_must_be_str_c4b7", var0=type(label)))
         if label in loader.labels:
             return (loader.home or 0) + loader.labels[label] + offset
         if hasattr(loader, 'global_labels') and label in loader.global_labels:
@@ -242,7 +245,7 @@ def _eval_fill_args(expr1, expr2):
             if sec and hasattr(loader, 'section_addresses') and sec in loader.section_addresses:
                 sec_home = loader.section_addresses[sec].get('org', 0)
             return sec_home + loader.global_labels[label] + offset
-        raise utils.CompilerError(f"Label '{label}' not found (padding requires previously defined labels)")
+        raise utils.CompilerError(t("err_label_var0_not_found_45dc", var0=label))
         
     eval_scope['adr'] = pass1_adr
     
@@ -258,7 +261,7 @@ def _eval_fill_args(expr1, expr2):
     return val1, val2
 
 def _do_fill(count, value):
-    if count < 0: raise utils.CompilerError(f"Padding count cannot be negative: {count}")
+    if count < 0: raise utils.CompilerError(t("err_padding_count_cannot_be_daab", var0=count))
     if count == 0: return
     h = f"{value:x}"
     if len(h) % 2: h = '0' + h
@@ -279,7 +282,7 @@ def handle_align_command(line):
     inner = line.strip()[6:-1].strip()
     expr1, expr2 = _parse_two_args(inner)
     size, value = _eval_fill_args(expr1, expr2)
-    if size <= 0: raise utils.CompilerError(f"Align size must be > 0, got {size}")
+    if size <= 0: raise utils.CompilerError(t("err_align_size_must_be_da9e", var0=size))
     
     current_addr = (loader.home or 0) + len(loader.result)
     rem = current_addr % size
@@ -293,7 +296,7 @@ def handle_pad_command(line):
     target, value = _eval_fill_args(expr1, expr2)
     
     if is_abs:
-        if loader.home is None: raise utils.CompilerError("pad_abs requires section origin to be known (use @set.sec at address)")
+        if loader.home is None: raise utils.CompilerError(t("err_padabs_requires_section_origin_1660"))
         current_addr = loader.home + len(loader.result)
         count = target - current_addr
     else:
@@ -311,22 +314,19 @@ def handle_label_definition(line):
         label_name = label[:at_match.start()].strip()
         address = int(utils.safe_eval(address_expr))
         
-        if label_name in loader.labels: raise utils.CompilerError(f'Duplicate label: {label_name}')
+        if label_name in loader.labels: raise utils.CompilerError(t("err_duplicate_label", label=label_name))
+        utils.check_keyword(label_name)
         if hasattr(loader, 'global_labels'):
-            if label_name in loader.global_labels and loader.global_labels[label_name] != address:
-                pass # allow across passes if address matches? Actually just overwrite or keep. Overwrite is safe.
             loader.global_labels[label_name] = address
             if getattr(loader, 'is_pass1', False):
                 if not hasattr(loader, 'label_sections'): loader.label_sections = {}
                 loader.label_sections[label_name] = getattr(loader, 'current_section_name', None)
-            if getattr(loader, 'current_section_name', None) is not None or not getattr(loader, 'is_pass1', False):
-                # We need to make sure we don't print twice, but just printing is fine.
-                pass
             if not getattr(loader, 'is_pass1', False):
-                utils.note(f'Label {label_name} is at address {address:04X} (absolute)\n')
+                utils.note(t("note_label_var0_is_at_1994", var0=label_name, var1=hex(address)))
         return
 
-    if label in loader.labels: raise utils.CompilerError(f'Duplicate label: {label}')
+    if label in loader.labels: raise utils.CompilerError(t("err_duplicate_label", label=label))
+    utils.check_keyword(label)
     loader.labels[label] = len(loader.result)
 
 def collect_block_body(first_line_rest, program_iter, line_num=None):
@@ -335,7 +335,7 @@ def collect_block_body(first_line_rest, program_iter, line_num=None):
         return ([(line_num, content)] if content and line_num is not None else [content] if content else []), True
 
     body_items, depth = [], 1
-    if program_iter is None: raise utils.CompilerError("Block requires an iterator")
+    if program_iter is None: raise utils.CompilerError(t("err_block_requires_an_iterator_09ba"))
         
     for item in program_iter:
         ln, content = item if isinstance(item, tuple) and len(item) == 2 else (None, item.get("exec") if isinstance(item, dict) else str(item))
@@ -358,8 +358,9 @@ def collect_block_body(first_line_rest, program_iter, line_num=None):
 
 def handle_function_definition(line, program_iter):
     m = re.match(r'func\s+(\w+)\s*\((.*?)\)\s*\{', line.strip())
-    if not m: raise utils.CompilerError(f"Invalid func syntax: {line}. Expected 'func name(args) {{'")
+    if not m: raise utils.CompilerError(t("err_invalid_func_syntax_var0_a35e", var0=line))
     func_name, args_str = m.group(1), m.group(2).strip()
+    utils.check_keyword(func_name)
     
     line_num = getattr(loader, 'current_line_num', None)
     body_items, _ = collect_block_body(line[m.end():].strip(), program_iter, line_num)
@@ -370,18 +371,18 @@ def handle_function_definition(line, program_iter):
         stripped = content.strip()
         if not stripped: continue
         if stripped.startswith('return '):
-            if return_expr is not None: raise utils.CompilerError(f"Multiple returns in {func_name}")
+            if return_expr is not None: raise utils.CompilerError(t("err_multiple_returns_in_var0_92b4", var0=func_name))
             return_expr = stripped[7:].strip()
         else:
             body.append((b_ln, stripped))
             
-    if return_expr is not None and body: raise utils.CompilerError(f"Function {func_name} with return must ONLY contain return")
+    if return_expr is not None and body: raise utils.CompilerError(t("err_function_var0_with_return_fe40", var0=func_name))
     loader.defined_functions[func_name] = {"args": [a.strip() for a in args_str.split(',')] if args_str else [], **({"return_expr": return_expr} if return_expr is not None else {"body": body})}
 
 def execute_python_block(raw_block):
     if getattr(loader, 'safe_mode', False):
         if not getattr(loader, 'is_pass1', False):
-            utils.note("[WARN] Block @python ignored due to safe_mode\n")
+            utils.note(t("note_warn_block_python_ignored_ea17"))
         return
 
     code_str = raw_block[raw_block.find('{')+1:raw_block.rfind('}')]
@@ -407,7 +408,7 @@ def execute_python_block(raw_block):
                 else:
                     loader.vars_dict[k] = str(v) if isinstance(v, int) else v
     except Exception as e:
-        raise utils.CompilerError(f"Error executing @python block: {e}")
+        raise utils.CompilerError(t("err_error_executing_python_block_970c", var0=e))
 
 def handle_python_block(line, program_iter):
     raw_block = getattr(loader, 'current_exec_info', {}).get('raw', '')
@@ -415,9 +416,9 @@ def handle_python_block(line, program_iter):
 
 def handle_repeat_command(line, program_iter):
     m = re.match(r'(?:repeat|loop)\s+(.+?)\s*\{', line.strip())
-    if not m: raise utils.CompilerError(f"Invalid repeat syntax: {line}. Expected 'repeat count {{'")
+    if not m: raise utils.CompilerError(t("err_invalid_repeat_syntax_var0_a977", var0=line))
     try: count = int(utils.safe_eval(m.group(1).strip(), loader.vars_dict.copy()))
-    except Exception as e: raise utils.CompilerError(f"Error eval repeat count '{m.group(1)}': {e}")
+    except Exception as e: raise utils.CompilerError(t("err_error_eval_repeat_count_3159", var0=m.group(1), var1=e))
         
     line_num = getattr(loader, 'current_exec_info', {}).get('num')
     body_items, _ = collect_block_body(line[m.end():].strip(), program_iter, line_num)
@@ -476,7 +477,7 @@ def handle_eval_expression(line):
             process_line(f'0x{item:0{max_len}x}' if isinstance(item, int) else f'"{item}"')
     elif isinstance(val, str):
         process_line(f'"{val}"')
-    else: raise utils.CompilerError(f"Unsupported eval type: {type(val)}")
+    else: raise utils.CompilerError(t("err_unsupported_eval_type_var0_4f9c", var0=type(val)))
 
 def handle_list_command(line, program_iter):
     content = line[1:]
@@ -500,8 +501,8 @@ def handle_call_command(line):
     except ValueError:
         if cmd not in loader.commands:
             matches = difflib.get_close_matches(cmd, loader.commands.keys(), n=1, cutoff=0.6)
-            if matches: raise utils.CompilerError(f"Call target not found: {cmd!r}. Did you mean {matches[0]!r}?")
-            raise utils.CompilerError(f"Call target not found: {cmd!r}")
+            if matches: raise utils.CompilerError(t("err_call_target_not_found_a0d1", var0=cmd, var1=matches[0]))
+            raise utils.CompilerError(t("err_call_target_not_found_1ae5", var0=cmd))
         adr, tags = loader.commands[cmd]
         for t in tags: 
             if t.startswith('warning'): utils.note(t + '\n')
@@ -518,7 +519,7 @@ def handle_call_command(line):
 
 def handle_goto_command(line):
     parts = line.split(maxsplit=1)
-    if len(parts) < 2: raise utils.CompilerError(f"Invalid goto syntax: {line}. Expected 'goto <label>'")
+    if len(parts) < 2: raise utils.CompilerError(t("err_invalid_goto_syntax_var0_487b", var0=line))
     lbl = parts[1].lower()
     reg = 'er6' if line.startswith('goto_er6') else 'er14'
     process_line(f'{reg} = eval(adr("{lbl}") - 0x02);call sp={reg},pop {"er8" if reg=="er6" else reg}')
@@ -526,7 +527,7 @@ def handle_goto_command(line):
 def handle_address_command(line):
     inner = line.strip()[4:-1].strip()
     parts = [p.strip() for p in inner.split(',')]
-    if not parts or not parts[0] or len(parts) > 3: raise utils.CompilerError(f"Invalid adr syntax: {line}. Expected 'adr(label, offset, base)'")
+    if not parts or not parts[0] or len(parts) > 3: raise utils.CompilerError(t("err_invalid_adr_syntax_var0_b779", var0=line))
     
     expr = [f'adr("{parts[0]}")']
     if len(parts) > 1 and parts[1]: 
@@ -541,22 +542,23 @@ def handle_address_command(line):
     else: process_line(f'eval({" ".join(expr)})')
 
 def handle_define_gadget_command(line):
-    if ':' not in line: raise utils.CompilerError(f"Invalid def syntax: {line}. Expected 'def name: address'")
+    if ':' not in line: raise utils.CompilerError(t("err_invalid_def_syntax_var0_8aa9", var0=line))
     cmd, addr_str = [x.strip() for x in line[3:].strip().split(':', 1)]
     cmd = utils.canonicalize(cmd).lower()
+    utils.check_keyword(cmd)
     tags = []
     while cmd.startswith('{'):
         end = cmd.find('}')
-        if end < 0: raise utils.CompilerError(f'Unmatched "{{" in inline def command: {line}')
+        if end < 0: raise utils.CompilerError(t("err_unmatched_in_inline_def_a329", var0=line))
         tags.append(cmd[1:end])
         cmd = cmd[end+1:].strip()
     
     try:
         addr = int(addr_str, 16)
     except ValueError:
-        raise utils.CompilerError(f"Invalid address in def: {addr_str}")
+        raise utils.CompilerError(t("err_invalid_address_in_def_ba26", var0=addr_str))
     loader.add_command(loader.commands, addr, cmd, tags, 'inline def')
-    utils.note(f"Gadget {cmd} is {addr_str}\n")
+    utils.note(t("note_gadget_var0_is_var1_3172", var0=cmd, var1=addr_str))
 
 def handle_assignment_command(line, program_iter):
     l, r = [x.strip() for x in line.split('=', 1)]
@@ -564,10 +566,10 @@ def handle_assignment_command(line, program_iter):
     m_func = re.match(r'^(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)$', r)
     if m_func and m_func.group(1) in getattr(loader, 'defined_functions', {}):
         f = loader.defined_functions[m_func.group(1)]
-        if "return_expr" not in f: raise utils.CompilerError(f"Func {m_func.group(1)} cannot be assigned (no return)")
+        if "return_expr" not in f: raise utils.CompilerError(t("err_func_var0_cannot_be_6345", var0=m_func.group(1)))
         args = [a.strip() for a in re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', m_func.group(2))]
         if args == [''] and not m_func.group(2): args = []
-        if len(args) != len(f["args"]): raise utils.CompilerError(f"Args mismatch in {r}")
+        if len(args) != len(f["args"]): raise utils.CompilerError(t("err_args_mismatch_in_var0_f197", var0=r))
         r = f["return_expr"]
         for p, a in zip(f["args"], args):
             parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', r)
@@ -591,8 +593,10 @@ def handle_assignment_command(line, program_iter):
         r = ";".join(parts)
 
     if l.startswith("var "):
-        loader.vars_dict[l[4:].strip()] = r
-        utils.note(f"Variable '{l[4:].strip()}' set to {r}\n")
+        var_name = l[4:].strip()
+        utils.check_keyword(var_name)
+        loader.vars_dict[var_name] = r
+        utils.note(t("note_variable_var0_set_to_08b0", var0=var_name, var1=r))
     elif l.startswith("reg ") or re.match(r'^(?:ea|lr|(?:r|er|xr|qr)\d+)\b', l):
         reg = l[4:].strip() if l.startswith("reg ") else l
         paren_balance, new_right = 0, []
@@ -603,13 +607,13 @@ def handle_assignment_command(line, program_iter):
         process_line(f'call pop {reg}')
         l1 = len(loader.result)
         process_line("".join(new_right))
-        if len(loader.result) - l1 != sizeof_register(reg): raise utils.CompilerError(f"Line {line!r} source/dest target mismatches")
+        if len(loader.result) - l1 != sizeof_register(reg): raise utils.CompilerError(t("err_line_var0_sourcedest_target_b481", var0=line))
     elif l.startswith("lbl "):
         process_line(l)
         process_line(r)
     else:
         loader.vars_dict[l] = r
-        utils.note(f"Variable '{l}' set to {r}\n")
+        utils.note(t("note_variable_var0_set_to_08b0", var0=l, var1=r))
 
 def handle_variable_expansion(line):
     if not loader.vars_dict: return process_line(line)
@@ -635,7 +639,7 @@ def handle_string_command(line):
                 hx = char_to_hex[c]
                 if len(hx) == 2: loader.result.append(int(hx, 16))
                 else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
-            except KeyError: raise utils.CompilerError(f"Char '{c}' not found")
+            except KeyError: raise utils.CompilerError(t("err_char_var0_not_found_282c", var0=c))
 
     last_idx = 0
     for match in re.finditer(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', text):
@@ -661,14 +665,14 @@ def handle_token_literal(line):
                 break
         else:
             hx = token_to_hex.get(content[i])
-            if not hx: raise utils.CompilerError(f"Unknown token: {content[i]}")
+            if not hx: raise utils.CompilerError(t("err_unknown_token_var0_7e6d", var0=content[i]))
             if len(hx) == 2: loader.result.append(int(hx, 16))
             else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
             i += 1
 
 def handle_adr_of_hd_command(line):
     m = re.match(r'^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$', line.strip())
-    if not m: raise utils.CompilerError(f"Invalid adr_of syntax: {line}. Expected 'adr_of [offset] [base] label'")
+    if not m: raise utils.CompilerError(t("err_invalid_adrof_syntax_var0_a410", var0=line))
     offset, base, lbl = m.group(1) or "+ 0", m.group(2), m.group(3)
     process_line(f'adr({lbl}, {offset.strip()}{f", {base}" if base else ""})')
 
@@ -676,7 +680,7 @@ def handle_adr_arith_hd_command(line):
     content = line.strip()[9:].strip()
     pairs = re.findall(r'(?:\[([^\]]+)\])?\s*([a-zA-Z_]\w*)', content)
     ops = [o[0] or o[1] for o in re.findall(r'\]\s*([+-])\s*(?:\[|\w)|(?:\s|[a-zA-Z_]\w*)\s*([+-])\s*(?:\[|[a-zA-Z_]\w*)', content)]
-    if not pairs or len(pairs)-1 != len(ops): raise utils.CompilerError(f"Invalid adr_arith syntax: {line}. Expected 'adr_arith [offset1] label1 + [offset2] label2'")
+    if not pairs or len(pairs)-1 != len(ops): raise utils.CompilerError(t("err_invalid_adrarith_syntax_var0_f862", var0=line))
     expr_parts = []
     for (off, lbl), op in zip(pairs, ops + ['']):
         off = off.strip() if off else None
@@ -689,7 +693,7 @@ def handle_str_hd_command(line):
     m_var_str = re.match(r'^([a-zA-Z_]\w*)\s+"([^"]*)"$', content)
     if m_var_str: loader.vars_dict[m_var_str.group(1)] = m_var_str.group(2); return
     val = content[1:-1] if re.match(r'^"([^"]*)"$', content) else str(loader.vars_dict.get(content, "")) if re.match(r'^([a-zA-Z_]\w*)$', content) else None
-    if val is None: raise utils.CompilerError(f"Invalid str syntax: {line}. Expected 'str \"string\"' or 'str var'")
+    if val is None: raise utils.CompilerError(t("err_invalid_str_syntax_var0_d4dd", var0=line))
     for c in re.sub(r"\s", "~", val):
         hx = char_to_hex[c]
         if len(hx) == 2: loader.result.append(int(hx, 16))
@@ -699,7 +703,7 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     ls = line.strip()
     if ls.startswith('org'):
         new_home = utils.safe_eval(ls[3:]) - len(loader.result)
-        if loader.home is not None and loader.home != new_home: raise utils.CompilerError('Inconsistent value of `home`')
+        if loader.home is not None and loader.home != new_home: raise utils.CompilerError(t("err_inconsistent_value_of_home_174f"))
         loader.home = new_home
     elif ls.startswith('backup '): loader.backup_address = int(utils.safe_eval(ls[6:]))
     elif ls.startswith('"'): handle_string_command(ls)
@@ -744,19 +748,19 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
         loader.pr_backup_cmds.append((len(loader.result), sec, getattr(loader, 'current_exec_info', {})))
         loader.result.extend((0, 0))
     else:
-        valid_commands = ['org', 'backup', 'call', 'def', '@def', 'lbl', 'func', 'repeat', 'loop', 'eval(', 'calc(', 'goto', 'goto_er14', 'goto_er6', 'adr(', 'pr_length', 'sizeof(', 'adr_of', 'adr_arith', 'str', 'dist.', 'pr_org(', 'pr_backup(']
+        valid_commands = utils._SUGGESTION_KEYWORDS.copy()
         valid_commands.extend(loader.commands.keys())
         valid_commands.extend(loader.datalabels.keys())
         valid_commands.extend(loader.vars_dict.keys())
         
         matches_full = difflib.get_close_matches(ls, valid_commands, n=1, cutoff=0.7)
         if matches_full:
-            raise utils.CompilerError(f"Unrecognized command: {ls!r}. Did you mean {matches_full[0]!r}?")
+            raise utils.CompilerError(t("err_unrecognized_cmd", cmd=ls, suggestion=matches_full[0]))
         
         ls_first = ls.split()[0] if ls.split() else ls
         matches_first = difflib.get_close_matches(ls_first, valid_commands, n=1, cutoff=0.7)
         if matches_first:
             suggestion = matches_first[0] + ls[len(ls_first):]
-            raise utils.CompilerError(f"Unrecognized command: {ls!r}. Did you mean {suggestion!r}?")
+            raise utils.CompilerError(t("err_unrecognized_cmd", cmd=ls, suggestion=suggestion))
             
-        raise utils.CompilerError(f'Unrecognized command: {ls!r}')
+        raise utils.CompilerError(t("err_unrecognized_cmd_no_sugg", cmd=ls))

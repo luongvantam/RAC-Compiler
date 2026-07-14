@@ -130,6 +130,24 @@ def note(st: Any) -> None:
 def get_notes() -> str:
     return _default_diagnostics.get_notes()
 
+_KEYWORDS = set()
+_SUGGESTION_KEYWORDS = []
+try:
+    _keyword_path = os.path.join(os.path.dirname(__file__), "keyword.txt")
+    with open(_keyword_path, "r", encoding="utf-8") as _f:
+        lines = [line.strip() for line in _f if line.strip()]
+        _SUGGESTION_KEYWORDS = lines
+        _KEYWORDS = {line.replace('(', '').replace('.', '') for line in lines}
+except Exception:
+    pass
+
+from libcompiler.i18n import t
+
+def check_keyword(name: str) -> None:
+    """Checks if the given name is a reserved keyword and raises a CompilerError if it is."""
+    if name in _KEYWORDS:
+        raise CompilerError(t("err_reserved_keyword", name=name))
+
 
 # Utility Functions
 def canonicalize(st: str) -> str:
@@ -162,7 +180,7 @@ def safe_eval(expr_str: str, scope: Optional[Dict[str, Any]] = None) -> Any:
             return scope_dict.get(node.id, 0)
         elif isinstance(node, ast.BinOp):
             if isinstance(node.op, ast.Pow) and (right := _eval(node.right)) > 1000:
-                raise CompilerError("Exponent too large (Memory Protection)")
+                raise CompilerError(t("err_exponent_too_large_memory_9c48"))
             return _OPS[type(node.op)](_eval(node.left), _eval(node.right))
         elif isinstance(node, ast.UnaryOp): 
             return _OPS[type(node.op)](_eval(node.operand))
@@ -171,7 +189,7 @@ def safe_eval(expr_str: str, scope: Optional[Dict[str, Any]] = None) -> Any:
         elif isinstance(node, ast.Call):
             func = _eval(node.func)
             if not callable(func): 
-                raise CompilerError(f"Not callable: {func}")
+                raise CompilerError(t("err_not_callable_var0_9525", var0=func))
             args = [_eval(a) for a in node.args]
             kwargs = {k.arg: _eval(k.value) for k in node.keywords if k.arg is not None}
             return func(*args, **kwargs)
@@ -179,11 +197,11 @@ def safe_eval(expr_str: str, scope: Optional[Dict[str, Any]] = None) -> Any:
             obj = _eval(node.value)
             if callable(obj): 
                 return obj(node.attr)
-            raise CompilerError(f"Unsupported attribute access: {node.attr}")
+            raise CompilerError(t("err_unsupported_attribute_access_var0_c87f", var0=node.attr))
         
-        raise CompilerError(f"Unsupported syntax: {type(node).__name__}")
+        raise CompilerError(t("err_unsupported_syntax_var0_ce11", var0=type(node).__name__))
     
     try: 
         return _eval(ast.parse(expr_str.strip(), mode='eval'))
     except Exception as e: 
-        raise CompilerError(f"Eval error: {expr_str} - {e}")
+        raise CompilerError(t("err_eval_error_var0_var1_d3b7", var0=expr_str, var1=e))

@@ -1,3 +1,4 @@
+from libcompiler.i18n import t
 from textual.widgets import TextArea
 from textual.binding import Binding
 from textual import events
@@ -101,17 +102,17 @@ class CtxTextArea(TextArea):
     def action_copy(self) -> None:
         super().action_copy()
         if hasattr(self.app, "notify"):
-            self.app.notify("Copied to clipboard", severity="information")
+            self.app.notify(t("msg_copied_clipboard"), severity="information")
 
     def action_cut(self) -> None:
         super().action_cut()
         if hasattr(self.app, "notify"):
-            self.app.notify("Cut to clipboard", severity="information")
+            self.app.notify(t("msg_cut_clipboard"), severity="information")
 
     def action_paste(self) -> None:
         super().action_paste()
         if hasattr(self.app, "notify"):
-            self.app.notify("Pasted from clipboard", severity="information")
+            self.app.notify(t("msg_pasted_clipboard"), severity="information")
 
 class RscTextArea(CtxTextArea):
     """TextArea subclass with RSC/ASM syntax highlighting via regex."""

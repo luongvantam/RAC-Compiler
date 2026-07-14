@@ -5,6 +5,7 @@ import tempfile
 import shutil
 import time
 from libcompiler.utils import get_os_info
+from libcompiler.i18n import t, set_language
 
 def get_config():
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -130,33 +131,33 @@ def perform_update(remote_hash, force_overwrite, log_callback=None):
 def check_update(auto_mode=False):
     try:
         os_info = get_os_info()
-        if not auto_mode: print(f"[*] OS Detected: {os_info}")
-        print("[*] Checking for new updates from GitHub...")
+        if not auto_mode: print(t("upd_os_detected", os=os_info))
+        print(t("upd_checking"))
         
         is_available, remote_hash, has_uncommitted = check_update_available(auto_mode)
         
         if is_available:
-            if auto_mode: print(f"[*] OS Detected: {os_info}")
+            if auto_mode: print(t("upd_os_detected", os=os_info))
             print("\n" + "="*70)
-            print("[!] A new update is available for RAC-Compiler!")
+            print(t("upd_available_cli"))
             if has_uncommitted:
-                print("\n[!] WARNING: You have uncommitted local changes.")
-                print("Your files in rsc_ropchain/ and asm_ropchain/ will be safely preserved,")
-                print("and ONLY NEW FILES from the update will be added to these directories.")
+                print(t("upd_warn_local_changes"))
+                print(t("upd_preserve_files"))
+                print(t("upd_only_new_files"))
             print("="*70 + "\n")
             
-            response = input("Would you like to update now? (y/n): ").strip().lower()
+            response = input(t("upd_prompt_cli")).strip().lower()
             if response == 'y':
                 force_overwrite = False
                 if has_uncommitted:
-                    print("\nSince you have local modifications, updating might cause conflicts.")
+                    print(t("upd_warn_conflicts"))
                     ow_resp = input("Do you want to forcefully overwrite your local code modifications? (Files in rsc_ropchain/ and asm_ropchain/ will still be preserved) (y/n): ").strip().lower()
                     if ow_resp == 'y':
                         force_overwrite = True
                         
                 success = perform_update(remote_hash, force_overwrite)
                 if success:
-                    print("\nUpdate successful! Please run the tool again to apply the new version.")
+                    print(t("upd_success"))
                     sys.exit(2)
                 else:
                     sys.exit(1)
@@ -166,14 +167,14 @@ def check_update(auto_mode=False):
                     config["UPDATE_SKIP_HASH"] = remote_hash
                     config["UPDATE_LAST_CHECK"] = str(time.time())
                     save_config(config, config_file)
-                print("Continuing with the current version...\n")
+                print(t("upd_continuing"))
         else:
             if not auto_mode:
                 print("\n" + "="*70)
-                print("[*] You are already on the latest version!")
+                print(t("upd_already_latest"))
                 print("="*70 + "\n")
     except Exception as e:
-        print(f"[!] Unexpected error while running update checker: {e}", file=sys.stderr)
+        print(t("upd_unexpected_error", err=e), file=sys.stderr)
 
 if __name__ == "__main__":
     check_update(auto_mode=False)

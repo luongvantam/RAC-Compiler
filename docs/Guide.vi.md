@@ -1,6 +1,6 @@
 # HƯỚNG DẪN CÚ PHÁP RAC COMPILER
 
-🇬🇧 [Guide.md](Guide.md)
+🇬🇧 [English](Guide.md) | 🌍 [中文](Guide.zh.md)
 
 ---
 
@@ -280,15 +280,6 @@ hex 30 \
 eval(
     0x01 + 0x02
 )
-```
-
-## 17. Ánh xạ phím quét (fx-580VN X)
-* Hằng số quét phím phần cứng. Chi tiết tại `labels.txt`.
-
-```assembly
-KEY_SHIFT
-KEY_1
-KEY_ADD
 ```
 
 ---

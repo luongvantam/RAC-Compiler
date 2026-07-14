@@ -1,8 +1,8 @@
-# chú thích
+# Notation
 ```
-<...> : giá trị cần thay thế
-[...] : có thể có có thể không cần
-... : cái gì đó thay vào đấy
+<...> : value to be replaced
+[...] : optional
+... : placeholder for something else
 ```
 
 # alias
@@ -12,7 +12,7 @@
 <new_name>
 
 @section.<old_name> [at ... backup ...] as <new_name>
-# nếu dùng sizeof(<new_name>) hay gì đó nó sẽ tự hiểu là sizeof(<old_name>) hay gì đó
+# if using sizeof(<new_name>) it will automatically map to sizeof(<old_name>)
 ```
 
 # define gadget
@@ -33,15 +33,15 @@ def {memcpy} memcpy_auto_jmp: 0x12345
     emu.inj_var = "<name_var>"
     emu.inj_adr[<section>] = <address>
 
-    line.bytes = <số_hex_trên_1_dòng>
+    line.bytes = <hex_bytes_per_line>
 
     output.file = <true|false>
     output.file_name = "<file_name>"
     
-    # các dòng trên có thể có có thể không cần khai báo nhưng đảm bảo
+    # these lines can be optionally declared
 }
 
-# nó có thể được khai báo trên 1 dòng kiểu
+# it can also be declared in a single line
 @build ...; ...; ...;
 ```
 
@@ -101,13 +101,13 @@ func <function>(<args>) {
 ```
 
 ```
-# like `lamdba <name>: <args> => <expression>`
+# like `lambda <name>: <args> => <expression>`
 func <function>(<args>) {
     return <expression>
 }
 
-# có thể dùng để gán biến hoặc thanh ghi
-# tuy nhiên chỉ khả dụng 1 dòng
+# can be used to assign to a variable or register
+# however, it must be on a single line
 ```
 
 # repeat & padding
@@ -136,7 +136,7 @@ lbl <label> at <address>
 adr(<label>)
 adr(<label>, <offset>)
 adr(<label>, <offset>, <base_addr>)
-adr($)      # địa chỉ hiện tại của dòng này
+adr($)      # current address of this line
 
 # jump to label
 goto <label>            # it's `er14 = adr(<label>, -2); sp = er14, pop er14`
@@ -164,15 +164,15 @@ calc(<expression>)          # function like `eval`
 
 ---
 
-# Cập nhật mới (Draft updates)
+# New Updates (Draft)
 
-### Ghép dòng & Tiếp tục dòng
+### Line Continuation
 ```
-# Dùng \ cuối dòng để nối tiếp câu lệnh
+# Use \ at the end of the line to continue the statement
 hex 30 \
 31
 
-# Viết biểu thức ngoặc tròn trên nhiều dòng
+# Write parentheses expressions on multiple lines
 eval(
     0x01 + 0x02
 )
@@ -180,18 +180,18 @@ eval(
 
 ### Dynamic macro
 ```
-# Dạng 1 dòng
+# Single-line format
 def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
 
-# Dạng khối lệnh
+# Block format
 def my_macro(<addr>, <val>) => {
     er0 = <addr>
     er2 = <val>
 }
 ```
 
-### Cú pháp cũ (Legacy - HD Compiler)
-Đây là các cú pháp từ bản HD compiler. Chúng vẫn được hỗ trợ để giữ thói quen viết, nhưng không khuyến khích dùng chung với các biểu thức `eval()` mới vì dễ gây lỗi parse.
+### Legacy Syntax (HD Compiler)
+These are syntaxes from the HD compiler. They are still supported for backward compatibility, but it is not recommended to use them together with the new eval() expressions as they can cause parsing errors.
 
 ```
 str "<string>"

@@ -7,6 +7,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from textual import work
+from libcompiler.i18n import t
 from check_update import check_update_available, perform_update, get_config, save_config
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
@@ -55,6 +56,10 @@ class RSC_IDE(App):
     ]
 
     def __init__(self):
+        config, _ = get_config()
+        lang = config.get("LANG", "en_US")
+        from libcompiler.i18n import set_language
+        set_language(lang)
         super().__init__()
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.current_filepath = None
@@ -69,40 +74,40 @@ class RSC_IDE(App):
         
         
         with MobileTabsContainer(id="mobile-tabs"):
-            yield Button("Cmd", id="mtab-cmd", classes="mtab-btn")
-            yield Button("Workspace", id="mtab-workspace", classes="mtab-btn")
-            yield Button("Editor", id="mtab-editor", classes="mtab-btn")
-            yield Button("Models", id="mtab-models", classes="mtab-btn")
-            yield Button("Find", id="mtab-find", classes="mtab-btn")
-            yield Button("Output", id="mtab-output", classes="mtab-btn")
+            yield Button(t("ide_cmd"), id="mtab-cmd", classes="mtab-btn")
+            yield Button(t("ide_workspace"), id="mtab-workspace", classes="mtab-btn")
+            yield Button(t("ide_editor"), id="mtab-editor", classes="mtab-btn")
+            yield Button(t("ide_models"), id="mtab-models", classes="mtab-btn")
+            yield Button(t("ide_find"), id="mtab-find", classes="mtab-btn")
+            yield Button(t("ide_output"), id="mtab-output", classes="mtab-btn")
             
         with Horizontal(id="main-container"):
             with Vertical(id="activity-bar"):
-                yield Button("Cmd", id="act-cmd", classes="activity-btn")
-                yield Button("WS", id="act-workspace", classes="activity-btn -active")
-                yield Button("Find", id="act-find", classes="activity-btn")
-                yield Button("Run", id="act-run", classes="activity-btn")
+                yield Button(t("ide_cmd"), id="act-cmd", classes="activity-btn")
+                yield Button(t("ide_workspace"), id="act-workspace", classes="activity-btn -active")
+                yield Button(t("ide_find"), id="act-find", classes="activity-btn")
+                yield Button(t("ide_run"), id="act-run", classes="activity-btn")
             
             with Vertical(id="workspace-pane"):
                 with Horizontal(id="ws-header"):
-                    yield Label("Workspace", id="ws-title", classes="text-bold")
-                yield Tree("Workspace", id="workspace-tree")
+                    yield Label(t("ide_workspace"), id="ws-title", classes="text-bold")
+                yield Tree(t("ide_workspace"), id="workspace-tree")
 
             with Vertical(id="sidebar"):
                 with Horizontal(id="search-header"):
-                    yield Label("Code Search", classes="text-bold")
+                    yield Label(t("lbl_code_search"), classes="text-bold")
                 
                 with Horizontal(id="search-row"):
-                    yield Input(placeholder="Search", id="global-search-input")
+                    yield Input(placeholder=t("ide_search"), id="global-search-input")
                     with Horizontal(id="search-toggles"):
-                        yield Button("Aa", id="btn-case", classes="mini-toggle")
-                        yield Button(".*", id="btn-regex", classes="mini-toggle")
+                        yield Button(t("lbl_aa"), id="btn-case", classes="mini-toggle")
+                        yield Button(t("lbl_regex"), id="btn-regex", classes="mini-toggle")
                 
                 with Horizontal(id="replace-row"):
-                    yield Input(placeholder="Replace", id="global-replace-input")
+                    yield Input(placeholder=t("lbl_replace"), id="global-replace-input")
                     with Horizontal(id="replace-toggles"):
-                        yield Button("Rep", id="btn-replace", classes="mini-toggle")
-                        yield Button("All", id="btn-replace-all", classes="mini-toggle")
+                        yield Button(t("lbl_rep"), id="btn-replace", classes="mini-toggle")
+                        yield Button(t("lbl_all"), id="btn-replace-all", classes="mini-toggle")
                 
                 with Vertical(id="search-results-container"):
                     yield ListView(id="search-results")
@@ -111,12 +116,12 @@ class RSC_IDE(App):
             
             with Vertical(id="editor-container"):
                 with Horizontal(id="editor-toolbar"):
-                    yield Button("Run", id="tb-run", classes="tb-btn", variant="success")
-                    yield Button("Save", id="tb-save", classes="tb-btn", variant="primary")
-                    yield Button("Undo", id="tb-undo", classes="tb-btn")
-                    yield Button("Redo", id="tb-redo", classes="tb-btn")
+                    yield Button(t("ide_run"), id="tb-run", classes="tb-btn", variant="success")
+                    yield Button(t("ide_save"), id="tb-save", classes="tb-btn", variant="primary")
+                    yield Button(t("ide_undo"), id="tb-undo", classes="tb-btn")
+                    yield Button(t("ide_redo"), id="tb-redo", classes="tb-btn")
                 editor = RscTextArea(id="editor-area", language=None, soft_wrap=True, show_line_numbers=True) 
-                editor.border_title = "Editor"
+                editor.border_title = t("ide_editor")
                 yield editor
             
             yield VerticalResizer(["right-pane"], is_right=True, id="right-resizer", classes="resizer")
@@ -134,7 +139,7 @@ class RSC_IDE(App):
                                 yield ta
                             
                 log = CtxTextArea(id="output-log", read_only=True)
-                log.border_title = "Output Console"
+                log.border_title = t("ide_output")
                 yield log
 
         yield Footer()
@@ -205,12 +210,12 @@ class RSC_IDE(App):
     def background_check_update(self, auto_mode=True):
         has_update, remote_hash, has_uncommitted = check_update_available(auto_mode=auto_mode)
         if has_update:
-            self.app.call_from_thread(self.set_update_status, "Update Available!")
+            self.app.call_from_thread(self.set_update_status, t("upd_available"))
             self.app.call_from_thread(self.app.push_screen, UpdateModal(remote_hash, has_uncommitted))
         else:
             self.app.call_from_thread(self.set_update_status, "Up to date")
             if not auto_mode:
-                self.app.call_from_thread(self.notify, "You are already on the latest version.")
+                self.app.call_from_thread(self.notify, t("msg_uptodate"))
 
     def action_change_model(self):
         def set_model(selected_model: str):
@@ -654,19 +659,11 @@ class RSC_IDE(App):
 
     def action_editor_copy(self) -> None:
         focused = self.screen.focused
-        if hasattr(focused, "selected_text"):
-            text = focused.selected_text
-            if text:
-                try:
-                    import pyperclip
-                    pyperclip.copy(text)
-                except Exception:
-                    pass
         if hasattr(focused, "action_copy"):
             focused.action_copy()
-            self.notify("Copied to system clipboard")
+            self.notify(t("msg_copied_sys"))
         else:
-            self.notify("Cannot copy from here", severity="warning")
+            self.notify(t("msg_cannot_copy"), severity="warning")
 
     def action_editor_cut(self) -> None:
         self.action_editor_copy()
@@ -676,8 +673,8 @@ class RSC_IDE(App):
     def action_editor_paste(self) -> None:
         focused = self.screen.focused
         if hasattr(focused, "action_paste") and not getattr(focused, "read_only", False):
+            import pyperclip
             try:
-                import pyperclip
                 text = pyperclip.paste()
                 if text:
                     if hasattr(focused, "replace") and hasattr(focused, "selection"):
@@ -686,14 +683,26 @@ class RSC_IDE(App):
                         focused.insert_text_at_cursor(text)
                     else:
                         focused.action_paste()
-                    self.notify("Pasted from system clipboard")
-                    return
+                    self.notify(t("msg_pasted_sys"))
+                else:
+                    focused.action_paste()
+                    self.notify(t("msg_pasted_int"))
             except Exception:
-                pass
-            focused.action_paste()
-            self.notify("Pasted from internal clipboard")
+                focused.action_paste()
+                self.notify(t("msg_pasted_int"))
         else:
-            self.notify("Cannot paste here", severity="warning")
+            self.notify(t("msg_cannot_paste"), severity="warning")
+
+    def action_change_language(self) -> None:
+        from modals import LanguageSelectModal
+        def set_lang(lang: str | None):
+            if not lang: return
+            from check_update import get_config, save_config
+            config, path = get_config()
+            config["LANG"] = lang
+            save_config(config, path)
+            self.notify(t("msg_lang_changed", lang=lang), title=t("msg_lang_changed_title"))
+        self.app.push_screen(LanguageSelectModal(), set_lang)
 
     def action_editor_undo(self) -> None:
         focused = self.screen.focused
@@ -708,7 +717,7 @@ class RSC_IDE(App):
     def compile_current_file(self) -> None:
         if not self.current_filepath:
             log = self.query_one("#output-log", TextArea)
-            log.text += "Please open a file first (Ctrl+O)!\n"
+            log.text += t("msg_open_file_first") + "\n"
             if self.is_mobile: self.set_mobile_tab("output")
             return
             
@@ -717,7 +726,7 @@ class RSC_IDE(App):
         log = self.query_one("#output-log", TextArea)
         editor = self.query_one("#editor-area", RscTextArea)
         
-        out_buffer = f"> Compiling {os.path.basename(self.current_filepath)}...\n"
+        out_buffer = t("msg_compiling", filename=os.path.basename(self.current_filepath)) + "\n"
         log.text = out_buffer
         
         rac_path = os.path.join(self.project_root, "rac.py")
@@ -746,14 +755,14 @@ class RSC_IDE(App):
                     out_buffer += line + "\n"
                     
             if not error_found and res.returncode == 0:
-                out_buffer += "> Compile Successful!\n"
+                out_buffer += t("msg_compile_success")
             
             log.text = out_buffer
             
             self.reload_model_files()
 
         except Exception as e:
-            log.text += f"Compiler execution failed: {e}\n"
+            log.text += t("msg_compile_fail", e=e)
             if self.is_mobile: 
                 self.set_mobile_tab("output")
             else:
@@ -781,7 +790,7 @@ class RSC_IDE(App):
             if self.is_mobile:
                 self.set_mobile_tab("editor")
         except Exception as e:
-            self.query_one("#output-log", TextArea).text += f"Failed to read file: {e}\n"
+            self.query_one("#output-log", TextArea).text += t("msg_read_fail", e=e)
 
     @on(TabbedContent.TabActivated)
     def handle_tab_activated(self, event: TabbedContent.TabActivated) -> None:

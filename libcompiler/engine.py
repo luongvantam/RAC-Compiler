@@ -4,6 +4,7 @@ import sys
 from libcompiler import utils
 from libcompiler import loader
 from libcompiler import handlers
+from libcompiler.i18n import t
 
 def build_env():
     env = {k: int.from_bytes(bytes(v), 'little') if isinstance(v, list) else v for k, v in loader.vars_dict.items()}
@@ -12,18 +13,18 @@ def build_env():
         env.update({k: k for k in loader.global_labels if k not in env})
 
     def adr_eval(label, offset=0):
-        if not isinstance(label, str): raise utils.CompilerError(f"Label must be str, got {type(label)}")
+        if not isinstance(label, str): raise utils.CompilerError(t("err_label_must_be_str_c4b7", var0=type(label)))
         if label == '$': return getattr(loader, 'current_pos', 0) + offset
         if label in loader.labels: return loader.labels[label] + offset
         if hasattr(loader, 'global_labels') and label in loader.global_labels: return loader.global_labels[label] + offset
         if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(f'Label not found: {label}')
+        raise utils.CompilerError(t("err_label_not_found_var0_d66a", var0=label))
 
     def sizeof_eval(sec_name=""):
         if not sec_name or sec_name == getattr(loader, 'current_section_name', None): return len(loader.result)
         if hasattr(loader, 'section_addresses') and sec_name in loader.section_addresses: return loader.section_addresses[sec_name].get('length', 0)
         if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(f"Section '{sec_name}' not found for sizeof calculation")
+        raise utils.CompilerError(t("err_section_var0_not_found_3248", var0=sec_name))
 
     def dist_eval(sec_name):
         sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
@@ -31,7 +32,7 @@ def build_env():
         if sec_name == getattr(loader, 'current_section_name', None): org, backup = getattr(loader, 'home', None), getattr(loader, 'backup_address', None)
         if org is not None and backup is not None: return abs(backup - org) & 0xFFFF
         if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(f"Section '{sec_name}' dist information missing")
+        raise utils.CompilerError(t("err_section_var0_dist_information_52b8", var0=sec_name))
 
     def homeof_eval(label):
         if label in loader.labels: return loader.home or 0
@@ -41,7 +42,7 @@ def build_env():
                 return loader.section_addresses[sec].get('org', 0)
             return 0
         if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(f"Home of label '{label}' not found")
+        raise utils.CompilerError(t("err_home_of_label_var0_b8a4", var0=label))
 
     def pr_org_eval(sec_name=""):
         sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
@@ -49,7 +50,7 @@ def build_env():
         if not sec_name or sec_name == getattr(loader, 'current_section_name', None): org = getattr(loader, 'home', None)
         if org is not None: return org & 0xFFFF
         if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(f"Section '{sec_name}' org information missing")
+        raise utils.CompilerError(t("err_section_var0_org_information_44b9", var0=sec_name))
 
     def pr_backup_eval(sec_name=""):
         sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
@@ -57,7 +58,7 @@ def build_env():
         if not sec_name or sec_name == getattr(loader, 'current_section_name', None): backup = getattr(loader, 'backup_address', None)
         if backup is not None: return backup & 0xFFFF
         if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(f"Section '{sec_name}' backup information missing")
+        raise utils.CompilerError(t("err_section_var0_backup_information_e61e", var0=sec_name))
 
     env.update({'adr': adr_eval, 'sizeof': sizeof_eval, 'dist': dist_eval, 'homeof': homeof_eval, 'pr_org': pr_org_eval, 'pr_backup': pr_backup_eval})
     return env
@@ -77,14 +78,16 @@ def eval_all():
                 temp_env = {k: utils.safe_eval(v[5:-1], env) if isinstance(v, str) and v.startswith("eval(") else v for k, v in env.items()}
                 val = utils.safe_eval(expr, temp_env)
             except Exception as e:
-                raise utils.CompilerError(f"Deferred eval error in {expr!r}: {e}")
+                raise utils.CompilerError(t("err_deferred_eval_error_in_66c8", var0=expr, var1=e))
         
-        if not isinstance(val, int): raise utils.CompilerError(f"Eval {expr!r} not integer")
+        if not isinstance(val, int): raise utils.CompilerError(t("err_eval_var0_not_integer_aece", var0=expr))
         
         is_abs = expr.count('adr(') > 1 or 'adr(' not in expr or any(l in loader.global_labels and l not in loader.labels for l in re.findall(r'adr\(\s*["\']?([a-zA-Z_0-9]+)', expr))
         if is_abs:
             val &= 0xFFFF
-            if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] eval_abs overwrite at {pos:04X}")
+            if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
+
+                print(t("warn_eval_abs_overwrite", pos=f"{pos:04X}"))
             loader.result[pos], loader.result[pos + 1] = val & 0xFF, (val >> 8) & 0xFF
         else:
             home_deps.append((pos, val))
@@ -101,7 +104,7 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
             max_size = 0x8E00 - loader.home
             current_size = len(loader.result)
             if current_size > max_size:
-                utils.note(f"[WARN] Total length after home = {current_size} bytes > {max_size} bytes\n")
+                utils.note(t("note_warn_total_length_after_36ac", var0=current_size, var1=max_size))
 
     is_final_pass = not getattr(loader, 'is_pass1', False)
     
@@ -110,7 +113,7 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
     for index, off in all_memory_requests:
         target = loader.home + off
         if is_final_pass and any(loader.result[index:index+2]): 
-            utils.note(f"[WARN] Memory overwrite at {index:04X} -> {target:04X}\n")
+            utils.note(t("note_warn_memory_overwrite_at_983d", var0=hex(index), var1=hex(target)))
         
         loader.result[index] = target & 0xFF
         loader.result[index + 1] = target >> 8
@@ -125,7 +128,7 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
         loader.label_sections[sym_name] = loader.current_section_name
         
         if is_final_pass:
-            utils.note(f'Label {sym_name} is at address {abs_addr:04X}\n')
+            utils.note(t("note_label_var0_is_at_52b0", var0=sym_name, var1=hex(abs_addr)))
 
     # Record chunk coordinates
     active_section = loader.current_section_name
@@ -144,12 +147,13 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
         if not sec_data or sec_data.get('backup') is None:
             if not is_final_pass:
                 continue
-            raise utils.CompilerError(f"Missing section reference '{sec_key}'")
+            raise utils.CompilerError(t("err_missing_section_reference_var0_1a0f", var0=sec_key))
             
         delta = abs(sec_data['backup'] - sec_data['org']) & 0xFFFF
         
         if is_final_pass and any(loader.result[index:index+2]):
-            print(f"[WARN] delta clash at {index:04X}")
+
+            print(t("warn_delta_clash", pos=f"{index:04X}"))
             
         loader.result[index] = delta & 0xFF
         loader.result[index+1] = delta >> 8
@@ -158,31 +162,39 @@ def finish_math():
     for pos, l_off, l_lbl, r_off, r_lbl, op in loader.relocation_expressions:
         if l_lbl not in loader.labels or r_lbl not in loader.labels:
             if getattr(loader, 'is_pass1', False): continue
-            raise utils.CompilerError(f'Label not found in adr: {l_lbl}, {r_lbl}')
+            raise utils.CompilerError(t("err_label_not_found_in_ee33", var0=l_lbl, var1=r_lbl))
         res = (loader.labels[l_lbl] + l_off + loader.labels[r_lbl] + r_off) if op == '+' else (loader.labels[l_lbl] + l_off - loader.labels[r_lbl] - r_off)
         res &= 0xFFFF
-        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] adr overwrite at {pos:04X}")
+        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
+
+            print(t("warn_adr_overwrite", pos=f"{pos:04X}"))
         loader.result[pos], loader.result[pos+1] = res & 0xFF, res >> 8
 
     for pos, sec, exec_info in getattr(loader, 'sizeof_cmds', []):
         loader.current_exec_info = exec_info
         val = len(loader.result) if not sec or sec == getattr(loader, 'current_section_name', None) else loader.section_addresses.get(sec, {}).get('length', 0) if hasattr(loader, 'section_addresses') and sec in loader.section_addresses else 0 if getattr(loader, 'is_pass1', False) else None
-        if val is None: raise utils.CompilerError(f"Section '{sec}' not found for sizeof calculation")
-        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] sizeof overwrite at {pos:04X}")
+        if val is None: raise utils.CompilerError(t("err_section_var0_not_found_3248", var0=sec))
+        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
+
+            print(t("warn_sizeof_overwrite", pos=f"{pos:04X}"))
         loader.result[pos], loader.result[pos+1] = val & 0xFF, val >> 8
 
     for pos, sec, exec_info in getattr(loader, 'pr_org_cmds', []):
         loader.current_exec_info = exec_info
         val = loader.home if not sec or sec == getattr(loader, 'current_section_name', None) else loader.section_addresses.get(sec, {}).get('org') if hasattr(loader, 'section_addresses') and sec in loader.section_addresses else 0 if getattr(loader, 'is_pass1', False) else None
-        if val is None: raise utils.CompilerError(f"Section '{sec}' not found for pr_org calculation")
-        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] pr_org overwrite at {pos:04X}")
+        if val is None: raise utils.CompilerError(t("err_section_var0_not_found_6ab3", var0=sec))
+        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
+
+            print(t("warn_pr_org_overwrite", pos=f"{pos:04X}"))
         loader.result[pos], loader.result[pos+1] = val & 0xFF, (val >> 8) & 0xFF
 
     for pos, sec, exec_info in getattr(loader, 'pr_backup_cmds', []):
         loader.current_exec_info = exec_info
         val = loader.backup_address if not sec or sec == getattr(loader, 'current_section_name', None) else loader.section_addresses.get(sec, {}).get('backup') if hasattr(loader, 'section_addresses') and sec in loader.section_addresses else 0 if getattr(loader, 'is_pass1', False) else None
-        if val is None: raise utils.CompilerError(f"Section '{sec}' not found for pr_backup calculation")
-        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]): print(f"[WARN] pr_backup overwrite at {pos:04X}")
+        if val is None: raise utils.CompilerError(t("err_section_var0_not_found_3cfe", var0=sec))
+        if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
+
+            print(t("warn_pr_backup_overwrite", pos=f"{pos:04X}"))
         loader.result[pos], loader.result[pos+1] = val & 0xFF, (val >> 8) & 0xFF
 
     loader.relocation_expressions.clear()
@@ -279,7 +291,7 @@ def run_lines(args, program_lines, overflow_initial_sp):
             if target in loader.labels: resolved_adr.append((s_adr, loader.labels[target] + offset))
             elif target in loader.global_labels: resolved_adr.append((s_adr, loader.global_labels[target] - loader.home + offset))
             elif getattr(loader, 'is_pass1', False): resolved_adr.append((s_adr, 0))
-            else: raise utils.CompilerError(f'Label not found: {target}')
+            else: raise utils.CompilerError(t("err_label_not_found_var0_d66a", var0=target))
         loader.address_requests.clear()
 
         configure_memory_layout(overflow_initial_sp, resolved_adr, home_deps)
@@ -289,7 +301,8 @@ def run_lines(args, program_lines, overflow_initial_sp):
     if getattr(loader, 'is_pass1', False) or (loader.home == loader.home + len(loader.result) and loader.current_section_name is None): return None, None
     
     sys.stderr.write(utils.get_notes())
-    print(f"=== {loader.home:#06x} -> {loader.home + len(loader.result):#06x}{f' ({loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x})' if loader.backup_address is not None else ''} ===")
+
+    print(t("msg_section_info", start=f"{loader.home:#06x}", end=f"{loader.home + len(loader.result):#06x}", backup=f' ({loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x})' if loader.backup_address is not None else ''))
     print(' '.join(f'{b:02x}' for b in loader.result))
     print('======')
     return loader.home, loader.result
@@ -315,7 +328,9 @@ def process_program(args, program_lines, overflow_initial_sp):
     loader.is_pass1, results = False, []
     for name, lines in sections:
         loader.current_section_name = name
-        if name is not None: print(f"\n=== section @{name} ===")
+        if name is not None:
+
+            print(t("msg_section_name", name=name))
         out_addr, out_bytes = run_lines(args, lines, overflow_initial_sp)
         if out_addr is not None: results.append((name, out_addr, out_bytes))
 

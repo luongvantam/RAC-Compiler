@@ -8,6 +8,7 @@ import subprocess, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from check_update import check_update_available, perform_update, get_config, save_config
+from libcompiler.i18n import t
 
 class UpdateModal(ModalScreen):
     CSS = """
@@ -57,17 +58,17 @@ class UpdateModal(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical(id="update-dialog"):
             yield Button("X", id="btn-close", classes="close-btn")
-            yield Label(f"[bold]A new update is available![/bold]")
-            yield Label(f"Remote hash: {self.remote_hash[:7]}")
+            yield Label(t("upd_available"))
+            yield Label(t("upd_hash", hash=self.remote_hash[:7]))
             if self.has_uncommitted:
-                yield Label("[bold red]Warning:[/bold red] You have uncommitted changes.\nUpdating might cause conflicts!")
-            yield Label("Would you like to update now?\n")
+                yield Label(t("upd_warn"))
+            yield Label(t("upd_prompt"))
             
             with Horizontal(id="update-buttons"):
-                yield Button("Update", id="btn-update", variant="primary")
+                yield Button(t("upd_btn_update"), id="btn-update", variant="primary")
                 if self.has_uncommitted:
-                    yield Button("Force Overwrite", id="btn-force-update", variant="error")
-                yield Button("Skip", id="btn-skip", variant="primary")
+                    yield Button(t("upd_btn_force"), id="btn-force-update", variant="error")
+                yield Button(t("upd_btn_skip"), id="btn-skip", variant="primary")
                 
             yield RichLog(id="update-log", markup=False, wrap=True)
 
@@ -81,9 +82,9 @@ class UpdateModal(ModalScreen):
             config, config_file = get_config()
             if config.get("UPDATE_SKIP_HASH") != self.remote_hash:
                 config["UPDATE_SKIP_HASH"] = self.remote_hash
-                self.app.notify("Update skipped.")
+                self.app.notify(t("upd_msg_skip"))
             else:
-                self.app.notify("Update closed.")
+                self.app.notify(t("upd_msg_close"))
             config["UPDATE_LAST_CHECK"] = str(time.time())
             save_config(config, config_file)
             self.app.pop_screen()
@@ -94,7 +95,7 @@ class UpdateModal(ModalScreen):
             log = self.query_one("#update-log", RichLog)
             log.display = True
             log.styles.min_height = 8
-            log.write("Starting update...")
+            log.write(t("upd_log_start"))
             self.do_update(force)
 
     @work(thread=True)
@@ -104,18 +105,18 @@ class UpdateModal(ModalScreen):
             
         success = perform_update(self.remote_hash, force, log_callback=log_cb)
         if success:
-            log_cb("Update successful! Restarting...")
+            log_cb(t("upd_log_success"))
             time.sleep(1.5)
             self.app.call_from_thread(sys.exit, 3)
         else:
-            log_cb("Update failed. Please check the log.")
+            log_cb(t("upd_log_fail"))
             self.app.call_from_thread(self.enable_skip_only)
             
     def enable_skip_only(self):
         for btn in self.query(Button):
             if btn.id == "btn-skip":
                 btn.disabled = False
-                btn.label = "Close"
+                btn.label = t("upd_btn_close")
             else:
                 btn.display = False
 
@@ -163,10 +164,10 @@ class ModelSelectModal(ModalScreen[str]):
     def compose(self) -> ComposeResult:
         with Vertical(id="ms-dialog"):
             yield Button("X", id="btn-close", classes="close-btn")
-            yield Label("Please enter a model name (e.g. 580vnx, 880btg):")
-            yield Input(value=self.current_model, placeholder="Model name", id="ms-input")
+            yield Label(t("ms_prompt"))
+            yield Input(value=self.current_model, placeholder=t("ms_placeholder"), id="ms-input")
             with Horizontal(id="ms-buttons"):
-                yield Button("Confirm", id="ms-confirm", variant="primary")
+                yield Button(t("ms_confirm"), id="ms-confirm", variant="primary")
             yield Label("", id="ms-error")
 
     @on(Button.Pressed)
@@ -186,10 +187,10 @@ class ModelSelectModal(ModalScreen[str]):
     def confirm_model(self):
         val = self.query_one("#ms-input", Input).value.strip()
         if not val:
-            self.query_one("#ms-error", Label).update("[bold red]Please enter a model name![/bold red]")
+            self.query_one("#ms-error", Label).update(t("ms_err_empty"))
             return
         if not os.path.isdir(os.path.join(self.app.project_root, val)):
-            self.query_one("#ms-error", Label).update(f"[bold red]Directory '{val}' not found![/bold red]")
+            self.query_one("#ms-error", Label).update(t("ms_err_notfound", val=val))
             return
         self.dismiss(val)
 
@@ -208,14 +209,14 @@ class ContextMenu(ModalScreen[str]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="menu-container"):
-            yield Button("Undo", id="ctx-undo", classes="menu-btn")
-            yield Button("Copy", id="ctx-copy", classes="menu-btn")
-            yield Button("Cut", id="ctx-cut", classes="menu-btn")
-            yield Button("Paste", id="ctx-paste", classes="menu-btn")
-            yield Button("Save", id="ctx-save", classes="menu-btn")
-            yield Button("Run", id="ctx-run", classes="menu-btn")
-            yield Button("Search", id="ctx-search", classes="menu-btn")
-            yield Button("Workspace", id="ctx-workspace", classes="menu-btn")
+            yield Button(t("ctx_undo"), id="ctx-undo", classes="menu-btn")
+            yield Button(t("ctx_copy"), id="ctx-copy", classes="menu-btn")
+            yield Button(t("ctx_cut"), id="ctx-cut", classes="menu-btn")
+            yield Button(t("ctx_paste"), id="ctx-paste", classes="menu-btn")
+            yield Button(t("ctx_save"), id="ctx-save", classes="menu-btn")
+            yield Button(t("ctx_run"), id="ctx-run", classes="menu-btn")
+            yield Button(t("ctx_search"), id="ctx-search", classes="menu-btn")
+            yield Button(t("ctx_workspace"), id="ctx-workspace", classes="menu-btn")
 
     def on_mount(self) -> None:
         
@@ -233,3 +234,57 @@ class ContextMenu(ModalScreen[str]):
 
 
 
+
+class LanguageSelectModal(ModalScreen[str]):
+    CSS = """
+    LanguageSelectModal {
+        align: center middle;
+        background: rgba(0, 0, 0, 0.6);
+    }
+    #lang-dialog {
+        padding: 1 2;
+        width: 60;
+        height: auto;
+        border: ascii $foreground;
+        background: $surface;
+    }
+    .close-btn {
+        width: 3;
+        min-width: 3;
+        height: 1;
+        border: none;
+        background: transparent;
+        color: $error;
+        content-align: center middle;
+        dock: right;
+    }
+    .close-btn:hover {
+        background: $error;
+        color: white;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="lang-dialog"):
+            yield Button("X", id="btn-close", classes="close-btn")
+            yield Label(t("ide_language") + ":")
+            
+            yield OptionList(
+                "English (en_US)",
+                "Tiếng Việt (vi_VN)",
+                "中文 (zh_CN)",
+                id="lang-list"
+            )
+
+    @on(Button.Pressed, "#btn-close")
+    def on_button_pressed(self) -> None:
+        self.dismiss(None)
+
+    @on(OptionList.OptionSelected, "#lang-list")
+    def on_option_selected(self, event: OptionList.OptionSelected) -> None:
+        lang_map = {
+            0: "en_US",
+            1: "vi_VN",
+            2: "zh_CN"
+        }
+        self.dismiss(lang_map.get(event.option_index, "en_US"))

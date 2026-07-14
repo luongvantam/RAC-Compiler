@@ -1,3 +1,4 @@
+from libcompiler.i18n import t
 import re
 from libcompiler.utils import note, canonicalize, del_inline_comment
 from libcompiler import utils
@@ -8,15 +9,15 @@ result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals, p
 
 def add_command(command_dict, address, command, tags, debug_info=''):
     if not command or type(command_dict) is not dict:
-        raise utils.CompilerError(f'Empty command/dict {debug_info}')
+        raise utils.CompilerError(t("err_empty_commanddict_var0_da33", var0=debug_info))
     if any(command.startswith(p) for p in ('0x', 'call', 'goto')):
-        raise utils.CompilerError(f'Command starts with disallowed {debug_info}')
+        raise utils.CompilerError(t("err_command_starts_with_disallowed_5347", var0=debug_info))
     if command.endswith(':') or ';' in command:
-        raise utils.CompilerError(f'Invalid command syntax {debug_info}')
+        raise utils.CompilerError(t("err_invalid_command_syntax_var0_34ec", var0=debug_info))
     if command in command_dict:
         if command_dict[command] == (address, tuple(tags)):
             return
-        raise utils.CompilerError(f'Command {command} appears twice {debug_info}')
+        raise utils.CompilerError(t("err_command_var0_appears_twice_6c42", var0=command, var1=debug_info))
     command_dict[command] = (address, tuple(tags))
 
 def get_commands(gadgets_file, labels_file):

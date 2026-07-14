@@ -526,12 +526,12 @@
                 style="padding: 0; margin: 0; width: 100%; display: flex; justify-content: center; position: relative;">
                 <i class="fa-regular fa-folder-open icon-btn active" title="File Menu"></i>
                 <div class="dropdown-content" style="left: 100%; top: 0; border-top-left-radius:0;">
-                    <div onclick="newFile()" id="btn-new">New File</div>
-                    <div onclick="document.getElementById('file-input').click()" id="btn-open">Open File...</div>
-                    <div onclick="downloadFile()" id="btn-download">Download Code</div>
+                    <div onclick="newFile()" id="btn-new" data-i18n="ide_new_file">New File</div>
+                    <div onclick="document.getElementById('file-input').click()" id="btn-open" data-i18n="ide_open_file">Open File...</div>
+                    <div onclick="downloadFile()" id="btn-download" data-i18n="ide_download">Download Code</div>
                     <hr style="border-color: #444; border-style:solid; border-width: 1px 0 0 0; margin: 5px 0;">
                     <div
-                        style="padding: 4px 12px; color:#888; font-size: 10px; cursor:default; background:transparent;">
+                        style="padding: 4px 12px; color:#888; font-size: 10px; cursor:default; background:transparent;" data-i18n="ide_system_files">
                         SYSTEM FILES</div>
                     <div onclick="openSystemFile('580vnx/labels.txt')">labels.txt</div>
                     <div onclick="openSystemFile('580vnx/disas.asm')" style="display:none;">disas.asm</div>
@@ -571,21 +571,22 @@
                 </div>
                 <!-- Settings View -->
                 <div id="settings-view">
-                    <h2 id="lbl-settings-title">Settings</h2>
+                    <h2 id="lbl-settings-title" data-i18n="ide_settings">Settings</h2>
                     <div class="setting-group">
-                        <label>Language</label>
+                        <label data-i18n="ide_language">Language</label>
                         <select id="lang-select" onchange="changeLanguage()">
-                            <option value="en">English</option>
-                            <option value="vi">Tiếng Việt</option>
+                            <option value="en_US">English</option>
+                            <option value="vi_VN">Tiếng Việt</option>
+                            <option value="zh_CN">中文</option>
                         </select>
                     </div>
                     <div class="setting-group">
-                        <label>Editor Font Family</label>
+                        <label data-i18n="ide_font_family">Editor Font Family</label>
                         <input type="text" id="font-family" value="'Consolas', 'Monaco', 'Courier New', monospace"
                             onchange="updateSettings()">
                     </div>
                     <div class="setting-group">
-                        <label>Editor Font Size (px)</label>
+                        <label data-i18n="ide_font_size">Editor Font Size (px)</label>
                         <input type="number" id="font-size" value="14" onchange="updateSettings()">
                     </div>
                 </div>
@@ -594,7 +595,7 @@
             <div class="panel" id="right-panel">
                 <div class="tab-container">
                     <div class="tab active" id="lbl-output-tab" style="border-right:none;"><span
-                            id="lbl-output">OUTPUT</span></div>
+                            id="lbl-output" data-i18n="ide_output">OUTPUT</span></div>
                 </div>
                 <div id="output-display" class="output-area"></div>
             </div>
@@ -610,11 +611,12 @@
 
     <script>
         const translations = {
-            en: { new: "New File", open: "Open File...", down: "Download Code", output: "OUTPUT", compiling: "Compiling...", bytes: "Bytes: ", placeholder: "-- Enter ROP code --", settitle: "Settings" },
-            vi: { new: "Tạo mới", open: "Mở tệp...", down: "Tải code", output: "KẾT QUẢ", compiling: "Đang biên dịch...", bytes: "Tổng byte: ", placeholder: "-- Nhập mã ROP --", settitle: "Cài đặt" }
+            en_US: { ide_new_file: "New File", ide_open_file: "Open File...", ide_download: "Download Code", ide_output: "OUTPUT", compiling: "Compiling...", bytes: "Bytes: ", placeholder: "-- Enter ROP code --", ide_settings: "Settings", ide_language: "Language", ide_font_family: "Editor Font Family", ide_font_size: "Editor Font Size (px)", ide_system_files: "SYSTEM FILES" },
+            vi_VN: { ide_new_file: "Tạo mới", ide_open_file: "Mở tệp...", ide_download: "Tải code", ide_output: "KẾT QUẢ", compiling: "Đang biên dịch...", bytes: "Tổng byte: ", placeholder: "-- Nhập mã ROP --", ide_settings: "Cài đặt", ide_language: "Ngôn ngữ", ide_font_family: "Kiểu chữ Editor", ide_font_size: "Cỡ chữ Editor (px)", ide_system_files: "TẬP TIN HỆ THỐNG" },
+            zh_CN: { ide_new_file: "新建文件", ide_open_file: "打开文件...", ide_download: "下载代码", ide_output: "输出", compiling: "编译中...", bytes: "字节: ", placeholder: "-- 输入ROP代码 --", ide_settings: "设置", ide_language: "语言", ide_font_family: "编辑器字体", ide_font_size: "编辑器字体大小 (px)", ide_system_files: "系统文件" }
         };
 
-        let currentLang = 'en';
+        let currentLang = localStorage.getItem('ide_lang') || 'en_US';
         let findMatches = [];
         let currentFindIdx = -1;
         let isFindActive = false;
@@ -676,7 +678,7 @@
             if (isMobile) {
                 const outActive = (currentTabId === 'Output') ? 'active' : '';
                 let t = translations[currentLang];
-                html += `<div class="tab ${outActive}" onclick="switchTab('Output')">${t.output}</div>`;
+                html += `<div class="tab ${outActive}" onclick="switchTab('Output')">${t.ide_output}</div>`;
             }
 
             document.getElementById('editor-tabs').innerHTML = html;
@@ -905,13 +907,17 @@
 
         function changeLanguage() {
             currentLang = document.getElementById('lang-select').value;
+            localStorage.setItem('ide_lang', currentLang);
             const t = translations[currentLang];
-            document.getElementById('btn-new').innerText = t.new;
-            document.getElementById('btn-open').innerText = t.open;
-            document.getElementById('btn-download').innerText = t.down;
-            document.getElementById('lbl-output').innerText = t.output;
-            document.getElementById('lbl-settings-title').innerText = t.settitle;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    if (el.tagName === 'INPUT' && el.type === 'button') el.value = t[key];
+                    else el.innerText = t[key];
+                }
+            });
             document.getElementById('code-editor').placeholder = t.placeholder;
+            renderTabs();
         }
 
         // Compiler Bridge
@@ -936,7 +942,7 @@
                 const res = await fetch('/compile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code, files: filesPayload })
+                    body: JSON.stringify({ code: code, files: filesPayload, lang: currentLang })
                 });
                 const data = await res.json();
 
@@ -992,6 +998,8 @@
             if (e.ctrlKey && e.key === 'f') { e.preventDefault(); toggleFind(); }
         });
         document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('lang-select').value = currentLang;
+            changeLanguage();
             let initVal = document.getElementById('code-editor').value;
             if (!initVal) {
                 document.getElementById('code-editor').value = tabs['script.rsc'].content;

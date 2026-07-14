@@ -1,3 +1,4 @@
+from libcompiler.i18n import t
 from textual.binding import Binding
 from textual.widgets import ListItem, Label, ListView
 from textual.containers import Horizontal
@@ -252,7 +253,7 @@ class DiskVirtualViewer(ScrollView, can_focus=True):
         text = "\n".join(lines)
         if hasattr(self.app, "copy_to_clipboard"):
             self.app.copy_to_clipboard(text)
-        self.app.notify("Copied from Viewer!")
+        self.app.notify(t("msg_copied_viewer"))
 
     def render_line(self, y: int) -> Strip:
         _, scroll_y = self.scroll_offset

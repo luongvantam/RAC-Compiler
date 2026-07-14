@@ -1,6 +1,6 @@
 # RAC COMPILER
 
-*Đọc bằng ngôn ngữ khác: [Tiếng Việt](README.vi.md).*
+*Read in other languages: [Tiếng Việt](README.vi.md), [中文](README.zh.md).*
 
 ---
 

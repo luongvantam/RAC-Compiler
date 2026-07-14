@@ -1,6 +1,6 @@
 # RAC COMPILER — USAGE GUIDE
 
-🇻🇳 [Guide.vi.md](Guide.vi.md)
+🇻🇳 [Tiếng Việt](Guide.vi.md) | 🌍 [中文](Guide.zh.md)
 
 ---
 
@@ -280,15 +280,6 @@ hex 30 \
 eval(
     0x01 + 0x02
 )
-```
-
-## 17. Hardware Key Mapping (fx-580VN X target)
-* Traverses standard scan-code labels defined in `labels.txt`.
-
-```assembly
-KEY_SHIFT
-KEY_1
-KEY_ADD
 ```
 
 ---

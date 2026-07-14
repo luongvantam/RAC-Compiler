@@ -1,3 +1,4 @@
+from libcompiler.i18n import t
 import os, re
 
 def _parse_config_lines(lines, cfg):
@@ -52,7 +53,8 @@ def handle_build_output(cfg, results, stdout_str, safe_mode=False):
         
     if cfg.get("output.file") and (fn := cfg.get("output.file_name")):
         open(fn, "w", encoding="utf-8").write(final_out + "\n")
-        print(f"Output written to: {fn}")
+
+        print(t("msg_output_written", file=fn))
         
     if cfg.get('emu.inj') and (ef := cfg.get('emu.inj_file')) and (ev := cfg.get('emu.inj_var')) and results:
         entries = [f"    {cfg.get(f'emu.inj_addr[{n}]', cfg.get(f'emu.inj_adr[{n}]', a)):#06x} = \"{' '.join(f'{x:02x}' if isinstance(x, int) else str(x) for x in b)}\"" for n, a, b in results]
@@ -66,4 +68,5 @@ def handle_build_output(cfg, results, stdout_str, safe_mode=False):
             inj_content += (",\n" if inj_content.endswith('}') else "\n" if inj_content else "") + new_block
             
         open(ef, 'w', encoding='utf-8').write(inj_content)
-        print(f"File written successfully: {ef}")
+
+        print(t("msg_file_written", file=ef))

@@ -1,8 +1,10 @@
+from libcompiler.i18n import t
 import os, re
 
 def load_extensions(path):
     if not os.path.exists(path):
-        print(f"[WARN] No extension file found: {path}"); return []
+
+        print(t("warn_no_extension", path=path)); return []
     with open(path, "r", encoding="utf-8") as f:
         matches = re.findall(r"---syntax---\s*(.*?)\s*(?:---logic---\s*(.*?)\s*)?---output---\s*(.*?)\s*---(?:\n|$)", f.read(), re.DOTALL)
     return sorted([{

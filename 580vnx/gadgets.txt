@@ -161,6 +161,7 @@
 13336	[er4] -= 1,rt
 0E254   [er8+5]+=1,pop er8
 2EB7C   [er8+5]-=1,pop er8
+0A186   r0+=carry,rt
 
 # Some SUB gadgets:
 09e8a	er0 -= er2,rt

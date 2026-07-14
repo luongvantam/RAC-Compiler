@@ -8,6 +8,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from libcompiler.i18n import t
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -61,7 +64,10 @@ class SimpleHandler(BaseHTTPRequestHandler):
                     tmp.write(data.get('code', '').encode('utf-8'))
                     tmp_name = tmp.name
 
-                cmd = [sys.executable, os.path.join(PROJECT_ROOT, "rac.py"), "580vnx", os.path.basename(tmp_name)]
+                cmd = [sys.executable, os.path.join(PROJECT_ROOT, "rac.py")]
+                lang = data.get('lang', 'en_US')
+                cmd.extend(["-l", lang])
+                cmd.extend(["580vnx", os.path.basename(tmp_name)])
                 res = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT, env=env, encoding='utf-8')
                 
                 # Cleanup temp file
@@ -88,9 +94,9 @@ class SimpleHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = HTTPServer(('127.0.0.1', 5000), SimpleHandler)
-    print("Server running at: http://127.0.0.1:5000")
+    print(t("web_ide_server_running", port=5000))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         server.server_close()
-        print("\nServer stopped.")
+        print(t("web_ide_server_stopped"))
