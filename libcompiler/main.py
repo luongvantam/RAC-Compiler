@@ -76,7 +76,7 @@ def main():
     args.input_file, args.source_file = file_path, os.path.abspath(file_path)
 
     try:
-        import handle_build_command as hbc
+        from libcompiler import handle_build_command as hbc
         build_config, raw_content = hbc.parse_build_block(raw_content, safe_mode=args.safe)
         build_config.setdefault("emu.inj_var", os.path.splitext(os.path.basename(file_path))[0])
     except ImportError:

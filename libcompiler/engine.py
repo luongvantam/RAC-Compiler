@@ -245,6 +245,17 @@ def run_lines(args, program_lines, overflow_initial_sp):
             loader.current_section_name = (line.rsplit(' as ', 1)[0] if ' as ' in line else line).split()[0].split('.')[1]
             continue
 
+        if line.strip().startswith("@build"):
+            stripped_build = line.strip()
+            if '{' in stripped_build:
+                if '}' not in stripped_build[stripped_build.find('{')+1:]:
+                    depth = stripped_build.count('{') - stripped_build.count('}')
+                    while depth > 0:
+                        try: _, next_raw = next(program_iter)
+                        except StopIteration: break
+                        depth += next_raw.count('{') - next_raw.count('}')
+            continue
+
         if line.strip().startswith("@python"):
             final_lines.append({"exec": "@python", "raw": raw_line, "num": line_num, "ctx": ""})
             continue
@@ -261,7 +272,17 @@ def run_lines(args, program_lines, overflow_initial_sp):
         l, raw, ln, ctx = (item["exec"], item["raw"], item["num"], item.get("ctx", "")) if isinstance(item, dict) else (item, item, "?", "")
         line_to_process = (utils.canonicalize(utils.del_inline_comment(handlers.run_alias(l)))).strip()
         if not line_to_process: continue
-        if not line_to_process.startswith('"'): line_to_process = line_to_process.lower()
+        if not line_to_process.startswith('"'):
+            result_chars, in_str = [], False
+            for ch in line_to_process:
+                if ch == '"':
+                    in_str = not in_str
+                    result_chars.append(ch)
+                elif in_str:
+                    result_chars.append(ch)
+                else:
+                    result_chars.append(ch.lower())
+            line_to_process = ''.join(result_chars)
 
         note_log, orig_note = '', utils.note
         def local_note(st): nonlocal note_log; note_log += st

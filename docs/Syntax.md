@@ -1,4 +1,5 @@
 # Notation
+
 ```
 <...> : value to be replaced
 [...] : optional
@@ -34,10 +35,11 @@ def {memcpy} memcpy_auto_jmp: 0x12345
     emu.inj_adr[<section>] = <address>
 
     line.bytes = <hex_bytes_per_line>
+    line.gadgets = <>
 
     output.file = <true|false>
     output.file_name = "<file_name>"
-    
+
     # these lines can be optionally declared
 }
 
@@ -46,18 +48,21 @@ def {memcpy} memcpy_auto_jmp: 0x12345
 ```
 
 # section
+
 ```
 @section.<section> [at <addr_org> backup <addr_backup>]
 @set.<section> [at <addr_org> backup <addr_backup>]
 ```
 
 # set program location
+
 ```
 org <addr_org>              # if you use `@set.<section> at <addr_org>` or `@section.<section> at <addr_org>`, then do not use this command.
 backup <addr_backup>
 ```
 
 # variable and register declaration
+
 ```
 var <var> = <value>
 reg <reg> = <value>
@@ -66,11 +71,13 @@ reg <reg> = <value>
 ```
 
 # call variable
+
 ```
 <name_var>      # like `a`, `b`, `c`, `var`, ...
 ```
 
 # data type
+
 ```
 <int(hex) like 0x02>
 hex <int(hex)>
@@ -93,6 +100,7 @@ sizeof(<section>)       # like pr_length
 ```
 
 # function
+
 ```
 func <function>(<args>) {
     <code>
@@ -111,6 +119,7 @@ func <function>(<args>) {
 ```
 
 # repeat & padding
+
 ```
 repeat <range> {
     <code>
@@ -126,6 +135,7 @@ pad_abs(<address>, [<value>])   # pad bytes until absolute address reaches <addr
 ```
 
 # label
+
 ```
 # label declaration
 lbl <label>
@@ -143,18 +153,21 @@ goto <label>            # it's `er14 = adr(<label>, -2); sp = er14, pop er14`
 ```
 
 # call gadget
+
 ```
 def <gadget> : <address>            # define a new gadget into command_dict
 call <address/function_name>        # like `call 0x17b34`
 ```
 
 # calculate
+
 ```
 eval(<expression>)
 calc(<expression>)          # function like `eval`
 ```
 
 # Comment
+
 ```
 # <comment>
 /*
@@ -167,6 +180,7 @@ calc(<expression>)          # function like `eval`
 # New Updates (Draft)
 
 ### Line Continuation
+
 ```
 # Use \ at the end of the line to continue the statement
 hex 30 \
@@ -179,6 +193,7 @@ eval(
 ```
 
 ### Dynamic macro
+
 ```
 # Single-line format
 def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
@@ -191,6 +206,7 @@ def my_macro(<addr>, <val>) => {
 ```
 
 ### Legacy Syntax (HD Compiler)
+
 These are syntaxes from the HD compiler. They are still supported for backward compatibility, but it is not recommended to use them together with the new eval() expressions as they can cause parsing errors.
 
 ```

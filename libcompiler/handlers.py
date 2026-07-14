@@ -77,15 +77,23 @@ def run_func(line_strip, raw_line, line_num, final_lines_to_process):
     
     called_func_name, call_args_str = m.group(1), m.group(2)
     func = loader.defined_functions[called_func_name]
-    
+
     call_args = [arg.strip() for arg in re.findall(r'("(?:[^"\\]|\\.)*"|[^,]+)', call_args_str)]
     if call_args == [''] and not call_args_str: call_args = []
 
-    if len(call_args) != len(func["args"]): raise utils.CompilerError(t("err_args_mismatch_var0_7637", var0=line_strip))
+    params = func.get("params") or [(a, None) for a in func.get("args", [])]
+
+    required = sum(1 for _, default in params if default is None)
+    if len(call_args) > len(params) or len(call_args) < required:
+        raise utils.CompilerError(t("err_args_mismatch_var0_7637", var0=line_strip))
+
+    bound = list(call_args)
+    for _, default in params[len(bound):]:
+        bound.append(default)
 
     if "return_expr" in func:
         ret_expr = func["return_expr"]
-        for param, arg in zip(func["args"], call_args):
+        for (param, _), arg in zip(params, bound):
             parts = re.split(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', ret_expr)
             for i in range(0, len(parts), 2):
                 parts[i] = re.sub(r'\b' + re.escape(param) + r'\b', arg, parts[i])
@@ -93,10 +101,10 @@ def run_func(line_strip, raw_line, line_num, final_lines_to_process):
         final_lines_to_process.append({"exec": ret_expr, "raw": raw_line, "num": line_num, "ctx": f"inside '{called_func_name}'"})
         return True
 
-    for param_def, arg_val in zip(func["args"], call_args):
-        if param_def.strip():
-            final_lines_to_process.append({"exec": f"var {param_def.strip()} = {arg_val}", "raw": raw_line, "num": line_num, "ctx": f"passing args to '{called_func_name}'"})
-    
+    for (param, _), arg_val in zip(params, bound):
+        if param.strip():
+            final_lines_to_process.append({"exec": f"var {param.strip()} = {arg_val}", "raw": raw_line, "num": line_num, "ctx": f"passing args to '{called_func_name}'"})
+
     for item in func["body"]:
         f_line_num, line_in_func = item if isinstance(item, tuple) else (line_num, item)
         final_lines_to_process.append({"exec": line_in_func, "raw": line_in_func, "num": f_line_num, "ctx": f"inside '{called_func_name}'"})
@@ -377,7 +385,16 @@ def handle_function_definition(line, program_iter):
             body.append((b_ln, stripped))
             
     if return_expr is not None and body: raise utils.CompilerError(t("err_function_var0_with_return_fe40", var0=func_name))
-    loader.defined_functions[func_name] = {"args": [a.strip() for a in args_str.split(',')] if args_str else [], **({"return_expr": return_expr} if return_expr is not None else {"body": body})}
+    # Parse each param: "name" or "name=default"
+    params = []
+    for a in (args_str.split(',') if args_str else []):
+        a = a.strip()
+        if '=' in a:
+            pname, pdefault = [x.strip() for x in a.split('=', 1)]
+            params.append((pname, pdefault))
+        else:
+            params.append((a, None))
+    loader.defined_functions[func_name] = {"params": params, **({"return_expr": return_expr} if return_expr is not None else {"body": body})}
 
 def execute_python_block(raw_block):
     if getattr(loader, 'safe_mode', False):
@@ -464,7 +481,7 @@ def handle_eval_expression(line):
         
     expanded_expr = eval_nested(expanded_expr)
     
-    if 'adr(' in expanded_expr or 'sizeof(' in expr or 'dist.' in expr or 'pr_org(' in expr or 'pr_backup(' in expr:
+    if 'adr(' in expanded_expr or 'sizeof(' in expanded_expr or 'dist.' in expanded_expr or 'pr_org(' in expanded_expr or 'pr_backup(' in expanded_expr:
         loader.deferred_evals.append((len(loader.result), expanded_expr, getattr(loader, 'current_exec_info', {})))
         loader.result.extend((0, 0))
         return
@@ -481,8 +498,33 @@ def handle_eval_expression(line):
 
 def handle_list_command(line, program_iter):
     content = line[1:]
-    parts = [content.split(']')[0]] if ']' in content else [content] + [s.split(']')[0] if ']' in s else s for s in (item[1].strip() if isinstance(item, tuple) else item.get("exec", "").strip() if isinstance(item, dict) else str(item).strip() for item in program_iter) if s]
-    process_line("\n".join(parts).replace('\n', ';'))
+
+    if ']' in content:
+        inner = content[:content.index(']')]
+        process_line(inner) if inner.strip() else None
+        return
+
+    parts = []
+    if content.strip():
+        parts.append(content.strip())
+
+    for item in program_iter:
+        s = (item[1].strip() if isinstance(item, tuple)
+             else item.get('exec', '').strip() if isinstance(item, dict)
+             else str(item).strip())
+        if not s:
+            continue
+        if ']' in s:
+            before = s[:s.index(']')].strip().rstrip(';')
+            if before:
+                parts.append(before)
+            break  # stop here — do NOT consume past ']'
+        parts.append(s.rstrip(';'))
+
+    cleaned = [p for p in parts if p]
+    if cleaned:
+        process_line(';'.join(cleaned))
+
 
 def handle_hex_data(line):
     if line.startswith('0x'):
@@ -641,13 +683,33 @@ def handle_string_command(line):
                 else: loader.result.extend([int(hx[:2], 16), int(hx[2:], 16)])
             except KeyError: raise utils.CompilerError(t("err_char_var0_not_found_282c", var0=c))
 
+    # Scan for {expr} interpolations with balanced braces, supporting
+    # arbitrary expressions: {name}, {name[0]}, {eval(name * 3)}, etc.
     last_idx = 0
-    for match in re.finditer(r'\{([a-zA-Z_]\w*(?:\[\d+\])?)\}', text):
-        before = text[last_idx:match.start()]
-        if before: append_chars(before)
-        process_line(f"eval({match.group(1)})")
-        last_idx = match.end()
-        
+    i = 0
+    while i < len(text):
+        if text[i] == '{':
+            before = text[last_idx:i]
+            if before: append_chars(before)
+            # find the matching closing '}' with brace balancing
+            depth, j = 1, i + 1
+            while j < len(text) and depth > 0:
+                if text[j] == '{': depth += 1
+                elif text[j] == '}': depth -= 1
+                j += 1
+            expr = text[i+1:j-1].strip()
+            if expr:
+                # If already wrapped in eval/calc or contains operators/calls,
+                # pass directly; otherwise wrap in eval() for variable lookup
+                if re.match(r'^[a-zA-Z_]\w*(?:\[\d+\])?$', expr):
+                    process_line(f"eval({expr})")
+                else:
+                    process_line(expr if expr.startswith(('eval(', 'calc(')) else f"eval({expr})")
+            last_idx = j
+            i = j
+        else:
+            i += 1
+
     after = text[last_idx:]
     if after: append_chars(after)
 
