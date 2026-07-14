@@ -206,6 +206,7 @@
 279B6		num_to_str
 1DCE4		num_cpy
 1D902		num_cmp
+1ed58       num_to_hex
 
 # -- verify numlib --
 19536       verify_eq    # "=="
