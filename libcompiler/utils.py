@@ -137,7 +137,12 @@ try:
     with open(_keyword_path, "r", encoding="utf-8") as _f:
         lines = [line.strip() for line in _f if line.strip()]
         _SUGGESTION_KEYWORDS = lines
-        _KEYWORDS = {line.replace('(', '').replace('.', '') for line in lines}
+        _KEYWORDS = set()
+        for line_to_process in lines:
+            if not line_to_process.startswith('"') and not line_to_process.startswith("'"):
+                line_to_process = line_to_process.lower()
+            if not line_to_process.endswith('(') and not line_to_process.endswith('.'):
+                _KEYWORDS.add(line_to_process)
 except Exception:
     pass
 
