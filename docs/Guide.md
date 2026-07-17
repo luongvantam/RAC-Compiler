@@ -9,7 +9,7 @@
   - `# <comment>`
   - `/* <comment> */`
 
-```assembly
+```
 # Single-line comment
 /* 
    Multi-line 
@@ -26,7 +26,7 @@
 * **Call / Recall:**
   - `<name_var>` (e.g., `a`, `b`, `c`, `var`)
 
-```assembly
+```
 var count = 10         # Declares count variable
 reg r1 = 0x5           # Initializes register r1
 r2 = 0xFF              # Directly assigns to r2
@@ -47,7 +47,7 @@ count                  # Recalls/evaluates count
   - Arrays / Lists:
     - `[<item>; <item>; ...]` (inline)
     - Multi-line block:
-      ```assembly
+      ```
       [
           <item>
           <item>
@@ -62,7 +62,7 @@ count                  # Recalls/evaluates count
     - `pr_backup()` (backup address of the current section)
     - `pr_backup(<section>)` (backup address of the specified section)
 
-```assembly
+```
 var ten = "World"
 "Xin~chào,~{ten}!"        # Interpolation with spaces: "Xin chào, World!"
 'sin( 9 0 )'              # Token string
@@ -83,7 +83,7 @@ var delta = dist.launcher
   - `@section.<old_name> [at <addr_org> backup <addr_backup>] as <new_name>`
   - `@set.<old_name> [at <addr_org> backup <addr_backup>] as <new_name>`
 
-```assembly
+```
 er0 as tmp
 tmp = 0x1200                             # Compiles to: er0 = 0x12
 
@@ -106,7 +106,7 @@ tmp = 0x1200                             # Compiles to: er0 = 0x12
   - Jump:
     - `goto <label>` (expands to: `er14 = adr(<label>, -2); sp = er14, pop er14`)
 
-```assembly
+```
 lbl start
 # or:
 start:
@@ -123,7 +123,7 @@ lbl end
   - `def <gadget> : <address>` (defines gadget into command_dict)
   - `def {<tag>} <name_gadget>: <address>`
 
-```assembly
+```
 def my_gadget : 0x17b34
 call my_gadget
 call 0x1234
@@ -133,7 +133,7 @@ def {memcpy} memcpy_auto_jmp: 0x12345
 ## 7. Compound Statements
 * **Syntax:** `<statement1> ; <statement2> ; ...`
 
-```assembly
+```
 call 0x1234 ; goto end
 ```
 
@@ -142,7 +142,7 @@ call 0x1234 ; goto end
   - Single-line: `def <macro_name>(<args>) => <single_line_expr>`
   - Block form: `def <macro_name>(<args>) => { <block_of_code> }`
 
-```assembly
+```
 def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
 
 def my_macro(<addr>, <val>) => {
@@ -154,7 +154,7 @@ def my_macro(<addr>, <val>) => {
 ## 9. Functions
 * **Syntax:**
   - Multi-line block:
-    ```assembly
+    ```
     func <function>(<args>) {
         <code>
     }
@@ -163,7 +163,7 @@ def my_macro(<addr>, <val>) => {
   - Single-line return (can be assigned to variables/registers):
     `func <function>(<args>) { return <expression> }`
 
-```assembly
+```
 func greet(person) {
   "Hello,~{person}!"
 }
@@ -178,7 +178,7 @@ r1 = add(5, 10)
   - `org <addr_org>` (sets mapping origin address; skip if using `@set` inline `at`)
   - `backup <addr_backup>` (sets backup storage address)
 
-```assembly
+```
 org 0xe9e0
 backup 0xd000
 ```
@@ -188,7 +188,7 @@ backup 0xd000
   - `@section.<section> [at <addr_org> backup <addr_backup>]`
   - `@set.<section> [at <addr_org> backup <addr_backup>]`
 
-```assembly
+```
 @set.main at 0xe9e0 backup 0xf000
 0x1234
 
@@ -199,21 +199,21 @@ r1 = 0x5
 ## 12. Build Configuration (`@build`)
 * **Syntax:**
   - Block form:
-    ```assembly
+    ```
     @build {
         emu.inj = <true|false>
         emu.inj_file = "<file_name>"
         emu.inj_var = "<name_var>"
         emu.inj_adr[<section>] = <address>
         line.bytes = <count>
-        line.gadgets = <address>
+        line.gadgets = <base_offset>
         output.file = <true|false>
         output.file_name = "<file_name>"
     }
     ```
   - Inline form: `@build <key> = <value>; ...;`
 
-```assembly
+```
 @build {
     emu.inj = true
     emu.inj_file = "payload.txt"
@@ -232,7 +232,7 @@ r1 = 0x5
   - `adr_arith <label1> <+/-> adr_arith <label2> ...`
   - `adr_arith [<offset1>] <label1> <+/-> adr_arith [<offset2>] <label2> ...`
 
-```assembly
+```
 eval(0x1 + 0x2 * 0x3)                     # Evaluates to 0x7
 calc(adr(label1) - adr(label2))
 adr_arith start - adr_arith end
@@ -249,7 +249,7 @@ adr_arith [+4] start - adr_arith [-2] end
   - `pad(<offset>, [<value>])`: Pads bytes until the section length reaches `<offset>`.
   - `pad_abs(<address>, [<value>])`: Pads bytes until the absolute address reaches `<address>`.
 
-```assembly
+```
 loop 4 {
   0x67
 }
@@ -263,7 +263,7 @@ pad(0x100, 0x00)
 * **Syntax:** `@python { <python_code> }`
 * Allows executing Python code directly during compilation. Variables can be injected into the compiler environment (`loader.vars_dict`).
 
-```assembly
+```
 @python {
     # Complex Python logic
     loader.vars_dict["calculated_val"] = 0x1234 * 2
@@ -276,7 +276,7 @@ var my_val = calculated_val
   - Use `\` at the end of a line to continue a raw statement.
   - Parentheses `()`, brackets `[]`, or braces `{}` automatically support multi-line without `\`.
 
-```assembly
+```
 hex 30 \
 31
 

@@ -9,7 +9,7 @@
   - `# <comment>`
   - `/* <comment> */`
 
-```assembly
+```
 # 单行注释
 /* 
    多行
@@ -26,7 +26,7 @@
 * **调用 / 取值:**
   - `<name_var>` (例如, `a`, `b`, `c`, `var`)
 
-```assembly
+```
 var count = 10         # 声明 count 变量
 reg r1 = 0x5           # 初始化寄存器 r1
 r2 = 0xFF              # 直接给 r2 赋值
@@ -47,7 +47,7 @@ count                  # 调用/求值 count
   - 数组 / 列表:
     - `[<item>; <item>; ...]` (内联)
     - 多行块:
-      ```assembly
+      ```
       [
           <item>
           <item>
@@ -62,7 +62,7 @@ count                  # 调用/求值 count
     - `pr_backup()` (当前段的备份地址)
     - `pr_backup(<section>)` (指定段的备份地址)
 
-```assembly
+```
 var ten = "World"
 "Xin~chào,~{ten}!"        # 带有空格的插值: "Xin chào, World!"
 'sin( 9 0 )'              # 标记字符串
@@ -83,7 +83,7 @@ var delta = dist.launcher
   - `@section.<old_name> [at <addr_org> backup <addr_backup>] as <new_name>`
   - `@set.<old_name> [at <addr_org> backup <addr_backup>] as <new_name>`
 
-```assembly
+```
 er0 as tmp
 tmp = 0x1200                             # 编译为: er0 = 0x12
 
@@ -106,7 +106,7 @@ tmp = 0x1200                             # 编译为: er0 = 0x12
   - 跳转:
     - `goto <label>` (扩展为: `er14 = adr(<label>, -2); sp = er14, pop er14`)
 
-```assembly
+```
 lbl start
 # 或:
 start:
@@ -123,7 +123,7 @@ lbl end
   - `def <gadget> : <address>` (将小工具定义到 command_dict 中)
   - `def {<tag>} <name_gadget>: <address>`
 
-```assembly
+```
 def my_gadget : 0x17b34
 call my_gadget
 call 0x1234
@@ -133,7 +133,7 @@ def {memcpy} memcpy_auto_jmp: 0x12345
 ## 7. 复合语句
 * **语法:** `<statement1> ; <statement2> ; ...`
 
-```assembly
+```
 call 0x1234 ; goto end
 ```
 
@@ -142,7 +142,7 @@ call 0x1234 ; goto end
   - 单行: `def <macro_name>(<args>) => <single_line_expr>`
   - 块形式: `def <macro_name>(<args>) => { <block_of_code> }`
 
-```assembly
+```
 def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
 
 def my_macro(<addr>, <val>) => {
@@ -154,7 +154,7 @@ def my_macro(<addr>, <val>) => {
 ## 9. 函数
 * **语法:**
   - 多行块:
-    ```assembly
+    ```
     func <function>(<args>) {
         <code>
     }
@@ -163,7 +163,7 @@ def my_macro(<addr>, <val>) => {
   - 单行返回 (可赋值给变量/寄存器):
     `func <function>(<args>) { return <expression> }`
 
-```assembly
+```
 func greet(person) {
   "Hello,~{person}!"
 }
@@ -178,7 +178,7 @@ r1 = add(5, 10)
   - `org <addr_org>` (设置映射原点地址；如果使用 `@set` 内联 `at` 则跳过)
   - `backup <addr_backup>` (设置备份存储地址)
 
-```assembly
+```
 org 0xe9e0
 backup 0xd000
 ```
@@ -188,7 +188,7 @@ backup 0xd000
   - `@section.<section> [at <addr_org> backup <addr_backup>]`
   - `@set.<section> [at <addr_org> backup <addr_backup>]`
 
-```assembly
+```
 @set.main at 0xe9e0 backup 0xf000
 0x1234
 
@@ -199,21 +199,21 @@ r1 = 0x5
 ## 12. 构建配置 (`@build`)
 * **语法:**
   - 块形式:
-    ```assembly
+    ```
     @build {
         emu.inj = <true|false>
         emu.inj_file = "<file_name>"
         emu.inj_var = "<name_var>"
         emu.inj_adr[<section>] = <address>
         line.bytes = <count>
-        line.gadgets = <address>
+        line.gadgets = <base_offset>
         output.file = <true|false>
         output.file_name = "<file_name>"
     }
     ```
   - 内联形式: `@build <key> = <value>; ...;`
 
-```assembly
+```
 @build {
     emu.inj = true
     emu.inj_file = "payload.txt"
@@ -232,7 +232,7 @@ r1 = 0x5
   - `adr_arith <label1> <+/-> adr_arith <label2> ...`
   - `adr_arith [<offset1>] <label1> <+/-> adr_arith [<offset2>] <label2> ...`
 
-```assembly
+```
 eval(0x1 + 0x2 * 0x3)                     # 求值为 0x7
 calc(adr(label1) - adr(label2))
 adr_arith start - adr_arith end
@@ -249,7 +249,7 @@ adr_arith [+4] start - adr_arith [-2] end
   - `pad(<offset>, [<value>])`: 填充字节直到段长度达到 `<offset>`。
   - `pad_abs(<address>, [<value>])`: 填充字节直到绝对地址达到 `<address>`。
 
-```assembly
+```
 loop 4 {
   0x67
 }
@@ -263,7 +263,7 @@ pad(0x100, 0x00)
 * **语法:** `@python { <python_code> }`
 * 允许在编译期间直接执行 Python 代码。变量可以注入到编译器环境 (`loader.vars_dict`) 中。
 
-```assembly
+```
 @python {
     # 复杂的 Python 逻辑
     loader.vars_dict["calculated_val"] = 0x1234 * 2
@@ -276,7 +276,7 @@ var my_val = calculated_val
   - 在行末使用 `\` 以继续一条原始语句。
   - 圆括号 `()`、方括号 `[]` 或大括号 `{}` 自动支持多行，无需 `\`。
 
-```assembly
+```
 hex 30 \
 31
 

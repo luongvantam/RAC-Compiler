@@ -9,7 +9,7 @@
   - `# <ghi_chú>`
   - `/* <ghi_chú_khối> */`
 
-```assembly
+```
 # Ghi chú một dòng
 /* 
    Ghi chú
@@ -26,7 +26,7 @@
 * **Gọi biến:**
   - `<name_var>` (ví dụ: `a`, `b`, `c`, `var`)
 
-```assembly
+```
 var count = 10         # Khai báo biến count
 reg r1 = 0x5           # Khởi tạo thanh ghi r1
 r2 = 0xFF              # Gán trực tiếp giá trị cho r2
@@ -47,7 +47,7 @@ count                  # Gọi/đánh giá biến count
   - Mảng / Danh sách (Arrays):
     - `[<pt1>; <pt2>; ...]` (inline)
     - Khối nhiều dòng:
-      ```assembly
+      ```
       [
           <pt1>
           <pt2>
@@ -62,7 +62,7 @@ count                  # Gọi/đánh giá biến count
     - `pr_backup()` (địa chỉ sao lưu của phân vùng hiện tại)
     - `pr_backup(<phân_vùng>)` (địa chỉ sao lưu của phân vùng được chỉ định)
 
-```assembly
+```
 var ten = "World"
 "Xin~chào,~{ten}!"        # Nội suy và đổi dấu ~ thành khoảng trắng
 'sin( 9 0 )'              # Chuỗi token
@@ -83,7 +83,7 @@ var delta = dist.launcher
   - `@section.<tên_cũ> [at <gốc> backup <sao_lưu>] as <tên_mới>`
   - `@set.<tên_cũ> [at <gốc> backup <sao_lưu>] as <tên_mới>`
 
-```assembly
+```
 er0 as tmp
 tmp = 0x12000                            # Dịch thành: er0 = 0x12
 
@@ -106,7 +106,7 @@ tmp = 0x12000                            # Dịch thành: er0 = 0x12
   - Nhảy không điều kiện:
     - `goto <label>` (dịch thành: `er14 = adr(<label>, -2); sp = er14, pop er14`)
 
-```assembly
+```
 lbl start
 # hoặc:
 start:
@@ -123,7 +123,7 @@ lbl end
   - `def <gadget> : <address>` (thêm gadget vào command_dict)
   - `def {<tag>} <name_gadget>: <address>`
 
-```assembly
+```
 def my_gadget : 0x17b34
 call my_gadget
 call 0x1234
@@ -133,7 +133,7 @@ def {memcpy} memcpy_auto_jmp: 0x12345
 ## 7. Ghép câu lệnh (Compound Statements)
 * **Cú pháp:** `<câu_lệnh_1> ; <câu_lệnh_2> ; ...`
 
-```assembly
+```
 call 0x1234 ; goto end
 ```
 
@@ -142,7 +142,7 @@ call 0x1234 ; goto end
   - Dạng 1 dòng: `def <tên_macro>(<các_tham_số>) => <biểu_thức_1_dòng>`
   - Dạng khối lệnh: `def <tên_macro>(<các_tham_số>) => { <khối_lệnh> }`
 
-```assembly
+```
 def add_hex(<val1>, <val2>) => eval(<val1> + <val2>)
 
 def my_macro(<addr>, <val>) => {
@@ -154,7 +154,7 @@ def my_macro(<addr>, <val>) => {
 ## 9. Hàm (Functions)
 * **Cú pháp:**
   - Hàm nhiều dòng:
-    ```assembly
+    ```
     func <tên_hàm>(<các_tham_số>) {
         <code>
     }
@@ -163,7 +163,7 @@ def my_macro(<addr>, <val>) => {
   - Hàm một dòng trả về (gán được cho biến/thanh ghi):
     `func <tên_hàm>(<các_tham_số>) { return <biểu_thức> }`
 
-```assembly
+```
 func greet(person) {
   "Hello,~{person}!"
 }
@@ -178,7 +178,7 @@ r1 = add(5, 10)
   - `org <addr_org>` (địa chỉ gốc nạp chương trình; bỏ qua nếu dùng `@set` inline `at`)
   - `backup <addr_backup>` (địa chỉ sao lưu vùng nhớ)
 
-```assembly
+```
 org 0xe9e0
 backup 0xd000
 ```
@@ -188,7 +188,7 @@ backup 0xd000
   - `@section.<tên> [at <địa_chỉ_gốc> backup <địa_chỉ_sao_lưu>]`
   - `@set.<tên> [at <địa_chỉ_gốc> backup <địa_chỉ_sao_lưu>]`
 
-```assembly
+```
 @set.main at 0xe9e0 backup 0xf000
 0x1234
 
@@ -199,21 +199,21 @@ r1 = 0x5
 ## 12. Cấu hình Build (`@build`)
 * **Cú pháp:**
   - Khối nhiều dòng:
-    ```assembly
+    ```
     @build {
         emu.inj = <true|false>
         emu.inj_file = "<file_name>"
         emu.inj_var = "<name_var>"
         emu.inj_adr[<phân_vùng>] = <địa_chỉ>
         line.bytes = <count>
-        line.gadgets = <địa_chỉ>
+        line.gadgets = <base_offset>
         output.file = <true|false>
         output.file_name = "<tên_file>"
     }
     ```
   - Dòng đơn inline: `@build <key> = <value>; ...;`
 
-```assembly
+```
 @build {
     emu.inj = true
     emu.inj_file = "payload.txt"
@@ -232,7 +232,7 @@ r1 = 0x5
   - `adr_arith <nhãn_1> <+/-> adr_arith <nhãn_2> ...`
   - `adr_arith [<offset_1>] <nhãn_1> <+/-> adr_arith [<offset_2>] <nhãn_2> ...`
 
-```assembly
+```
 eval(0x1 + 0x2 * 0x3)                     # Kết quả: 0x7
 calc(adr(label1) - adr(label2))
 adr_arith start - adr_arith end
@@ -249,7 +249,7 @@ adr_arith [+4] start - adr_arith [-2] end
   - `pad(<offset>, [<value>])`: Điền byte đến khi kích thước phân vùng đạt `<offset>`.
   - `pad_abs(<address>, [<value>])`: Điền byte đến khi địa chỉ tuyệt đối đạt `<address>`.
 
-```assembly
+```
 loop 4 {
   0x67
 }
@@ -263,7 +263,7 @@ pad(0x100, 0x00)
 * **Cú pháp:** `@python { <mã_python> }`
 * Chạy mã Python trực tiếp khi biên dịch. Có thể cấu hình biến thông qua `loader.vars_dict`.
 
-```assembly
+```
 @python {
     # Tính toán phức tạp trong python
     loader.vars_dict["my_val"] = 0x1234 * 2
@@ -276,7 +276,7 @@ r1 = my_val
   - Dùng `\` ở cuối dòng để nối tiếp câu lệnh thô.
   - Các khối biểu thức `(...)`, `[...]` hoặc `{...}` tự động hỗ trợ viết trên nhiều dòng.
 
-```assembly
+```
 hex 30 \
 31
 
