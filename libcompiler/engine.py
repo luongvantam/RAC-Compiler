@@ -68,29 +68,44 @@ def eval_all():
     temp_deferred = list(loader.deferred_evals)
     loader.deferred_evals.clear()
 
-    for pos, expr, exec_info in temp_deferred:
+    for req in temp_deferred:
+        if len(req) == 4:
+            pos, expr, exec_info, max_bytes = req
+        else:
+            pos, expr, exec_info = req
+            max_bytes = 2
+
         loader.current_pos = pos
         loader.current_exec_info = exec_info
         try:
             val = utils.safe_eval(expr, env)
+            
+            env_1m = build_env()
+            o_adr, o_pr_org, o_homeof = env_1m['adr'], env_1m['pr_org'], env_1m['homeof']
+            env_1m['adr'] = lambda l, o=0: o_adr(l, o) + (1000000 if l == '$' or l in loader.labels else 0)
+            env_1m['pr_org'] = lambda s="": o_pr_org(s) + (1000000 if not s or s == getattr(loader, 'current_section_name', None) else 0)
+            env_1m['homeof'] = lambda l: o_homeof(l) + (1000000 if l in loader.labels else 0)
+            
+            val_1m = utils.safe_eval(expr, env_1m)
+            mult = (val_1m - val) // 1000000
         except Exception:
             try:
                 temp_env = {k: utils.safe_eval(v[5:-1], env) if isinstance(v, str) and v.startswith("eval(") else v for k, v in env.items()}
                 val = utils.safe_eval(expr, temp_env)
+                mult = 0
             except Exception as e:
                 raise utils.CompilerError(t("err_deferred_eval_error_in_66c8", var0=expr, var1=e))
         
         if not isinstance(val, int): raise utils.CompilerError(t("err_eval_var0_not_integer_aece", var0=expr))
         
-        is_abs = expr.count('adr(') > 1 or 'adr(' not in expr or any(l in loader.global_labels and l not in loader.labels for l in re.findall(r'adr\(\s*["\']?([a-zA-Z_0-9]+)', expr))
-        if is_abs:
-            val &= 0xFFFF
-            if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
-
+        if mult == 0:
+            val &= (1 << (max_bytes * 8)) - 1
+            if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+max_bytes]):
                 print(t("warn_eval_abs_overwrite", pos=f"{pos:04X}"))
-            loader.result[pos], loader.result[pos + 1] = val & 0xFF, (val >> 8) & 0xFF
+            for i in range(max_bytes):
+                loader.result[pos + i] = (val >> (8 * i)) & 0xFF
         else:
-            home_deps.append((pos, val))
+            home_deps.append((pos, val, mult, max_bytes))
     return home_deps
 
 
@@ -110,13 +125,24 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
     
     # Apply compiled offsets
     all_memory_requests = addr_resolution_list + dependencies
-    for index, off in all_memory_requests:
-        target = loader.home + off
-        if is_final_pass and any(loader.result[index:index+2]): 
+    for req in all_memory_requests:
+        if len(req) == 4:
+            index, off, mult, max_bytes = req
+            target = off + mult * loader.home
+        elif len(req) == 3:
+            index, off, mult = req
+            target = off + mult * loader.home
+            max_bytes = 2
+        else:
+            index, off = req
+            target = loader.home + off
+            max_bytes = 2
+            
+        if is_final_pass and any(loader.result[index:index+max_bytes]): 
             utils.note(t("note_warn_memory_overwrite_at_983d", var0=hex(index), var1=hex(target)))
         
-        loader.result[index] = target & 0xFF
-        loader.result[index + 1] = target >> 8
+        for i in range(max_bytes):
+            loader.result[index + i] = (target >> (8 * i)) & 0xFF
 
     # Export mapping for global usage
     if not hasattr(loader, 'label_sections'):

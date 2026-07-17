@@ -57,7 +57,9 @@ count                  # Recalls/evaluates count
     - `pr_length` / `sizeof()` (size of current section)
     - `sizeof(<section>)` (size of specified section)
     - `dist.<section>` (byte distance between org and backup)
+    - `pr_org()` (origin address of the current section)
     - `pr_org(<section>)` (origin address of the specified section)
+    - `pr_backup()` (backup address of the current section)
     - `pr_backup(<section>)` (backup address of the specified section)
 
 ```assembly
@@ -204,6 +206,7 @@ r1 = 0x5
         emu.inj_var = "<name_var>"
         emu.inj_adr[<section>] = <address>
         line.bytes = <count>
+        line.gadgets = <address>
         output.file = <true|false>
         output.file_name = "<file_name>"
     }

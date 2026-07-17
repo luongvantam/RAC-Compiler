@@ -147,6 +147,10 @@ adr(<label>)
 adr(<label>, <offset>)
 adr(<label>, <offset>, <base_addr>)
 adr($)      # current address of this line
+pr_org()    # origin address of the current section
+pr_org(<section>)
+pr_backup() # backup address of the current section
+pr_backup(<section>)
 
 # jump to label
 goto <label>            # it's `er14 = adr(<label>, -2); sp = er14, pop er14`

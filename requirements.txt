@@ -1,2 +1,3 @@
 textual
 pyperclip
+textual-serve

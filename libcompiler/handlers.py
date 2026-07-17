@@ -482,8 +482,10 @@ def handle_eval_expression(line):
     expanded_expr = eval_nested(expanded_expr)
     
     if 'adr(' in expanded_expr or 'sizeof(' in expanded_expr or 'dist.' in expanded_expr or 'pr_org(' in expanded_expr or 'pr_backup(' in expanded_expr:
-        loader.deferred_evals.append((len(loader.result), expanded_expr, getattr(loader, 'current_exec_info', {})))
-        loader.result.extend((0, 0))
+        max_len = max([4] + [(len(m) + len(m)%2) for m in re.findall(r'\b0x([0-9a-fA-F]+)\b', expanded_expr)])
+        max_bytes = max_len // 2
+        loader.deferred_evals.append((len(loader.result), expanded_expr, getattr(loader, 'current_exec_info', {}), max_bytes))
+        loader.result.extend([0] * max_bytes)
         return
         
     val = utils.safe_eval(expanded_expr, eval_scope)
@@ -740,6 +742,7 @@ def handle_adr_of_hd_command(line):
 
 def handle_adr_arith_hd_command(line):
     content = line.strip()[9:].strip()
+    content = re.sub(r'\b(?:adr_arith|adr_of|adr)\b', '', content).strip()
     pairs = re.findall(r'(?:\[([^\]]+)\])?\s*([a-zA-Z_]\w*)', content)
     ops = [o[0] or o[1] for o in re.findall(r'\]\s*([+-])\s*(?:\[|\w)|(?:\s|[a-zA-Z_]\w*)\s*([+-])\s*(?:\[|[a-zA-Z_]\w*)', content)]
     if not pairs or len(pairs)-1 != len(ops): raise utils.CompilerError(t("err_invalid_adrarith_syntax_var0_f862", var0=line))

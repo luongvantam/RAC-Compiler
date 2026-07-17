@@ -57,8 +57,10 @@ count                  # Gọi/đánh giá biến count
     - `pr_length` / `sizeof()` (kích thước byte của phân vùng hiện tại)
     - `sizeof(<phân_vùng>)` (kích thước byte của phân vùng cụ thể)
     - `dist.<phân_vùng>` (khoảng cách byte giữa org và backup)
-    - `pr_org(<phân_vùng>)` (địa chỉ gốc của phân vùng)
-    - `pr_backup(<phân_vùng>)` (địa chỉ sao lưu của phân vùng)
+    - `pr_org()` (địa chỉ gốc của phân vùng hiện tại)
+    - `pr_org(<phân_vùng>)` (địa chỉ gốc của phân vùng được chỉ định)
+    - `pr_backup()` (địa chỉ sao lưu của phân vùng hiện tại)
+    - `pr_backup(<phân_vùng>)` (địa chỉ sao lưu của phân vùng được chỉ định)
 
 ```assembly
 var ten = "World"
@@ -202,10 +204,11 @@ r1 = 0x5
         emu.inj = <true|false>
         emu.inj_file = "<file_name>"
         emu.inj_var = "<name_var>"
-        emu.inj_adr[<section>] = <address>
+        emu.inj_adr[<phân_vùng>] = <địa_chỉ>
         line.bytes = <count>
+        line.gadgets = <địa_chỉ>
         output.file = <true|false>
-        output.file_name = "<file_name>"
+        output.file_name = "<tên_file>"
     }
     ```
   - Dòng đơn inline: `@build <key> = <value>; ...;`

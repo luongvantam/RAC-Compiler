@@ -57,7 +57,9 @@ count                  # 调用/求值 count
     - `pr_length` / `sizeof()` (当前段的大小)
     - `sizeof(<section>)` (指定段的大小)
     - `dist.<section>` (初始地址与备份地址之间的字节距离)
+    - `pr_org()` (当前段的初始原点地址)
     - `pr_org(<section>)` (指定段的初始原点地址)
+    - `pr_backup()` (当前段的备份地址)
     - `pr_backup(<section>)` (指定段的备份地址)
 
 ```assembly
@@ -204,6 +206,7 @@ r1 = 0x5
         emu.inj_var = "<name_var>"
         emu.inj_adr[<section>] = <address>
         line.bytes = <count>
+        line.gadgets = <address>
         output.file = <true|false>
         output.file_name = "<file_name>"
     }
