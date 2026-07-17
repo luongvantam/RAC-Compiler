@@ -7,6 +7,8 @@ Usage:
     spans = highlight_rsc_line(text)  # list of (start, end, rich.style.Style)
 """
 import re
+import json
+import os
 from functools import lru_cache
 from rich.style import Style
 
@@ -33,81 +35,56 @@ S_KEY        = Style(color="#ffb86c", bold=True)     # KEY_xxx
 S_DEFAULT    = Style(color="#f8f8f2")                # Normal text
 
 # ----------------------------------------------------------------------
-# 2. Regex Patterns
+# 2. Regex Patterns (Loaded from JSON)
 # ----------------------------------------------------------------------
 _PATTERNS: list[tuple[re.Pattern, int | None, Style]] = []
 
-def _add(pattern: str, style: Style, flags: int = 0, group: int | None = None):
-    _PATTERNS.append((re.compile(pattern, flags), group, style))
+STYLE_MAP = {
+    "directive": S_DIRECTIVE,
+    "support_variable": S_SUPPORT,
+    "storage_modifier": S_STORAGE,
+    "storage_type": S_STORAGE,
+    "keyword": S_KEYWORD,
+    "distance_helper": S_KEYWORD,
+    "builtin": S_BUILTIN,
+    "python_func": S_FUNCTION,
+    "function_def": S_FUNCTION,
+    "function_call": S_FUNCTION,
+    "function_call_direct": S_FUNCTION,
+    "label_def_1": S_LABEL,
+    "label_def_2": S_LABEL,
+    "label_ref_1": S_LABEL_REF,
+    "label_ref_2": S_LABEL_REF,
+    "register": S_REGISTER,
+    "constant": S_KEY,
+    "number_hex_array": S_HEX_BYTE,
+    "number_hex": S_NUMBER,
+    "number_hex_byte": S_HEX_BYTE,
+    "number_dec": S_NUMBER,
+    "operator": S_OPERATOR,
+    "punctuation": S_PUNCT
+}
 
-# Directives
-_add(r'^\s*(@(?:build|python))\b',          S_DIRECTIVE, group=1)
-_add(r'^\s*(@(?:set|section))(\.[A-Za-z0-9_]+)', S_DIRECTIVE, group=1)
+def load_syntax():
+    json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "libcompiler", "syntax.json")
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for rule in data.get("rules", []):
+            rule_id = rule.get("id")
+            regex_str = rule.get("regex")
+            if not rule_id or not regex_str or rule_id not in STYLE_MAP:
+                continue
+            flags = 0
+            if rule.get("flags_py") == "IGNORECASE":
+                flags |= re.IGNORECASE
+            # flags_js='m' could map to re.MULTILINE if needed, but we match line by line in Python anyway
+            grp = rule.get("group")
+            _PATTERNS.append((re.compile(regex_str, flags), grp, STYLE_MAP[rule_id]))
+    except Exception as e:
+        print(f"Failed to load syntax.json: {e}")
 
-# Support variables (emu.*, etc.)
-_add(r'\b(emu\.inj_file|emu\.inj_var|emu\.inj_addr|emu\.inj_adr|emu\.inj|line\.bytes|output\.file_name|output\.file)\b', S_SUPPORT)
-
-# Specific commands that act like keywords
-_add(r'\b(org|backup)\b', S_KEYWORD)
-
-# Built-in specials
-_add(r'\bdist\b', S_BUILTIN)
-
-# Storage types
-_add(r'\b(var|reg|loop|repeat|str)\b', S_STORAGE)
-
-# Control flow
-_add(r'\b(call|goto|return|at|as|org|backup|goto_er14|goto_er6)\b', S_KEYWORD)
-
-# Function declarations
-_add(r'\b(func|def)\b', S_KEYWORD)
-
-# Logical ops
-_add(r'\b(in|and|or|not)\b', S_KEYWORD_OP)
-
-# Key constants
-_add(r'\bKEY_[A-Z0-9_]+\b', S_KEY)
-
-# hex keyword
-_add(r'\bhex\b', S_KEYWORD)
-
-# Hex bytes array (after hex keyword) or standalone hex bytes (e.g., FF 0A)
-_add(r'(?<=\bhex\s)\s*(?:[0-9A-Fa-f]{2}\s*)+', S_HEX_BYTE)  
-_add(r'\b[0-9A-Fa-f]{2}\b', S_HEX_BYTE)  
-
-# Hex numbers (0x...)
-_add(r'\b0x[0-9A-Fa-f]+\b', S_NUMBER)
-
-# Decimal numbers
-_add(r'\b\d+\b', S_NUMBER)
-
-# Registers
-_add(r'\b(?:[erxq]r[0-9]{1,2}|r[0-9]{1,2}|sp|pc|ea)\b', S_REGISTER, re.IGNORECASE)
-
-# Builtin functions
-_add(r'\b(?:adr|adr_of|adr_arith|eval|calc|sizeof|pr_length|fill|align|pad|pad_abs|pr_org|pr_backup)\b', S_BUILTIN)
-
-# Function Definitions (capture name)
-_add(r'\b(func|def)\s+([A-Za-z_][A-Za-z0-9_]*)\b', S_FUNCTION, group=2)
-
-# Function Calls (capture name)
-_add(r'\b(call)\s+([A-Za-z_][A-Za-z0-9_]*)\b', S_FUNCTION, group=2)
-
-# Labels (definition ending in colon)
-_add(r'^\s*[A-Za-z_][A-Za-z0-9_]*:', S_LABEL)
-
-# Label (via lbl keyword)
-_add(r'\blbl\s+[A-Za-z_][A-Za-z0-9_]*\b', S_LABEL)
-
-# Label References
-_add(r'\b(goto)\s+([A-Za-z_][A-Za-z0-9_]*)\b', S_LABEL_REF, group=2)
-
-# Operators
-_add(r'==|!=|<=|>=|[=+\-*/%<>]', S_OPERATOR)
-
-# Punctuation
-_add(r'[,;:]', S_PUNCT)
-_add(r'[(){}\[\]]', S_PUNCT)
+load_syntax()
 
 
 @lru_cache(maxsize=10000)

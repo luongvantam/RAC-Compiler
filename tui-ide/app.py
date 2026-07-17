@@ -735,7 +735,7 @@ class RSC_IDE(App):
             cmd.append("--safe")
         
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True)
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
             out = res.stdout + "\n" + res.stderr
             error_found = False
             

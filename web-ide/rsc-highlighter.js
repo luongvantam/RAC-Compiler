@@ -17,6 +17,7 @@
         .token.label-def { color: #4fc1ff; text-decoration: underline; font-weight: bold; }
         .token.label-ref { color: #4fc1ff; }
         .token.python-func { color: #dcdcaa; }
+        .token.support-variable { color: #9cdcfe; font-style: italic; }
 
         .token.string .token.parameter { color: #4fc1ff; font-weight: bold; }
         .token.string .token.escape { color: #d7ba7d; }
@@ -24,121 +25,77 @@
     document.head.appendChild(style);
 
 
-    if (typeof Prism !== "undefined") {
+    window.initRscHighlighter = function(syntaxData) {
+        if (typeof Prism === "undefined") return;
 
-        Prism.languages.rsc = {
-            // Hỗ trợ cả comment đơn dòng # và khối comment đa dòng /* ... */
+        let rsc = {
+            // Static rules (not in syntax.json since they use specific Prism features like inside/greedy)
             comment: [
                 { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
                 { pattern: /#.*/, greedy: true }
             ],
-
-            // Chuỗi nháy kép (hỗ trợ f-string với {parameter}) và chuỗi nháy đơn 'token string'
             string: [
                 {
                     pattern: /"(?:\\.|[^"\\])*"/,
                     greedy: true,
                     inside: {
-                        parameter: {
-                            pattern: /\{[^}]+\}/,
-                            alias: "variable"
-                        },
+                        parameter: { pattern: /\{[^}]+\}/, alias: "variable" },
                         escape: /~/
                     }
                 },
-                {
-                    pattern: /'(?:\\.|[^'\\])*'/,
-                    greedy: true
-                }
-            ],
-
-            // Định dạng chỉ thị phân vùng: @section.<section> hoặc @set.<section>
-            directive: {
-                pattern: /^\s*@(set|section)\.[a-zA-Z0-9_]+/m,
-                alias: "important"
-            },
-
-            // Các modifier khai báo
-            "storage-modifier": /\b(lbl|func|def|loop|repeat|find_gadgets)\b/,
-            "storage-type": /\b(reg|var|str)\b/,
-
-            // Danh sách các từ khóa chuẩn theo tài liệu Syntax.md
-            keyword: /\b(call|goto|eval|org|backup|pr_length|calc|return|hex|py|adr_of|adr_arith)\b/,
-
-            // Biểu thức tính toán khoảng cách backup: dist.<section>
-            "distance-helper": {
-                pattern: /\bdist\.[a-zA-Z0-9_]+\b/,
-                alias: "keyword"
-            },
-
-            // Hàm lấy địa chỉ nhãn: adr(...)
-            adr: {
-                pattern: /\badr(?=\()/,
-                alias: "function"
-            },
-
-            "python-func": {
-                pattern: /(?<=\bpy\.)[a-zA-Z_][a-zA-Z0-9_]*/,
-                alias: "function"
-            },
-
-            // Định nghĩa hàm: func <tên_hàm> hoặc def <tên_hàm>
-            "function-def": {
-                pattern: /(?<=\b(func|def)\s)[a-zA-Z_][a-zA-Z0-9_]*/,
-                alias: "function"
-            },
-
-            // Lời gọi hàm chung: call <tên_hàm> hoặc trực tiếp <tên_hàm>(...)
-            "function-call": [
-                {
-                    pattern: /(?<=\bcall\s)[a-zA-Z_][a-zA-Z0-9_]*/,
-                    alias: "function"
-                },
-                {
-                    pattern: /\b[a-zA-Z_][a-zA-Z0-9_]*(?=\()/,
-                    alias: "function"
-                }
-            ],
-
-            // Định nghĩa nhãn: lbl <nhãn> hoặc <nhãn>: ở đầu dòng
-            "label-def": [
-                {
-                    pattern: /(?<=\blbl\s)[a-zA-Z_][a-zA-Z0-9_]*/
-                },
-                {
-                    pattern: /^[ \t]*[a-zA-Z_][a-zA-Z0-9_]*(?=:)/m
-                }
-            ],
-
-            // Tham chiếu nhãn sau lệnh nhảy: goto <nhãn> hoặc adr_of <nhãn>
-            "label-ref": [
-                {
-                    pattern: /(?<=\bgoto\s)[a-zA-Z_][a-zA-Z0-9_]*/
-                },
-                {
-                    pattern: /(?<=\badr_of\s(?:\[[^\]]*\]\s*)?)[a-zA-Z_][a-zA-Z0-9_]*/
-                }
-            ],
-
-            // Tập thanh ghi tiêu chuẩn
-            register: {
-                pattern: /\b([erxqr]{1,2}[0-9]{1,2}|sp|pc|ea)\b/i,
-                alias: "variable"
-            },
-
-            constant: /\bKEY_[A-Z0-9_]+\b/,
-
-            // Hệ cơ số 16 (0x...) và số nguyên thường
-            number: [
-                /\b0x[0-9a-fA-F]+\b/,
-                /\b\d+\b/
-            ],
-
-            operator: /==|!=|=|\+|-|\*|\/|%/,
-
-            punctuation: /[()\[\]{},;:]/
+                { pattern: /'(?:\\.|[^'\\])*'/, greedy: true }
+            ]
         };
 
-    }
+        const ALIAS_MAP = {
+            "directive": "important",
+            "support_variable": "variable",
+            "distance_helper": "keyword",
+            "builtin": "function",
+            "python_func": "function",
+            "function_def": "function",
+            "function_call": "function",
+            "function_call_direct": "function",
+            "register": "variable",
+            "number_hex_array": "number",
+            "number_hex": "number",
+            "number_hex_byte": "number",
+            "number_dec": "number"
+        };
+
+        let tempRules = {};
+
+        for (let rule of syntaxData.rules) {
+            let id = rule.id;
+            let regexStr = rule.regex;
+            let flags = rule.flags_js || "";
+            let obj = { pattern: new RegExp(regexStr, flags) };
+            if (rule.group === 2) obj.lookbehind = true;
+            if (ALIAS_MAP[id]) obj.alias = ALIAS_MAP[id];
+            
+            tempRules[id] = obj;
+        }
+
+        // Map parsed rules to Prism token names
+        rsc["directive"] = tempRules["directive"];
+        rsc["support-variable"] = tempRules["support_variable"];
+        rsc["storage-modifier"] = tempRules["storage_modifier"];
+        rsc["storage-type"] = tempRules["storage_type"];
+        rsc["keyword"] = tempRules["keyword"];
+        rsc["distance-helper"] = tempRules["distance_helper"];
+        rsc["builtin"] = tempRules["builtin"];
+        rsc["python-func"] = tempRules["python_func"];
+        rsc["function-def"] = tempRules["function_def"];
+        rsc["function-call"] = [tempRules["function_call"], tempRules["function_call_direct"]];
+        rsc["label-def"] = [tempRules["label_def_1"], tempRules["label_def_2"]];
+        rsc["label-ref"] = [tempRules["label_ref_1"], tempRules["label_ref_2"]];
+        rsc["register"] = tempRules["register"];
+        rsc["constant"] = tempRules["constant"];
+        rsc["number"] = [tempRules["number_hex"], tempRules["number_hex_array"], tempRules["number_hex_byte"], tempRules["number_dec"]];
+        rsc["operator"] = tempRules["operator"];
+        rsc["punctuation"] = tempRules["punctuation"];
+
+        Prism.languages.rsc = rsc;
+    };
 
 })();

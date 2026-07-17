@@ -1,0 +1,109 @@
+{
+  "rules": [
+    {
+      "id": "directive",
+      "regex": "^\\s*(@(?:set|section)\\.[a-zA-Z0-9_]+|@(?:build|python)\\b)",
+      "flags_js": "m",
+      "group": 1
+    },
+    {
+      "id": "support_variable",
+      "regex": "\\b(emu\\.inj_file|emu\\.inj_var|emu\\.inj_addr|emu\\.inj_adr|emu\\.inj|line\\.bytes|line\\.gadgets|output\\.file_name|output\\.file)\\b"
+    },
+    {
+      "id": "storage_modifier",
+      "regex": "\\b(lbl|func|def|loop|repeat|find_gadgets)\\b"
+    },
+    {
+      "id": "storage_type",
+      "regex": "\\b(reg|var|str)\\b"
+    },
+    {
+      "id": "keyword",
+      "regex": "\\b(call|goto|goto_er14|goto_er6|eval|org|backup|pr_length|calc|return|hex|py|adr_of|adr_arith|at|as|in|and|or|not)\\b"
+    },
+    {
+      "id": "distance_helper",
+      "regex": "\\b(dist\\.[a-zA-Z0-9_]+)\\b"
+    },
+    {
+      "id": "builtin",
+      "regex": "\\b(adr|adr_of|adr_arith|eval|calc|sizeof|pr_length|fill|align|pad|pad_abs|pr_org|pr_backup)\\b"
+    },
+    {
+      "id": "python_func",
+      "regex": "(\\bpy\\.)([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "group": 2
+    },
+    {
+      "id": "function_def",
+      "regex": "(\\b(?:func|def)\\s+)([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "group": 2
+    },
+    {
+      "id": "function_call",
+      "regex": "(\\bcall\\s+)([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "group": 2
+    },
+    {
+      "id": "function_call_direct",
+      "regex": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\()"
+    },
+    {
+      "id": "label_def_1",
+      "regex": "(\\blbl\\s+)([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "group": 2
+    },
+    {
+      "id": "label_def_2",
+      "regex": "^([ \\t]*)([a-zA-Z_][a-zA-Z0-9_]*)(?=:)",
+      "flags_js": "m",
+      "group": 2
+    },
+    {
+      "id": "label_ref_1",
+      "regex": "(\\bgoto\\s+)([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "group": 2
+    },
+    {
+      "id": "label_ref_2",
+      "regex": "(\\badr_of\\s+(?:\\[[^\\]]*\\]\\s*)?)([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "group": 2
+    },
+    {
+      "id": "register",
+      "regex": "\\b([erxqr]{1,2}[0-9]{1,2}|sp|pc|ea)\\b",
+      "flags_js": "i",
+      "flags_py": "IGNORECASE"
+    },
+    {
+      "id": "constant",
+      "regex": "\\b(KEY_[A-Z0-9_]+)\\b"
+    },
+    {
+      "id": "number_hex_array",
+      "regex": "(\\bhex\\s+)((?:[0-9a-fA-F]{2}\\s*)+)",
+      "group": 2
+    },
+    {
+      "id": "number_hex",
+      "regex": "\\b(0x[0-9a-fA-F]+)\\b"
+    },
+    {
+      "id": "number_hex_byte",
+      "regex": "\\b([0-9a-fA-F]{2})\\b"
+    },
+    {
+      "id": "number_dec",
+      "regex": "\\b(\\d+)\\b"
+    },
+    {
+      "id": "operator",
+      "regex": "(==|!=|<=|>=|[=+\\-*/%<>])"
+    },
+    {
+      "id": "punctuation",
+      "regex": "([,\\[\\]{}();:])"
+    }
+  ]
+}

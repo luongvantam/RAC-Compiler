@@ -97,8 +97,6 @@
     "web_ide_starting": "Starting RAC Compiler Web IDE...",
     "web_ide_safe_mode": "Safe Mode is ENFORCED.",
     "web_ide_open_browser": "Open http://localhost:{port} in your browser.",
-    "web_ide_server_running": "Server running at: http://127.0.0.1:{port}",
-    "web_ide_server_stopped": "\nServer stopped.",
     "err_usage": "Usage: python {entry} <model> <name>",
     "err_file_not_found_search": "File not found in search paths: {name}",
     "err_config_not_found": "Config not found at {file}",

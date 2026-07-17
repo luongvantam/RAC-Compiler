@@ -97,8 +97,6 @@
     "web_ide_starting": "正在启动 RAC Compiler Web IDE...",
     "web_ide_safe_mode": "强制安全模式。",
     "web_ide_open_browser": "请在浏览器中打开 http://localhost:{port}。",
-    "web_ide_server_running": "服务器运行在: http://127.0.0.1:{port}",
-    "web_ide_server_stopped": "\n服务器已停止。",
     "err_usage": "用法: python {entry} <model> <name>",
     "err_file_not_found_search": "在搜索路径中未找到文件: {name}",
     "err_config_not_found": "在 {file} 未找到配置",

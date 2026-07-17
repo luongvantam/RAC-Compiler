@@ -97,8 +97,6 @@
     "web_ide_starting": "Đang khởi động RAC Compiler Web IDE...",
     "web_ide_safe_mode": "Chế độ An Toàn (Safe Mode) đã ĐƯỢC BẬT.",
     "web_ide_open_browser": "Hãy mở http://localhost:{port} trên trình duyệt của bạn.",
-    "web_ide_server_running": "Server đang chạy tại: http://127.0.0.1:{port}",
-    "web_ide_server_stopped": "\nĐã dừng Server.",
     "err_usage": "Cách dùng: python {entry} <model> <name>",
     "err_file_not_found_search": "Không tìm thấy file trong các đường dẫn tìm kiếm: {name}",
     "err_config_not_found": "Không tìm thấy config tại {file}",

@@ -10,16 +10,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
-from libcompiler.i18n import t
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         url_path = urllib.parse.unquote(self.path)
         relative_path = "index.html" if url_path == "/" else url_path.lstrip("/").replace("/", os.sep)
         
-        # If it's a frontend asset, serve from BASE_DIR. Otherwise, serve from PROJECT_ROOT.
+        # If it's a frontend asset, serve from BASE_DIR. If syntax, serve from libcompiler. Otherwise, serve from PROJECT_ROOT.
         if relative_path in ["index.html", "rsc-highlighter.js"]:
             file_path = os.path.join(BASE_DIR, relative_path)
+        elif relative_path == "syntax.json":
+            file_path = os.path.join(PROJECT_ROOT, "libcompiler", "syntax.json")
         else:
             file_path = os.path.join(PROJECT_ROOT, relative_path)
 
@@ -66,8 +67,9 @@ class SimpleHandler(BaseHTTPRequestHandler):
 
                 cmd = [sys.executable, os.path.join(PROJECT_ROOT, "rac.py")]
                 lang = data.get('lang', 'en_US')
+                model = data.get('model', '580vnx')
                 cmd.extend(["-l", lang])
-                cmd.extend(["580vnx", os.path.basename(tmp_name)])
+                cmd.extend([model, os.path.basename(tmp_name)])
                 res = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT, env=env, encoding='utf-8')
                 
                 # Cleanup temp file
@@ -94,9 +96,13 @@ class SimpleHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = HTTPServer(('127.0.0.1', 5000), SimpleHandler)
-    print(t("web_ide_server_running", port=5000))
+    print("==================================================")
+    print(" Web IDE Server is running!")
+    print(" -> http://127.0.0.1:5000/")
+    print("==================================================")
+    print("(Press Ctrl+C to stop)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         server.server_close()
-        print(t("web_ide_server_stopped"))
+        print("\nWeb IDE Server stopped.")

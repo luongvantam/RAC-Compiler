@@ -8,6 +8,7 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Segoe+UI:wght@400;500&display=swap" rel="stylesheet">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="rsc-highlighter.js"></script>
@@ -43,7 +44,7 @@
             --status-bg: var(--bg-dark);
             --tab-active: #1e1e1e;
             --tab-inactive: #2d2d2d;
-            --font-editor: 'Consolas', 'Monaco', 'Courier New', monospace;
+            --font-editor: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
 
             /* Tông màu hiển thị Output chuyên nghiệp */
             --terminal-bg: #151515;
@@ -186,9 +187,10 @@
             background: #3c3c3c;
             border: 1px solid var(--accent-blue);
             color: white;
-            padding: 4px;
+            padding: 6px 8px;
             outline: none;
             font-size: 13px;
+            border-radius: 2px;
         }
 
         .find-btn {
@@ -279,11 +281,12 @@
             font-family: var(--font-editor);
             font-size: 14px;
             line-height: 22px;
+            letter-spacing: 0;
+            word-spacing: 0;
             box-sizing: border-box;
             border: none;
             outline: none;
             white-space: pre;
-            overflow: auto;
             tab-size: 4;
         }
 
@@ -293,12 +296,14 @@
             caret-color: #fff;
             resize: none;
             z-index: 2;
+            overflow: auto;
         }
 
         #highlighting {
             color: #d4d4d4;
             pointer-events: none;
             z-index: 1;
+            overflow: hidden;
         }
 
         code {
@@ -379,10 +384,20 @@
             margin-top: 0;
             color: white;
             font-weight: normal;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
 
         .setting-group {
-            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
         }
 
         .setting-group label {
@@ -397,10 +412,17 @@
             background: #3c3c3c;
             color: #fff;
             border: 1px solid var(--border-color);
-            padding: 6px 10px;
-            width: 250px;
+            padding: 8px 10px;
+            width: 100%;
+            max-width: 300px;
             border-radius: 3px;
             outline: none;
+            box-sizing: border-box;
+        }
+        
+        .setting-group select:focus,
+        .setting-group input:focus {
+            border-color: var(--accent-blue);
         }
 
         /* Status Bar */
@@ -533,10 +555,11 @@
                     <div
                         style="padding: 4px 12px; color:#888; font-size: 10px; cursor:default; background:transparent;" data-i18n="ide_system_files">
                         SYSTEM FILES</div>
-                    <div onclick="openSystemFile('580vnx/labels.txt')">labels.txt</div>
-                    <div onclick="openSystemFile('580vnx/disas.asm')" style="display:none;">disas.asm</div>
-                    <div onclick="openSystemFile('580vnx/extensions.txt')">extensions.txt</div>
-                    <div onclick="openSystemFile('580vnx/gadgets.txt')">gadgets.txt</div>
+                    <div onclick="openSystemFile(currentModel + '/labels.txt')">labels.txt</div>
+                    <div onclick="openSystemFile(currentModel + '/disas.asm')" style="display:none;">disas.asm</div>
+                    <div onclick="openSystemFile(currentModel + '/disas.txt')" style="display:none;">disas.txt</div>
+                    <div onclick="openSystemFile(currentModel + '/extensions.txt')">extensions.txt</div>
+                    <div onclick="openSystemFile(currentModel + '/gadgets.txt')">gadgets.txt</div>
                 </div>
             </div>
 
@@ -572,22 +595,28 @@
                 <!-- Settings View -->
                 <div id="settings-view">
                     <h2 id="lbl-settings-title" data-i18n="ide_settings">Settings</h2>
-                    <div class="setting-group">
-                        <label data-i18n="ide_language">Language</label>
-                        <select id="lang-select" onchange="changeLanguage()">
-                            <option value="en_US">English</option>
-                            <option value="vi_VN">Tiếng Việt</option>
-                            <option value="zh_CN">中文</option>
-                        </select>
-                    </div>
-                    <div class="setting-group">
-                        <label data-i18n="ide_font_family">Editor Font Family</label>
-                        <input type="text" id="font-family" value="'Consolas', 'Monaco', 'Courier New', monospace"
-                            onchange="updateSettings()">
-                    </div>
-                    <div class="setting-group">
-                        <label data-i18n="ide_font_size">Editor Font Size (px)</label>
-                        <input type="number" id="font-size" value="14" onchange="updateSettings()">
+                    <div class="settings-grid">
+                        <div class="setting-group">
+                            <label data-i18n="ide_language">Language</label>
+                            <select id="lang-select" onchange="changeLanguage()">
+                                <option value="en_US">English</option>
+                                <option value="vi_VN">Tiếng Việt</option>
+                                <option value="zh_CN">中文</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label data-i18n="ide_model">Model</label>
+                            <input type="text" id="model-select" value="580vnx" onchange="changeModel()">
+                        </div>
+                        <div class="setting-group">
+                            <label data-i18n="ide_font_family">Editor Font Family</label>
+                            <input type="text" id="font-family" value="'JetBrains Mono', 'Consolas', monospace"
+                                onchange="updateSettings()">
+                        </div>
+                        <div class="setting-group">
+                            <label data-i18n="ide_font_size">Editor Font Size (px)</label>
+                            <input type="number" id="font-size" value="14" onchange="updateSettings()">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -611,12 +640,13 @@
 
     <script>
         const translations = {
-            en_US: { ide_new_file: "New File", ide_open_file: "Open File...", ide_download: "Download Code", ide_output: "OUTPUT", compiling: "Compiling...", bytes: "Bytes: ", placeholder: "-- Enter ROP code --", ide_settings: "Settings", ide_language: "Language", ide_font_family: "Editor Font Family", ide_font_size: "Editor Font Size (px)", ide_system_files: "SYSTEM FILES" },
-            vi_VN: { ide_new_file: "Tạo mới", ide_open_file: "Mở tệp...", ide_download: "Tải code", ide_output: "KẾT QUẢ", compiling: "Đang biên dịch...", bytes: "Tổng byte: ", placeholder: "-- Nhập mã ROP --", ide_settings: "Cài đặt", ide_language: "Ngôn ngữ", ide_font_family: "Kiểu chữ Editor", ide_font_size: "Cỡ chữ Editor (px)", ide_system_files: "TẬP TIN HỆ THỐNG" },
-            zh_CN: { ide_new_file: "新建文件", ide_open_file: "打开文件...", ide_download: "下载代码", ide_output: "输出", compiling: "编译中...", bytes: "字节: ", placeholder: "-- 输入ROP代码 --", ide_settings: "设置", ide_language: "语言", ide_font_family: "编辑器字体", ide_font_size: "编辑器字体大小 (px)", ide_system_files: "系统文件" }
+            en_US: { ide_new_file: "New File", ide_open_file: "Open File...", ide_download: "Download Code", ide_output: "OUTPUT", compiling: "Compiling...", bytes: "Bytes: ", placeholder: "-- Enter ROP code --", ide_settings: "Settings", ide_language: "Language", ide_model: "Model", ide_font_family: "Editor Font Family", ide_font_size: "Editor Font Size (px)", ide_system_files: "SYSTEM FILES" },
+            vi_VN: { ide_new_file: "Tạo mới", ide_open_file: "Mở tệp...", ide_download: "Tải code", ide_output: "KẾT QUẢ", compiling: "Đang biên dịch...", bytes: "Tổng byte: ", placeholder: "-- Nhập mã ROP --", ide_settings: "Cài đặt", ide_language: "Ngôn ngữ", ide_model: "Mô hình", ide_font_family: "Kiểu chữ Editor", ide_font_size: "Cỡ chữ Editor (px)", ide_system_files: "TẬP TIN HỆ THỐNG" },
+            zh_CN: { ide_new_file: "新建文件", ide_open_file: "打开文件...", ide_download: "下载代码", ide_output: "输出", compiling: "编译中...", bytes: "字节: ", placeholder: "-- 输入ROP代码 --", ide_settings: "设置", ide_language: "语言", ide_model: "型号", ide_font_family: "编辑器字体", ide_font_size: "编辑器字体大小 (px)", ide_system_files: "系统文件" }
         };
 
         let currentLang = localStorage.getItem('ide_lang') || 'en_US';
+        let currentModel = localStorage.getItem('ide_model') || '580vnx';
         let findMatches = [];
         let currentFindIdx = -1;
         let isFindActive = false;
@@ -702,7 +732,7 @@
                 document.getElementById('settings-view').style.display = 'block';
             } else if (id !== 'Output') {
                 document.getElementById('editor-wrapper').style.display = 'block';
-                document.getElementById('code-editor').readOnly = (id === '580vnx/disas.asm');
+                document.getElementById('code-editor').readOnly = !!id.match(/\/disas\.(asm|txt)$/);
                 document.getElementById('code-editor').value = tabs[id].content || '';
                 updateUI();
             }
@@ -727,14 +757,14 @@
 
         async function openSystemFile(filename) {
             if (!tabs[filename]) {
-                let content = filename === '580vnx/disas.asm' ? null : localStorage.getItem(filename);
+                let content = filename.match(/\/disas\.(asm|txt)$/) ? null : localStorage.getItem(filename);
                 if (content === null) {
                     try {
                         let res = await fetch(`/${filename}`);
                         if (res.ok) content = await res.text();
                         else content = "// File not found, created new.\n";
                     } catch (e) { content = ""; }
-                    if (filename !== '580vnx/disas.asm') {
+                    if (!filename.match(/\/disas\.(asm|txt)$/)) {
                         localStorage.setItem(filename, content);
                     }
                 }
@@ -747,7 +777,7 @@
             if (currentTabId && currentTabId !== 'Settings' && tabs[currentTabId]) {
                 const val = document.getElementById('code-editor').value;
                 tabs[currentTabId].content = val;
-                if (currentTabId !== '580vnx/disas.asm') {
+                if (!currentTabId.match(/\/disas\.(asm|txt)$/)) {
                     localStorage.setItem(currentTabId, val);
                 }
 
@@ -920,6 +950,11 @@
             renderTabs();
         }
 
+        function changeModel() {
+            currentModel = document.getElementById('model-select').value;
+            localStorage.setItem('ide_model', currentModel);
+        }
+
         // Compiler Bridge
         async function compileCode() {
             if (currentTabId && currentTabId !== 'Settings' && tabs[currentTabId]) {
@@ -927,7 +962,7 @@
             }
             const code = tabs['script.rsc'].content;
 
-            const sysFiles = ['580vnx/labels.txt', '580vnx/extensions.txt', '580vnx/gadgets.txt'];
+            const sysFiles = [`${currentModel}/labels.txt`, `${currentModel}/extensions.txt`, `${currentModel}/gadgets.txt`];
             let filesPayload = {};
             for (let f of sysFiles) {
                 let content = localStorage.getItem(f);
@@ -942,7 +977,7 @@
                 const res = await fetch('/compile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: code, files: filesPayload, lang: currentLang })
+                    body: JSON.stringify({ code: code, files: filesPayload, lang: currentLang, model: currentModel })
                 });
                 const data = await res.json();
 
@@ -976,7 +1011,8 @@
                             }
                         }).join('');
                     } else {
-                        linesHtml += `<div class="out-success-block">Process finished with exit code 0 (No output).</div>`;
+                        let succMsg = currentLang === 'vi_VN' ? 'Biên dịch thành công! Không có lỗi.' : (currentLang === 'zh_CN' ? '编译成功！没有错误。' : 'Compile successful! No errors found.');
+                        linesHtml += `<div class="out-success-block">${succMsg}</div>`;
                     }
 
                     out.innerHTML = linesHtml;
@@ -997,9 +1033,38 @@
         window.addEventListener('keydown', e => {
             if (e.ctrlKey && e.key === 'f') { e.preventDefault(); toggleFind(); }
         });
-        document.addEventListener('DOMContentLoaded', () => {
+
+        // Tab key support for editor
+        document.getElementById('code-editor').addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                // set textarea value to: text before caret + 4 spaces + text after caret
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                // put caret at right position again
+                this.selectionStart = this.selectionEnd = start + 4;
+                onEditorInput();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('lang-select').value = currentLang;
+            document.getElementById('model-select').value = currentModel;
             changeLanguage();
+
+            try {
+                let res = await fetch('/syntax.json');
+                if (res.ok) {
+                    let syntaxData = await res.json();
+                    if (window.initRscHighlighter) {
+                        window.initRscHighlighter(syntaxData);
+                    }
+                }
+            } catch(e) {
+                console.error("Failed to load syntax.json", e);
+            }
+
             let initVal = document.getElementById('code-editor').value;
             if (!initVal) {
                 document.getElementById('code-editor').value = tabs['script.rsc'].content;
@@ -1008,7 +1073,13 @@
                 tabs['script.rsc'].history.push(document.getElementById('code-editor').value);
                 tabs['script.rsc'].hIdx = 0;
             }
-            localStorage.removeItem('580vnx/disas.asm');
+            
+            // Clean up disas.asm / disas.txt for all models so it doesn't get persisted across sessions
+            const models = ['580vnx', '570vnp2', '880btg', '991cnx_vf'];
+            for (let m of models) {
+                localStorage.removeItem(m + '/disas.asm');
+                localStorage.removeItem(m + '/disas.txt');
+            }
 
             isMobile = !(window.innerWidth <= 768);
             handleResize();
