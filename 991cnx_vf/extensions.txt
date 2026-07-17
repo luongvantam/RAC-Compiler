@@ -1,0 +1,11 @@
+---syntax---
+mode_fd20
+---output---
+hex fd 20 30 30 30 30 30 30 30 30 30 30 30 30
+---
+
+---syntax---
+mode_fd24
+---output---
+hex fd 24 30 30
+---

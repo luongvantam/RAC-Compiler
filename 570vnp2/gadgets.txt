@@ -1,0 +1,97 @@
+09244	setlr
+092F8	DI,RT
+08F90	[er8]+=er2,pop xr8
+22DF4	sp = er14,pop er14,rt
+20D70	sp = er14,pop er14
+21D38	sp = er6,pop er8
+09AA4	ppc
+13AA4	er0+=er0,er0+=er2,er8=[er0]
+13AD8	er0+=er0,er2+=er0,er0=[er2]
+
+
+17A74	pop qr0
+12640	pop er0
+1880E	pop er2
+1EED6	pop er4
+139EE	pop er6
+12BF2	pop qr8
+09AA2	pop er8
+0C29C	pop er10
+21532	pop er12
+15B7E	pop er14
+179BE	pop xr0
+18010	pop xr4
+18240	pop xr8
+20732	pop xr12
+
+
+14B16	er0+=er4,rt
+13ABE	er4+=er0,r8 = r8,rt
+2196C	er0+=er8,rt
+21972	er2+=er8,rt
+2AD84	er0+=er2,rt
+15F7E	er0+=1,rt
+08FD4	r0+=1,rt
+
+
+22414	er6 = er0,er0 = er8,pop qr8
+16076	er8 = er0
+0D572	er2 = er0,er0 = er2,pop er8,rt
+13ACE	er2 = er0,er0+=er4,rt
+0AFF4	er0 = er2,rt
+1E7DC	er0 = er4,pop er4
+2AB70	er0 = er8,pop er8,rt
+152C4	er0 = er8
+0F368	er0 = er6,pop er8,pop xr4
+26428	r1 = 0,rt
+179CC	er14 = er0,pop xr0
+20B52	er0 = er10,pop xr8
+08F9A	er2 = 0,r0 = 2,[er8]=er2,pop xr8
+08F8E	r0 = 0,[er8]+=er2,pop xr8
+
+16C68	[er2]=er0,r2 = 0,pop er4,rt
+13916	[er0]=er2,rt
+203D2	[er0]=r2
+17596	[er2]=r0
+08F94	[er8]=er2,pop xr8
+
+16C48	er4=[er8],pop er8,rt
+13ADC	er0=[er2]
+13AA8	er8=[er0],rt
+1810E	r0=[er0]
+25330	er0=[er0],pop xr8,rt
+09278	r0=[ea],rt
+21D36	sp=[er8],pop er8
+19810	qr0=[ea]
+09126	er0-=er2,rt
+2538C	er0-=er12,pop er8,pop er12,rt
+09134	r0-=1,rt
+09DB8	r0-=r8,pop er8,rt
+
+0B61E	er0 - er2_gt,r0 = 0 |r0 = 1,rt
+08DD6	er0 - er2_eq,r0 = 1,rt
+13ACC	er0*=r2,er2 = er0,er0+=er4,rt
+14F00	er0*=r2,er0+=er6,er10 = er0,rt
+
+0FC04	brk
+0875C	BL memcpy,pop er0
+203CC	BL strcpy
+14438	BL memset,pop er2
+220A2	BL delay,pop xr0
+20C5E	BL line_print
+2236E	BL printline
+22410	BL hex_byte,er6 = er0,er0 = er8,pop qr8
+1E8AE	BL smart_strcpy,pop er8
+092EE	BL zero_KO
+24530	BL line_draw
+08DC4	BL render.ddd4
+
+08F10	cmp_ea
+09026	memzero
+07F18	fill_screen
+091D8	delay
+22044	diagnostic_mode
+220AC	diagnostic
+221D0	waitshift
+2241C	hex_byte
+08C2C	hex_to_dec
