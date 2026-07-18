@@ -9,3 +9,10 @@ mode_fd24
 ---output---
 hex fd 24 30 30
 ---
+
+---syntax---
+line_print({x},{y},{addr})
+---output---
+xr0 = {x}, {y}, {addr}
+line_print
+---

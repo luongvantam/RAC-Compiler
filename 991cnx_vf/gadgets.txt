@@ -60,7 +60,7 @@
 2045C   pop xr4,pop xr12
 0AC3A   pop xr4,pop qr8
 0A1CA   pop lr
-13B9A   er0+=er0,er2+=er0,er0=[er2]; load_table
+13AD8   er0+=er0,er2+=er0,er0=[er2]; load_table
 09E96   [ea+]=r0,r0-=1,bne
 1c2c0   qr0=[ea],lea D002H,[ea]=qr0
 2245C   r1=0,pop er12
@@ -111,7 +111,7 @@
 0f368	er0 = er6,pop er8,pop xr4,rt
 0b25e	er2 = er4,er0 -= er2,pop er4,pop er8,rt
 208e8	er0 = ea,rt
-140E4   er0 = er6,er2 = er12
+14022   er0 = er6,er2 = er12
 
 # Some ST gadgets:
 16c68	[er2] = er0,r2 = 0,pop er4,rt
@@ -153,8 +153,8 @@
 15f7e	er0 += 1,rt
 195e6	r0 += 1,rt
 195e6	r0 += r4,rt
-0E254   [er8+5]+=1,pop er8
-2EB7C   [er8+5]-=1,pop er8
+0CDE0   [er8+5]+=1,pop er8
+29FB6   [er8+5]-=1,pop er8
 0A186   r0+=carry,rt
 
 # Some SUB gadgets:

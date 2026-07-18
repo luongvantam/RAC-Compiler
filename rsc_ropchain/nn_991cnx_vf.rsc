@@ -7,8 +7,8 @@
 */
 
 @build {
-    #emu.inj = true
-    #emu.inj_file = "hc-inj.txt"
+    output.file = true
+    output.file_name = "output.txt"
     emu.inj_adr[main] = 0xe9e0
 }
 
@@ -24,57 +24,43 @@ n_now = var_f
 */
 
 lbl start
-    setlr_pc
     xr0 = eval(adr(var_i) + dist.main), 0xd0f5
     [er2]=r0,r2=0
     [er0]=r2
     xr0 = 0xd324, 0xdc90
-    call 09451
+    BL memcpy,pop er0
     hex 46 00
 
 lbl draw_picture
-    call 22390                          # pop qr8, pop qr0
-    eval(adr(pos)+dist.main)            # er8
-    hex 00 00                           # er10
-    hex 00 08                           # er12
-    eval(adr(jump_to_start) - 0x4)      # er14
-    lbl pos
-        hex 44 01                       # er0
-    lbl adr_line
-        eval(adr(line_1)+dist.main)     # er2
-    eval(adr(counter_loop)+dist.main)   # er4
-    hex 00 00                           # er6
+    xr0 = 0x44,0x01,eval(adr(line_1)+dist.main)
     line_print
-    er0 = er6,er2 = er12
-    [er8] += er2,pop xr8
-    eval(adr(adr_line)+dist.main); hex 00 00
-    er2 = hex 09 00
-    [er8] += er2,pop xr8
-    adr(key); hex 00 00
-    setlr_pc
-    [er4]+=1,rt
-    lbl counter_loop
-        call 08B0E
-        eval(adr(table_key) - 0xa); eval(adr(table_key) - 0xa)      # xr12
-    xr0 = eval(adr(counter_loop)+dist.main), hex 1a 98
-    [er0]=er2,rt
-    xr0 = eval(adr(pos)+dist.main), hex 44 01
-    [er0]=er2,rt
-    xr0 = eval(adr(adr_line)+dist.main), eval(adr(line_1)+dist.main)
-    [er0]=er2,rt
+    xr0 = 0x44,0x09,eval(adr(line_2)+dist.main)
+    line_print
+    xr0 = 0x44,0x11,eval(adr(line_3)+dist.main)
+    line_print
+    xr0 = 0x44,0x19,eval(adr(line_4)+dist.main)
+    line_print
+    xr0 = 0x44,0x21,eval(adr(line_5)+dist.main)
+    line_print
+    xr0 = 0x44,0x29,eval(adr(line_6)+dist.main)
+    line_print
+    xr0 = 0x44,0x31,eval(adr(line_7)+dist.main)
+    line_print
+    xr0 = 0x44,0x39,eval(adr(line_8)+dist.main)
+    line_print
     render()
 
 lbl get_key
-    er0 = er8
+    er0 = adr(key)
     getscancode
     setlr_pc
-    # xr12 = eval(adr(table_key) - 0xa); eval(adr(table_key) - 0xa)
-    call 17CA6
+    xr12 = eval(adr(table_key) - 0xa), eval(adr(table_key) - 0xa)
+    call 17B40
     pop er0
     lbl key
         hex 00 00
-    call 09C20
-    call 1C64A
+    ea_switchcase
+    er6 = [ea+]
     er0 = er8
     sp = er6, pop er8
     eval(adr(cursor) + dist.main)
@@ -93,8 +79,7 @@ lbl key_write
     [er0]=r2
 
 lbl key_loop
-    er14 = eval(adr(jump_to_start) - 0x2)
-    sp=er14,pop er14
+    goto jump_to_start
 
 lbl var_i
     hex 00 00
@@ -103,7 +88,7 @@ lbl main
     setlr_pc
     clear()
     qr0 = 0x3d, 0x1b, eval(adr(text_loading) + dist.main), hex 00 00 00 00
-    line_print
+    call 0828C
     render()
 
 lbl check_n
@@ -156,27 +141,33 @@ lbl loop_i
     er2 = eval(adr(print_result) - adr(add_i))
     er0 *= r2,er2 = er0,er0 += er4,rt
     er14 = er0, pop xr0
-    var_c; var_d
+    var_c; hex 00 00
     sp = er14, pop er14
-    eval(adr(restore) - 0x2)
+    lbl addr_jump_to_restore_in_add_i
+        eval(adr(restore) - 0x2)
 
 lbl add_i
-    er4 = eval(adr(var_i) + dist.main)
-    [er4] += 1,rt
-    sp=er14, pop er14
+    er8 = eval(adr(var_i) + dist.main - 5)
+    [er8+5]+=1,pop er8
+    adr(addr_jump_to_restore_in_add_i, dist.main)
+    sp = [er8], pop er8
 
 lbl print_result
-    verify_gt
     /*
         if y > threshold:
-            er0 = hex 00 01
-            er2 = hex 01 00
+            r0 = 0
         else:
-            er0 = er2 = hex 00 00
+            r0 = 1
     */
+    num_to_hex
     setlr_pc
+    er2 = er0, er0 += er4, rt
+    er0 = var_d
+    num_to_hex
+    setlr_pc
+    er0 - er2_gt,r0 = 0|r0 = 1,rt
     clear()
-    er0 = er2,rt
+    r1=0,rt
     er2 = adr(table_text)
     load_table
     er14 = er0, pop xr0
@@ -185,23 +176,24 @@ lbl print_result
     sp = er14,pop er14
 
 lbl table_text
-    eval(adr(if_num_is_zero) - 0x2)
     eval(adr(if_num_is_one) - 0x2)
+    eval(adr(if_num_is_zero) - 0x2)
 
 lbl if_num_is_one
-    er4 = adr(if_num_is_zero)
-    [er4] += 1,rt   # if_num_is_zero: call 23EC2
+    er8 = adr(if_num_is_zero, -5)
+    [er8+5]+=1,pop er8
+    hex 00 00
 
 lbl if_num_is_zero
-    call 23EC1      # er2 += 4, bl line_print.col_0
+    call 222B3      # er2 += 4, bl line_print.col_0
 
 lbl print_output
     xr0 = 0x0101, eval(adr(tilte) + dist.main)
-    call 23EC2
+    call 222B4
     xr0 = 0x0909, eval(adr(text) + dist.main)
-    call 23EC2
+    call 222B4
     xr0 = 0x3939, eval(adr(text_cre) + dist.main)
-    call 23EC2
+    call 222B4
     render.ddd4
     waitshift
     setlr_pc
@@ -218,7 +210,7 @@ lbl restore
     pr_length; 0xe9e0; 0xd730
     lbl addr_jump_to_main
         adr(main, -2)
-    hex 32 89
+    hex cc 87
 lbl length
     eval(adr(end) - adr(length))
     hex 00 00
@@ -358,6 +350,6 @@ clear()
 xr0 = font_size, hex 08 30
 [er0]=r2
 xr0 = 0xd730, 0xe9e0        # dst, src
-call 09451
+call 0875D
 hex fe 02       # size
 sp = er14, pop er14

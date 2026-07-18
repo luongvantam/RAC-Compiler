@@ -48,7 +48,7 @@
 0874c	buf2_to_buf1
 26354	byte_strlen_n
 2248c	render_waitshift
-25416	waitshift
+1f2a4	waitshift
 221d0	waitshift_blank
 2241c	hex_byte
 08c2c	hex_to_dec

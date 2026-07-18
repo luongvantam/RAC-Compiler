@@ -7,6 +7,10 @@ var_c = 0
 var_x = n
 */
 
+@build {
+    line.gadgets = 0x30300000
+}
+
 lbl start
     setlr
     setsfr
