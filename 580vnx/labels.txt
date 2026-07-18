@@ -116,11 +116,11 @@
 0CA14		mode_ratio
 
 # -- main numlib --
-1652C		num_add  # [er0] += [er2]
-16538		num_sub  # [er0] -= [er2]
-16544		num_mul  # [er0] *= [er2]
-16550		num_div  # [er0] /= [er2]
-16790		num_mod  # [er0] %= [er2]
+1652C		num_add
+16538		num_sub
+16544		num_mul
+16550		num_div
+16790		num_mod
 
 1DBE2		num_int
 15C7C       num_intg
@@ -209,12 +209,12 @@
 1ed58       num_to_hex
 
 # -- verify numlib --
-19536       verify_eq    # "=="
-195C0       verify_ne    # "!="
-19516       verify_gt    # ">"
-19526       verify_lt    # "<"
-194F6       verify_ge    # ">="
-19506       verify_le    # "<="
+19536       verify_eq
+195C0       verify_ne
+19516       verify_gt
+19526       verify_lt
+194F6       verify_ge
+19506       verify_le
 
 2AD4C		display_menu
 093D2		draw_byte

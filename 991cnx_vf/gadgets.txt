@@ -1,20 +1,49 @@
 09244	setlr
+2BAD4	setlr_pc
+092f4	EI,RT
 092F8	DI,RT
-08F90	[er8]+=er2,pop xr8
+223aa	calc_checksum_set_f004
+223f0	calc_checksum_no_set_f004
+223f6	calc_checksum_0
+223f6	calc_checksum_1
+223f6	calc_checksum_2
+223f6	calc_checksum_3
+25458	pr_checksum
+08f90	[er8] += er2,pop xr8
 22DF4	sp = er14,pop er14,rt
+12d68	sp = er14,pop qr8
+2238e	sp = er14,pop qr8,pop qr0
 20D70	sp = er14,pop er14
 21D38	sp = er6,pop er8
-09AA4	ppc
-13AA4	er0+=er0,er0+=er2,er8=[er0]
-13AD8	er0+=er0,er2+=er0,er0=[er2]
+08b14	sp = er14,pop xr12
+139ea	sp = er14,pop qr8,pop er6
+19226	sp = er4,sp += 32H,pop xr4,pop qr8
+09d92	er14 = sp,rt
+09aa4	nop
 
-
-17A74	pop qr0
+# Some POP gadgets:
+10e76	pop ea,pop xr4
+16116	pop r4,rt
+08d28	pop er0,rt
+16c6c	pop er4,rt
+1da14	pop er6,rt
+16c4a	pop er8,rt
+16d98	pop er12,rt
+08708	pop er14,rt
+1d6c2	pop xr4,rt
+0d324	pop xr8,rt
+10e54	pop xr12,rt
+16f40	pop qr0,rt
+14b8e	pop qr8,rt
+1769c	pop r0
+15E60	pop r4
+182e4	pop r8
+14BD6	pop r9
+0bdd2	pop r12
 12640	pop er0
 1880E	pop er2
 1EED6	pop er4
 139EE	pop er6
-12BF2	pop qr8
 09AA2	pop er8
 0C29C	pop er10
 21532	pop er12
@@ -23,60 +52,167 @@
 18010	pop xr4
 18240	pop xr8
 20732	pop xr12
+17A74	pop qr0
+12BF2	pop qr8
+187d4	pop er0,pop er4
+1665a	pop er4,pop er8
+1a0c0	pop er8,pop qr0
+2045C   pop xr4,pop xr12
+0AC3A   pop xr4,pop qr8
+0A1CA   pop lr
+13B9A   er0+=er0,er2+=er0,er0=[er2]; load_table
+09E96   [ea+]=r0,r0-=1,bne
+1c2c0   qr0=[ea],lea D002H,[ea]=qr0
+2245C   r1=0,pop er12
+140E6   er2=er12
 
-
-14B16	er0+=er4,rt
-13ABE	er4+=er0,r8 = r8,rt
-2196C	er0+=er8,rt
-21972	er2+=er8,rt
-2AD84	er0+=er2,rt
-15F7E	er0+=1,rt
-08FD4	r0+=1,rt
-
-
+# Some MOV gadgets:
 22414	er6 = er0,er0 = er8,pop qr8
 16076	er8 = er0
 0D572	er2 = er0,er0 = er2,pop er8,rt
-13ACE	er2 = er0,er0+=er4,rt
+14b14	er2 = er0,er0 += er4,rt
 0AFF4	er0 = er2,rt
+194e4	er6 = er4,rt
 1E7DC	er0 = er4,pop er4
 2AB70	er0 = er8,pop er8,rt
 152C4	er0 = er8
-0F368	er0 = er6,pop er8,pop xr4
+246f4	er2 = er0,r0 = r4,r1 = 0,pop xr4,rt
+2ba6e	r0 = r5,pop er4
+1a94e	r0 = r2 = 0
+1a950	r0 = r2
+15ee4	r2 = r0,pop er0
+163ea	r2 = r0,pop r6,pop er12
+21238	r2 = r0,pop xr8
+17676	r2 = 0,r7 = 4
+1c7a8	r0 = 0
+17d16	r11 = 0
+1da76	r0 = 0,rt
+0c34c	r0 = 1
+1da76	r0 = 1,rt
+18812	r0 = 0,pop er2
 26428	r1 = 0,rt
+0bb48	r0 = r4,pop er4,rt
+2ba6e	r0 = r4,pop er4
+16cc4	r5 = 0,rt
 179CC	er14 = er0,pop xr0
+141c8	er12 = er14
+09dfa	er0 = er12,pop er12,rt
+13854	er10 = er2,rt
 20B52	er0 = er10,pop xr8
-08F9A	er2 = 0,r0 = 2,[er8]=er2,pop xr8
-08F8E	r0 = 0,[er8]+=er2,pop xr8
+14f04	er10 = er0,rt
+0ecf0	er0 = 1,rt
+17f6c	er2 = 0,er4 = 0,er6 = 0,er8 = 1,rt
+08f9a	er2 = 0,r0 = 2,[er8] = er2,pop xr8
+09a86	er2 = 1,r0 = r2,rt
+08f8e	r0 = 0,[er8] += er2,pop xr8
+23a0c	r0 = r2 = 1,pop er4,pop er8,rt
+289a6	r0 = r1,rt
+20d0a	r0 = r8,pop r8
+0f368	er0 = er6,pop er8,pop xr4,rt
+0b25e	er2 = er4,er0 -= er2,pop er4,pop er8,rt
+208e8	er0 = ea,rt
+140E4   er0 = er6,er2 = er12
 
-16C68	[er2]=er0,r2 = 0,pop er4,rt
-13916	[er0]=er2,rt
-203D2	[er0]=r2
-17596	[er2]=r0
-08F94	[er8]=er2,pop xr8
+# Some ST gadgets:
+16c68	[er2] = er0,r2 = 0,pop er4,rt
+13916	[er0] = er2,rt
+208b2	[er0] = r2,rt
+203d2	[er0] = r2
+17596	[er2] = r0,r2 = 0
+08f94	[er8] = er2,pop xr8
+1a31e	[ea] = qr0
+1c82a	[ea+] = r0,[ea+] = r2,rt
+1c3b4	[ea+] = er0
+0853e	[ea] = r0,pop xr4,rt
+21ff0	[er12] = er14,pop xr4,pop qr8
+0c298	[er10] = er0,er0 = 0,pop er10
+09cbe   [er10] = er8,pop qr8,rt
+16614   [er2] = r0,r0 = 0
+19742   [ea+] = er0,rt
 
-16C48	er4=[er8],pop er8,rt
-13ADC	er0=[er2]
-13AA8	er8=[er0],rt
-1810E	r0=[er0]
-25330	er0=[er0],pop xr8,rt
-09278	r0=[ea],rt
-21D36	sp=[er8],pop er8
-19810	qr0=[ea]
-09126	er0-=er2,rt
-2538C	er0-=er12,pop er8,pop er12,rt
-09134	r0-=1,rt
-09DB8	r0-=r8,pop er8,rt
+# Some L gadgets:
+16c48	er4 = [er8],pop er8,rt
+13adc	er0 = [er2],r2 = 9,rt
+13aa8	er8 = [er0],rt
+1810e	r0 = [er0]
+25330	er0 = [er0],pop xr8,rt
+24BEC   er0 = [er0-2],pop er8,rt
+09278	r0 = [ea],rt
+21d36	sp = [er8],pop er8
+1c368	er6 = [ea+]; er6=[ea]
+19E90   er8 = [ea+],rt
+1C2C0   qr0 = [ea]
 
-0B61E	er0 - er2_gt,r0 = 0 |r0 = 1,rt
-08DD6	er0 - er2_eq,r0 = 1,rt
-13ACC	er0*=r2,er2 = er0,er0+=er4,rt
-14F00	er0*=r2,er0+=er6,er10 = er0,rt
+# Some ADD gadgets:
+14b16	er0 += er4,rt
+13abe	er4 += er0,r8 = r8,rt
+2196c	er0 += er8,rt
+21972	er2 += er8,rt
+08f92	er2 += er10,[er8] = er2,pop xr8
+2ad84	er0 += er2,rt
+15f7e	er0 += 1,rt
+195e6	r0 += 1,rt
+195e6	r0 += r4,rt
+0E254   [er8+5]+=1,pop er8
+2EB7C   [er8+5]-=1,pop er8
+0A186   r0+=carry,rt
 
+# Some SUB gadgets:
+09126	er0 -= er2,rt
+2538c	er0 -= er12,pop er8,pop er12,rt
+09134	r0 -= 1,rt
+09db8	r0 -= r8,pop er8,rt
+09db2	r0 -= r2,pop er8,rt
+
+# Some bitwise gadgets:
+1c3d2	r0 &= 0FH
+12312	r0 |= r1
+0cd6c	r0 |= r1,rt
+20844	r1 |= r0,rt
+16104	r0 |= r5,pop r4,rt
+1a358	qr0 |= qr8
+
+# Some SLL/SRL gadgets:
+20830	r0 >> 4,rt
+1b846	qr0 >> 4,rt
+1b87a	r0 << 4,rt
+1b88e	r1 << 4,rt
+1b878	er0 << 4,rt
+1b874	xr0 << 4,rt
+1b882	qr0 << 4,rt
+
+# Some CMP gadgets:
+0b61e	er0 - er2_gt,r0 = 0|r0 = 1,rt
+08dd6	er0 - er2_eq,r0 = 1|r0 = 0,rt
+0b636	er2 - er0_gt,r0 = 0|r0 = 1,rt
+192c2   er0 - er2_gts,r0=0|r0=1,pop er4
+27e78   er0 - er4_le,r2=1,r0=r2,pop er4,pop er8,rt
+0c1e2   er8 - er2_lt,er2=er4|(er0=er4,er2=er8),r0-=r2,r1-=r3,pop er4,pop er8,rt
+263de	er0 - er2_le,er0 = er2,rt
+10876	r0 - 01H_eq,r0 = 0|r0 = 1
+265a6	r0 - 01H_ne,r0 = 0|r0 = 1,rt
+
+# Some MUL gadgets:
+14b12	er0 *= r2,er2 = er0,er0 += er4,rt
+14f00	er0 *= r2,er0 += er6,er10 = er0,rt
+13abc	er4 *= r2,er4 += er0,r8 = r8,rt
+
+# Some DIV gadgets:
+246c2	er0/=r2,rt
+
+# BRK gadget:
 0FC04	brk
+
+# Some other gadgets:
+0c3b6	[ea] += 1,r0 = 3
+27fe6	[ea] -= 1,pop xr4
+24804	B LEAVE
+
+# BL gadgets:
 0875C	BL memcpy,pop er0
 203CC	BL strcpy
-14438	BL memset,pop er2
+203cc	BL strcat
+0909c	BL memset, pop er2
 220A2	BL delay,pop xr0
 20C5E	BL line_print
 2236E	BL printline
@@ -85,13 +221,3 @@
 092EE	BL zero_KO
 24530	BL line_draw
 08DC4	BL render.ddd4
-
-08F10	cmp_ea
-09026	memzero
-07F18	fill_screen
-091D8	delay
-22044	diagnostic_mode
-220AC	diagnostic
-221D0	waitshift
-2241C	hex_byte
-08C2C	hex_to_dec

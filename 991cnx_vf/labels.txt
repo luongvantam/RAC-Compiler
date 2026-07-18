@@ -7,7 +7,7 @@
 221BA	printline
 
 08766	render.e3d4
-08772	render.ddd4
+08772	render.ddd4; render()
 08B3C	render_bitmap
 
 0F7CC	getscancode
@@ -30,6 +30,43 @@
 1D9AA	num_to_byte
 226AE	num_to_str
 086DE	draw_byte
+
+0d0f4	strcat
+22dc0	memcpy
+187cc	memcpy_indr
+26a22	memcpy_auto_jmp; memcpy_auto_jump
+09aa6	memmove
+25378	strlen
+0f22c	memset
+203d6	smart_strcat
+203b8	smart_strlen
+09024	memzero
+091d6	delay
+0946a	_start
+24e40	main
+0874c	buf1_to_buf2
+0874c	buf2_to_buf1
+26354	byte_strlen_n
+2248c	render_waitshift
+25416	waitshift
+221d0	waitshift_blank
+2241c	hex_byte
+08c2c	hex_to_dec
+1f5e8	getkey
+252e6	cvt_keycode
+2a9e0	getkey_er8
+0937c	setsfr; reset_sfr
+07f6c	buffer_clear; clear()
+09d8e	ENTER
+09d96	LEAVE
+2111a	LEAVE1
+138f8	LEAVE2
+13cd0	LEAVE3
+2111a	LEAVE4
+177da	calc_func
+08f10	ea_switchcase; cmp_ea; ea_cmp
+1da48	num_frombyte
+1ed70	num_to_hex
 
 d_0D000		 reg0
 d_0D009		 reg0.9
