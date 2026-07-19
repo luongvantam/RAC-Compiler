@@ -4,6 +4,7 @@ import re
 import ast
 import operator
 from typing import Any, Dict, List, Optional, Union, Callable
+from libcompiler.i18n import t
 
 def get_os_info() -> str:
     """Returns a string identifying the current operating system."""
@@ -146,8 +147,6 @@ try:
 except Exception:
     pass
 
-from libcompiler.i18n import t
-
 def check_keyword(name: str) -> None:
     """Checks if the given name is a reserved keyword and raises a CompilerError if it is."""
     if name in _KEYWORDS:
@@ -157,7 +156,7 @@ def check_keyword(name: str) -> None:
 # Utility Functions
 def canonicalize(st: str) -> str:
     """Removes spaces around non-alphanumeric characters, except within string literals."""
-    return ''.join(re.sub(r' *([^a-z0-9]) *', r'\1', p) if i % 2 == 0 else p 
+    return ''.join(re.sub(r' *([^a-zA-Z0-9_]) *', r'\1', p) if i % 2 == 0 else p 
                    for i, p in enumerate(re.split(r'(".*?")', st.strip())))
 
 def del_inline_comment(line: str) -> str:
