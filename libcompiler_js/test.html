@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAC Compiler JS Port Test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+        }
+
+        pre {
+            background: #eee;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>RAC Compiler JS Port</h1>
+
+    <div>
+        <label for="modelSelect">Model: </label>
+        <select id="modelSelect">
+            <option value="580vnx">580VNX</option>
+            <option value="880btg">880BTG</option>
+        </select>
+    </div>
+
+    <h3>Program Code</h3>
+    <textarea id="programCode">
+org 0xe9e0
+
+xr0 = hex 01 01, adr(text)
+line_print
+
+lbl text
+   "hello"
+   hex 00
+    </textarea>
+    <button id="compileBtn" disabled>Compile</button>
+    <h3>Notifications</h3>
+    <pre id="notifications"></pre>
+
+    <h3>Output</h3>
+    <pre id="output"></pre>
+
+    <script type="module">
+        import { RACCompiler } from './main.js';
+
+        const compiler = new RACCompiler();
+
+        async function loadModels(model) {
+            document.getElementById('compileBtn').disabled = true;
+            document.getElementById('notifications').textContent = `Loading ${model}...`;
+            const files = ['config.json', 'gadgets.txt', 'labels.txt', 'disas.txt', 'extensions.txt', 'keyword.txt'];
+            const fileData = {};
+            for (let f of files) {
+                try {
+                    let res = await fetch(`../${model}/${f}`);
+                    if (res.ok) {
+                        fileData[f] = await res.text();
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            compiler.setFiles(fileData);
+            document.getElementById('notifications').textContent = `Loaded ${model} successfully.`;
+            document.getElementById('compileBtn').disabled = false;
+        }
+
+        document.getElementById('modelSelect').addEventListener('change', (e) => {
+            loadModels(e.target.value);
+        });
+
+        loadModels(document.getElementById('modelSelect').value);
+        document.getElementById('compileBtn').addEventListener('click', () => {
+            const programCode = document.getElementById('programCode').value;
+            try {
+                const results = compiler.compile(programCode);
+
+                document.getElementById('notifications').textContent = results.notifications ? results.notifications.join('\n') : '';
+                document.getElementById('output').textContent = results.output || '';
+            } catch (e) {
+                document.getElementById('notifications').textContent = "Fatal Error: " + e.message;
+            }
+        });
+    </script>
+</body>
+
+</html>
