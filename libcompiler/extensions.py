@@ -31,7 +31,9 @@ def expand_extensions_in_program(program_lines, extensions, safe_mode=False):
             
             if match:
                 env = {}
+                original_env = {}
                 for k, v in match.groupdict().items():
+                    original_env[k] = v
                     try: env[k] = int(v, 0)
                     except ValueError: env[k] = v
                     
@@ -44,7 +46,17 @@ def expand_extensions_in_program(program_lines, extensions, safe_mode=False):
                 
                 outputs = []
                 for out in ext["output"]:
-                    for k, v in env.items(): out = out.replace(f"{{{k}}}", str(v))
+                    for k, v in env.items():
+                        v_str = str(v)
+                        if type(v) is int and k in original_env:
+                            orig = str(original_env[k]).strip()
+                            if orig.lower().startswith("0x"):
+                                pad = max(1, len(orig) - 2)
+                                v_str = f"0x{v:0{pad}x}" if orig.startswith("0x") else f"0X{v:0{pad}X}"
+                            elif orig.lower().startswith("0b"):
+                                pad = max(1, len(orig) - 2)
+                                v_str = f"0b{v:0{pad}b}" if orig.startswith("0b") else f"0B{v:0{pad}B}"
+                        out = out.replace(f"{{{k}}}", v_str)
                     outputs.append(out)
                 
                 if is_inline and len(outputs) == 1: 

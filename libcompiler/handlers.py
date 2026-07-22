@@ -8,7 +8,6 @@ from libcompiler.i18n import t
 sorted_tokens = sorted(token_to_hex.keys(), key=len, reverse=True)
 
 def register_alias(name, target):
-    utils.check_keyword(name)
     if not hasattr(loader, 'aliases'):
         loader.aliases = {}
     loader.aliases[name] = target
@@ -40,7 +39,6 @@ def add_macro(pattern, rest, program_iter):
     keyword = pattern.split('<', 1)[0].strip()
     m_kw = re.match(r'^([a-zA-Z_]\w*)', keyword)
     macro_keyword = utils.canonicalize(m_kw.group(1) if m_kw else keyword.rstrip('(').strip())
-    utils.check_keyword(macro_keyword)
 
     if not hasattr(loader, 'dynamic_macros'): loader.dynamic_macros = []
     loader.dynamic_macros.append({
@@ -323,7 +321,6 @@ def handle_label_definition(line):
         address = int(utils.safe_eval(address_expr))
         
         if label_name in loader.labels: raise utils.CompilerError(t("err_duplicate_label", label=label_name))
-        utils.check_keyword(label_name)
         if hasattr(loader, 'global_labels'):
             loader.global_labels[label_name] = address
             if getattr(loader, 'is_pass1', False):
@@ -334,7 +331,6 @@ def handle_label_definition(line):
         return
 
     if label in loader.labels: raise utils.CompilerError(t("err_duplicate_label", label=label))
-    utils.check_keyword(label)
     loader.labels[label] = len(loader.result)
 
 def collect_block_body(first_line_rest, program_iter, line_num=None):
@@ -368,7 +364,6 @@ def handle_function_definition(line, program_iter):
     m = re.match(r'func\s+(\w+)\s*\((.*?)\)\s*\{', line.strip())
     if not m: raise utils.CompilerError(t("err_invalid_func_syntax_var0_a35e", var0=line))
     func_name, args_str = m.group(1), m.group(2).strip()
-    utils.check_keyword(func_name)
     
     line_num = getattr(loader, 'current_line_num', None)
     body_items, _ = collect_block_body(line[m.end():].strip(), program_iter, line_num)
@@ -589,7 +584,6 @@ def handle_define_gadget_command(line):
     if ':' not in line: raise utils.CompilerError(t("err_invalid_def_syntax_var0_8aa9", var0=line))
     cmd, addr_str = [x.strip() for x in line[3:].strip().split(':', 1)]
     cmd = utils.canonicalize(cmd).lower()
-    utils.check_keyword(cmd)
     tags = []
     while cmd.startswith('{'):
         end = cmd.find('}')
@@ -638,7 +632,6 @@ def handle_assignment_command(line, program_iter):
 
     if l.startswith("var "):
         var_name = l[4:].strip()
-        utils.check_keyword(var_name)
         loader.vars_dict[var_name] = r
         utils.note(t("note_variable_var0_set_to_08b0", var0=var_name, var1=r))
     elif l.startswith("reg ") or re.match(r'^(?:ea|lr|(?:r|er|xr|qr)\d+)\b', l):
@@ -813,6 +806,9 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
         loader.pr_backup_cmds.append((len(loader.result), sec, getattr(loader, 'current_exec_info', {})))
         loader.result.extend((0, 0))
     else:
+        ls_first = ls.split()[0] if ls.split() else ls
+        utils.check_keyword(ls_first)
+        
         valid_commands = utils._SUGGESTION_KEYWORDS.copy()
         valid_commands.extend(loader.commands.keys())
         valid_commands.extend(loader.datalabels.keys())

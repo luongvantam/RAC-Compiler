@@ -104,7 +104,7 @@ function setKeywords(keywordsList) {
 
 function check_keyword(name) {
     if (_KEYWORDS.has(name)) {
-        throw new CompilerError("Reserved keyword used: {keyword}");
+        throw new CompilerError(`Name '${name}' is a reserved keyword`);
     }
 }
 
@@ -185,7 +185,7 @@ function tokenize(expr) {
             i++;
             continue;
         }
-        throw new CompilerError(`Invalid character in expression: ${char}`);
+        throw new CompilerError(`Unknown token: ${char}`);
     }
     return tokens;
 }
@@ -319,7 +319,7 @@ function safe_eval(expr_str, scope = {}) {
         let tokens = tokenize(expr_str);
         return parseAndEval(tokens, scope);
     } catch (e) {
-        throw new CompilerError(`Evaluation error in ${expr_str}: ${e.message}`);
+        throw new CompilerError(`Eval error: ${expr_str} - ${e.message}`);
     }
 }
 

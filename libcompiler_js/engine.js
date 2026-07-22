@@ -15,7 +15,7 @@ function build_env() {
     }
 
     function adr_eval(label, offset = 0) {
-        if (typeof label !== 'string') throw new utils.CompilerError(`Label must be a string, got ${typeof label}`);
+        if (typeof label !== 'string') throw new utils.CompilerError(`Label must be str, got ${typeof label}`);
         if (label === '$') return (loader.current_pos || 0) + offset;
         if (label in loader.labels) return loader.labels[label] + offset;
         if (label in loader.global_labels) return loader.global_labels[label] + offset;
@@ -27,7 +27,7 @@ function build_env() {
         if (!sec_name || sec_name === loader.current_section_name) return loader.result.length;
         if (sec_name in loader.section_addresses) return loader.section_addresses[sec_name].length || 0;
         if (loader.is_pass1) return 0;
-        throw new utils.CompilerError(`Section '${sec_name}' not found`);
+        throw new utils.CompilerError(`Section '${sec_name}' not found for sizeof calculation`);
     }
 
     function dist_eval(sec_name) {
@@ -42,7 +42,7 @@ function build_env() {
             return Math.abs(backup - org) & 0xFFFF;
         }
         if (loader.is_pass1) return 0;
-        throw new utils.CompilerError(`Section '${sec_name}' distance information not found`);
+        throw new utils.CompilerError(`Section '${sec_name}' dist information missing`);
     }
 
     function homeof_eval(label) {
@@ -64,7 +64,7 @@ function build_env() {
         if (!sec_name || sec_name === loader.current_section_name) org = loader.home;
         if (org !== undefined && org !== null) return org & 0xFFFF;
         if (loader.is_pass1) return 0;
-        throw new utils.CompilerError(`Section '${sec_name}' org information not found`);
+        throw new utils.CompilerError(`Section '${sec_name}' org information missing`);
     }
 
     function pr_backup_eval(sec_name = "") {
@@ -73,7 +73,7 @@ function build_env() {
         if (!sec_name || sec_name === loader.current_section_name) backup = loader.backup_address;
         if (backup !== undefined && backup !== null) return backup & 0xFFFF;
         if (loader.is_pass1) return 0;
-        throw new utils.CompilerError(`Section '${sec_name}' backup information not found`);
+        throw new utils.CompilerError(`Section '${sec_name}' backup information missing`);
     }
 
     env['adr'] = adr_eval;
@@ -125,18 +125,18 @@ function eval_all() {
                 val = utils.safe_eval(expr, temp_env);
                 mult = 0;
             } catch (e2) {
-                throw new utils.CompilerError(`Deferred evaluation error in ${expr}: ${e2.message}`);
+                throw new utils.CompilerError(`Deferred eval error in ${expr}: ${e2.message}`);
             }
         }
 
-        if (typeof val !== 'number') throw new utils.CompilerError(`Evaluation of ${expr} did not return an integer`);
+        if (typeof val !== 'number') throw new utils.CompilerError(`Eval ${expr} not integer`);
 
         if (mult === 0) {
             val &= (1 << (max_bytes * 8)) - 1;
             let overwrite = false;
             for (let i = 0; i < max_bytes; i++) if (loader.result[pos + i] !== 0) overwrite = true;
             if (!loader.is_pass1 && overwrite) {
-                utils.note(`warning: eval result overwritten at ${pos.toString(16).padStart(4, '0').toUpperCase()}` + '\n');
+                utils.note(`[WARN] eval_abs overwrite at ${"0x" + pos.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
             }
             for (let i = 0; i < max_bytes; i++) {
                 loader.result[pos + i] = (val >> (8 * i)) & 0xFF;
@@ -155,7 +155,7 @@ function configure_memory_layout(base_sp, addr_resolution_list, dependencies) {
             let max_size = 0x8E00 - loader.home;
             let current_size = loader.result.length;
             if (current_size > max_size) {
-                utils.note(`warning: total length after section exceeds maximum (${current_size} > ${max_size})` + '\n');
+                utils.note(`[WARN] Total length after home = ${current_size} bytes > ${max_size} bytes\n`.trim() + '\n');
             }
         }
     }
@@ -179,7 +179,7 @@ function configure_memory_layout(base_sp, addr_resolution_list, dependencies) {
         let overwrite = false;
         for (let i = 0; i < max_bytes; i++) if (loader.result[index + i] !== 0) overwrite = true;
         if (is_final_pass && overwrite) {
-            utils.note(`warning: memory overwrite at index ${"0x" + index.toString(16)} (target ${"0x" + target.toString(16)})` + '\n');
+            utils.note(`[WARN] Memory overwrite at ${"0x" + index.toString(16)} -> ${"0x" + target.toString(16)}\n`.trim() + '\n');
         }
 
         for (let i = 0; i < max_bytes; i++) {
@@ -194,7 +194,7 @@ function configure_memory_layout(base_sp, addr_resolution_list, dependencies) {
         loader.label_sections[sym_name] = loader.current_section_name;
 
         if (is_final_pass) {
-            utils.note(`note: global label ${sym_name} is at ${"0x" + abs_addr.toString(16)}` + '\n');
+            utils.note(`Label ${sym_name} is at address ${"0x" + abs_addr.toString(16)}\n`.trim() + '\n');
         }
     }
 
@@ -213,13 +213,13 @@ function configure_memory_layout(base_sp, addr_resolution_list, dependencies) {
         let sec_data = loader.section_addresses[sec_key];
         if (!sec_data || sec_data.backup === undefined || sec_data.backup === null) {
             if (!is_final_pass) continue;
-            throw new utils.CompilerError(`Missing section reference: ${sec_key}`);
+            throw new utils.CompilerError(`Missing section reference '${sec_key}'`);
         }
 
         let delta = Math.abs(sec_data.backup - sec_data.org) & 0xFFFF;
 
         if (is_final_pass && (loader.result[index] !== 0 || loader.result[index + 1] !== 0)) {
-            utils.note(`warning: dist result overwritten at ${index.toString(16).padStart(4, '0').toUpperCase()}` + '\n');
+            utils.note(`[WARN] delta clash at ${"0x" + index.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
         }
 
         loader.result[index] = delta & 0xFF;
@@ -232,14 +232,14 @@ function finish_math() {
         let pos = req[0], l_off = req[1], l_lbl = req[2], r_off = req[3], r_lbl = req[4], op = req[5];
         if (!(l_lbl in loader.labels) || !(r_lbl in loader.labels)) {
             if (loader.is_pass1) continue;
-            throw new utils.CompilerError(`Label not found in expression between ${l_lbl} and ${r_lbl}`);
+            throw new utils.CompilerError(`Label not found in adr: ${l_lbl}, ${r_lbl}`);
         }
         let res = (op === '+')
             ? (loader.labels[l_lbl] + l_off + loader.labels[r_lbl] + r_off)
             : (loader.labels[l_lbl] + l_off - loader.labels[r_lbl] - r_off);
         res &= 0xFFFF;
         if (!loader.is_pass1 && (loader.result[pos] !== 0 || loader.result[pos + 1] !== 0)) {
-            utils.note(`warning: adr result overwritten at ${pos.toString(16).padStart(4, '0').toUpperCase()}` + '\n');
+            utils.note(`[WARN] adr overwrite at ${"0x" + pos.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
         }
         loader.result[pos] = res & 0xFF;
         loader.result[pos + 1] = res >> 8;
@@ -253,9 +253,9 @@ function finish_math() {
         else if (sec in loader.section_addresses) val = loader.section_addresses[sec].length || 0;
         else if (loader.is_pass1) val = 0;
 
-        if (val === null) throw new utils.CompilerError(`Section '${sec}' not found`);
+        if (val === null) throw new utils.CompilerError(`Section '${sec}' not found for sizeof calculation`);
         if (!loader.is_pass1 && (loader.result[pos] !== 0 || loader.result[pos + 1] !== 0)) {
-            utils.note(`warning: sizeof result overwritten at ${pos.toString(16).padStart(4, '0').toUpperCase()}` + '\n');
+            utils.note(`[WARN] sizeof overwrite at ${"0x" + pos.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
         }
         loader.result[pos] = val & 0xFF;
         loader.result[pos + 1] = val >> 8;
@@ -269,9 +269,9 @@ function finish_math() {
         else if (sec in loader.section_addresses) val = loader.section_addresses[sec].org;
         else if (loader.is_pass1) val = 0;
 
-        if (val === null || val === undefined) throw new utils.CompilerError(`Section '${sec}' not found for pr_org`);
+        if (val === null || val === undefined) throw new utils.CompilerError(`Section '${sec}' not found for pr_org calculation`);
         if (!loader.is_pass1 && (loader.result[pos] !== 0 || loader.result[pos + 1] !== 0)) {
-            utils.note(`warning: pr_org result overwritten at ${pos.toString(16).padStart(4, '0').toUpperCase()}` + '\n');
+            utils.note(`[WARN] pr_org overwrite at ${"0x" + pos.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
         }
         loader.result[pos] = val & 0xFF;
         loader.result[pos + 1] = (val >> 8) & 0xFF;
@@ -285,9 +285,9 @@ function finish_math() {
         else if (sec in loader.section_addresses) val = loader.section_addresses[sec].backup;
         else if (loader.is_pass1) val = 0;
 
-        if (val === null || val === undefined) throw new utils.CompilerError(`Section '${sec}' not found for pr_backup`);
+        if (val === null || val === undefined) throw new utils.CompilerError(`Section '${sec}' not found for pr_backup calculation`);
         if (!loader.is_pass1 && (loader.result[pos] !== 0 || loader.result[pos + 1] !== 0)) {
-            utils.note(`warning: pr_backup result overwritten at ${pos.toString(16).padStart(4, '0').toUpperCase()}` + '\n');
+            utils.note(`[WARN] pr_backup overwrite at ${"0x" + pos.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
         }
         loader.result[pos] = val & 0xFF;
         loader.result[pos + 1] = (val >> 8) & 0xFF;
@@ -520,7 +520,7 @@ function process_program(program_lines, overflow_initial_sp) {
     for (let section of sections) {
         loader.set_state('current_section_name', section[0]);
         if (section[0] !== null) {
-            all_notes += `Section ${section[0]}:` + '\n';
+            main_output += `\n=== section @${section[0]} ===\n`;
         }
         let [out_addr, out_bytes, notes, out_str] = run_lines(section[1], overflow_initial_sp);
         if (notes) all_notes += notes;

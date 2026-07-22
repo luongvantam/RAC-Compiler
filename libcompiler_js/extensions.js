@@ -53,10 +53,20 @@ function expand_extensions_in_program(program_lines, extensions) {
             
             if (match) {
                 let env = {};
+                let original_env = {};
                 if (match.groups) {
                     for (let [k, v] of Object.entries(match.groups)) {
-                        let num = Number(v);
-                        env[k] = !isNaN(num) && (v.startsWith('0x') || v.startsWith('0X') ? parseInt(v, 16) : num) ? num : v;
+                        original_env[k] = v;
+                        if (v.toLowerCase().startsWith('0x')) {
+                            let num = parseInt(v, 16);
+                            env[k] = !isNaN(num) ? num : v;
+                        } else if (v.toLowerCase().startsWith('0b')) {
+                            let num = parseInt(v.substring(2), 2);
+                            env[k] = !isNaN(num) ? num : v;
+                        } else {
+                            let num = Number(v);
+                            env[k] = !isNaN(num) ? num : v;
+                        }
                     }
                 }
                 
@@ -66,7 +76,22 @@ function expand_extensions_in_program(program_lines, extensions) {
                 for (let out of ext.output) {
                     let processed_out = out;
                     for (let [k, v] of Object.entries(env)) {
-                        processed_out = processed_out.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+                        let str_v;
+                        if (typeof v === 'number' && typeof original_env[k] === 'string') {
+                            let orig = original_env[k].toLowerCase();
+                            if (orig.startsWith('0x')) {
+                                let padding = original_env[k].length - 2;
+                                str_v = "0x" + v.toString(16).padStart(padding, '0');
+                            } else if (orig.startsWith('0b')) {
+                                let padding = original_env[k].length - 2;
+                                str_v = "0b" + v.toString(2).padStart(padding, '0');
+                            } else {
+                                str_v = String(v);
+                            }
+                        } else {
+                            str_v = String(v);
+                        }
+                        processed_out = processed_out.replace(new RegExp(`\\{${k}\\}`, 'g'), str_v);
                     }
                     outputs.push(processed_out);
                 }

@@ -1,14 +1,14 @@
 @section.main at 0xd730
-def num_to_hex : 1ed58
 
 lbl input
     setlr_pc
-    er0 = hex 31 30
+    er0 = hex 22 22
     pixel_draw_black
 
 lbl main
-    xr0 = hex 31 30, adr(output)
+    xr0 = hex 31 30, 0xd400
     call 094C8
+    brk
 
     r2 = r0,pop er0
     var_a

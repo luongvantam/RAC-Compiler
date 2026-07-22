@@ -4,14 +4,21 @@ lbl main
     setlr_pc
     setsfr
     clear()
-    smallprint(0x8,0x1,eval(adr(line_1)+dist.main))
-    smallprint(0x8,0x9,eval(adr(line_2)+dist.main))
-    smallprint(0x8,0x11,eval(adr(line_3)+dist.main))
-    smallprint(0x8,0x19,eval(adr(line_4)+dist.main))
-    smallprint(0x8,0x21,eval(adr(line_5)+dist.main))
-    smallprint(0x8,0x29,eval(adr(line_6)+dist.main))
-    smallprint(0x8,0x31,eval(adr(line_7)+dist.main))
-    smallprint(0x8,0x39,eval(adr(line_8)+dist.main))
+    smallprint(0x08,0x01,eval(adr(line_1)+dist.main))
+    xr0 = 0x08,0x09,eval(adr(line_2)+dist.main)
+    smallprint
+    xr0 = 0x08,0x11,eval(adr(line_3)+dist.main)
+    smallprint
+    xr0 = 0x08,0x19,eval(adr(line_4)+dist.main)
+    smallprint
+    xr0 = 0x08,0x21,eval(adr(line_5)+dist.main)
+    smallprint
+    xr0 = 0x08,0x29,eval(adr(line_6)+dist.main)
+    smallprint
+    xr0 = 0x08,0x31,eval(adr(line_7)+dist.main)
+    smallprint
+    xr0 = 0x08,0x39,eval(adr(line_8)+dist.main)
+    smallprint
     render()
     er0 = adr(key)
     getscancode

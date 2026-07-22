@@ -37,20 +37,20 @@ let gadgets_offset_applied = false;
 
 function add_command(command_dict, address, command, tags, debug_info = '') {
     if (!command || typeof command_dict !== 'object') {
-        throw new CompilerError(`Empty command dict for ${debug_info}`);
+        throw new CompilerError(`Empty command/dict ${debug_info}`);
     }
     if (command.startsWith('0x') || command.startsWith('call') || command.startsWith('goto')) {
-        throw new CompilerError("Command starts with disallowed prefix");
+        throw new CompilerError(`Command starts with disallowed ${command}`);
     }
     if (command.endsWith(':') || command.includes(';')) {
-        throw new CompilerError(`Invalid command syntax: ${debug_info}`);
+        throw new CompilerError(`Invalid command syntax ${debug_info}`);
     }
     if (command in command_dict) {
         let existing = command_dict[command];
         if (existing[0] === address && JSON.stringify(existing[1]) === JSON.stringify(tags)) {
             return;
         }
-        throw new CompilerError(`Command '${command}' appears twice`);
+        throw new CompilerError(`Command ${command} appears twice ${debug_info}`);
     }
     command_dict[command] = [address, tags];
 }

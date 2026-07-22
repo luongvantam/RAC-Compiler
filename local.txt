@@ -1,5 +1,4 @@
 emu.inj = false
 output.file = false
 line.bytes = 16
-
-emu.inj_file = "hc-inj.txt"
+line.gadgets = 0x30300000

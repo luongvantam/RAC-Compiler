@@ -21,7 +21,7 @@ lbl key_1_func
     xr0 = hex 21 30, adr(text1)
     printline 
     render.ddd4
-    er14=eval(adr(loop)-0x2)
+    er14=eval(adr(restore)-0x2)
     sp=er14, pop er14
 
 lbl key_2_func
@@ -29,7 +29,7 @@ lbl key_2_func
     printline
     render.ddd4
 
-lbl loop
+lbl restore
     xr0 = 0xd630, 0xd184
     BL strcpy
     er14 = 0xd62e
@@ -50,7 +50,7 @@ lbl table
     KEY_2                       # if key = KEY_2
     eval(adr(key_2_func)-0x2)
     hex 00 00                   # else
-    eval(adr(loop)-0x2)
+    eval(adr(restore)-0x2)
 
 
 @section.launcher at 0xd180

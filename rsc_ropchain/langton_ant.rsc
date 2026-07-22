@@ -3,7 +3,6 @@ def check_bit_coord : 094c8
 def black_pixel_draw : 091ea
 def white_pixel_draw : 091e6
 def r0 & r5, pop r4,rt : 1620e
-def num_to_hex : 1ed58
 
 lbl setup
     xr0 = var_m, 0x0000
@@ -90,7 +89,7 @@ lbl program
             [er2]=er0,r2 = 0,pop er4,rt
             hex 00 00
     
-    lbl loop
+    lbl restore
         render.ddd4
         pop xr4, pop xr12
         adr(program)

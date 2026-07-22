@@ -8,7 +8,6 @@ function init_handlers() {
 }
 
 function register_alias(name, target) {
-    utils.check_keyword(name);
     loader.aliases[name] = target;
     loader.set_state('aliases_pattern', null); // Invalidate cache
 }
@@ -47,12 +46,11 @@ function add_macro(pattern, rest, program_iter) {
     });
 
     let canonical_pat = utils.canonicalize(pattern);
-    let converted_pat = escapeRegExp(canonical_pat).replace(/\\\</g, "(?<").replace(/\\\>/g, ">.+?)");
+    let converted_pat = escapeRegExp(canonical_pat).replace(/\\\</g, "(?<").replace(/</g, "(?<").replace(/\\\>/g, ">.+?)").replace(/>/g, ">.+?)");
 
     let keyword = pattern.split('<')[0].trim();
     let m_kw = keyword.match(/^([a-zA-Z_]\w*)/);
     let macro_keyword = utils.canonicalize(m_kw ? m_kw[1] : keyword.replace(/\(/g, '').trim());
-    utils.check_keyword(macro_keyword);
 
     loader.dynamic_macros.push({
         pattern: pattern,
@@ -113,7 +111,7 @@ function run_func(line_strip, raw_line, line_num, final_lines_to_process) {
     let params = func.params;
     let required = params.filter(p => p[1] === null).length;
     if (call_args.length > params.length || call_args.length < required) {
-        throw new utils.CompilerError(`Argument mismatch in function call: ${line_strip}`);
+        throw new utils.CompilerError(`Args mismatch: ${line_strip}`);
     }
 
     let bound = [...call_args];
@@ -307,7 +305,7 @@ function _eval_fill_args(expr1, expr2) {
     }
 
     eval_scope['adr'] = function (label, offset = 0) {
-        if (typeof label !== 'string') throw new utils.CompilerError(`Label must be a string, got ${typeof label}`);
+        if (typeof label !== 'string') throw new utils.CompilerError(`Label must be str, got ${typeof label}`);
         if (label in loader.labels) {
             return (loader.home || 0) + loader.labels[label] + offset;
         }
@@ -319,7 +317,7 @@ function _eval_fill_args(expr1, expr2) {
             }
             return sec_home + loader.global_labels[label] + offset;
         }
-        throw new utils.CompilerError(`Label '${label}' not found`);
+        throw new utils.CompilerError(`Label '${label}' not found (padding requires previously defined labels)`);
     };
 
     function prepare_expr(expr) {
@@ -363,7 +361,7 @@ function handle_align_command(line) {
     let inner = line.trim().substring(6, line.trim().length - 1).trim();
     let [expr1, expr2] = _parse_two_args(inner);
     let [size, value] = _eval_fill_args(expr1, expr2);
-    if (size <= 0) throw new utils.CompilerError(`Alignment size must be positive: ${size}`);
+    if (size <= 0) throw new utils.CompilerError(`Align size must be > 0, got ${size}`);
 
     let current_addr = (loader.home || 0) + loader.result.length;
     let rem = current_addr % size;
@@ -379,7 +377,7 @@ function handle_pad_command(line) {
 
     let count;
     if (is_abs) {
-        if (loader.home == null) throw new utils.CompilerError("pad_abs requires a section origin");
+        if (loader.home == null) throw new utils.CompilerError(`pad_abs requires section origin to be known (use @set.sec at address)`);
         let current_addr = loader.home + loader.result.length;
         count = target - current_addr;
     } else {
@@ -398,21 +396,19 @@ function handle_label_definition(line) {
         let label_name = label.substring(0, at_match.index).trim();
         let address = parseInt(utils.safe_eval(address_expr));
 
-        if (label_name in loader.labels) throw new utils.CompilerError(`Duplicate label: ${label_name}`);
-        utils.check_keyword(label_name);
+        if (label_name in loader.labels) throw new utils.CompilerError(`Duplicate label: '${label_name}'`);
 
         loader.global_labels[label_name] = address;
         if (loader.is_pass1) {
             loader.label_sections[label_name] = loader.current_section_name;
         }
         if (!loader.is_pass1) {
-            utils.note(`note: label ${label_name} is at ${`0x${address.toString(16)}`}` + '\n');
+            utils.note(`Label ${label_name} is at address ${"0x" + address.toString(16)}\n`.trim() + "(absolute) \n");
         }
         return;
     }
 
-    if (label in loader.labels) throw new utils.CompilerError(`Duplicate label: ${label}`);
-    utils.check_keyword(label);
+    if (label in loader.labels) throw new utils.CompilerError(`Duplicate label: '${label}'`);
     loader.labels[label] = loader.result.length;
 }
 
@@ -429,7 +425,7 @@ function collect_block_body(first_line_rest, program_iter, line_num = null) {
 
     let body_items = [];
     let depth = 1;
-    if (program_iter === null) throw new utils.CompilerError("Block requires an iterator");
+    if (program_iter === null) throw new utils.CompilerError(`Block requires an iterator`);
 
     let next = program_iter.next();
     while (!next.done) {
@@ -474,10 +470,9 @@ function collect_block_body(first_line_rest, program_iter, line_num = null) {
 
 function handle_function_definition(line, program_iter) {
     let m = line.trim().match(/^func\s+(\w+)\s*\((.*?)\)\s*\{/);
-    if (!m) throw new utils.CompilerError(`Invalid func syntax: ${line}`);
+    if (!m) throw new utils.CompilerError(`Invalid func syntax: ${line}. Expected 'func name(args) {'`);
     let func_name = m[1];
     let args_str = m[2].trim();
-    utils.check_keyword(func_name);
 
     let line_num = loader.current_line_num;
     let [body_items, _] = collect_block_body(line.substring(m.index + m[0].length).trim(), program_iter, line_num);
@@ -490,7 +485,7 @@ function handle_function_definition(line, program_iter) {
         let stripped = content.trim();
         if (!stripped) continue;
         if (stripped.startsWith('return ')) {
-            if (return_expr !== null) throw new utils.CompilerError(`Multiple returns in function ${func_name}`);
+            if (return_expr !== null) throw new utils.CompilerError(`Multiple returns in ${func_name}`);
             return_expr = stripped.substring(7).trim();
         } else {
             body.push([b_ln, stripped]);
@@ -498,7 +493,7 @@ function handle_function_definition(line, program_iter) {
     }
 
     if (return_expr !== null && body.length > 0) {
-        throw new utils.CompilerError(`Function ${func_name} with return expression cannot have a body`);
+        throw new utils.CompilerError(`Function ${func_name} with return must ONLY contain return`);
     }
 
     let params = [];
@@ -525,12 +520,12 @@ function handle_function_definition(line, program_iter) {
 
 function handle_repeat_command(line, program_iter) {
     let m = line.trim().match(/^(?:repeat|loop)\s+(.+?)\s*\{/);
-    if (!m) throw new utils.CompilerError(`Invalid repeat syntax: ${line}`);
+    if (!m) throw new utils.CompilerError(`Invalid repeat syntax: ${line}. Expected 'repeat count {'`);
     let count;
     try {
         count = parseInt(utils.safe_eval(m[1].trim(), { ...loader.vars_dict }));
     } catch (e) {
-        throw new utils.CompilerError(`Error evaluating repeat count '${m[1]}': ${e.message}`);
+        throw new utils.CompilerError(`Error eval repeat count '${m[1]}': ${e.message}`);
     }
 
     let line_num = loader.current_exec_info ? loader.current_exec_info.num : null;
@@ -566,7 +561,7 @@ function handle_eval_expression(line) {
         expanded_expr = expanded_expr.replace(pat, (m, p1) => String(loader.vars_dict[p1]));
     }
 
-    expanded_expr = expanded_expr.replace(/\bdist\.(\w+)\b/g, 'dis"$1"');
+    expanded_expr = expanded_expr.replace(/\bdist\.(\w+)\b/g, 'dist("$1")');
     expanded_expr = expanded_expr.replace(/\bsizeof\((.*?)\)/g, (m, p1) => `sizeof("${p1.trim()}")`);
     expanded_expr = expanded_expr.replace(/\bpr_org\((.*?)\)/g, (m, p1) => `pr_org("${p1.trim()}")`);
     expanded_expr = expanded_expr.replace(/\bpr_backup\((.*?)\)/g, (m, p1) => `pr_backup("${p1.trim()}")`);
@@ -632,7 +627,7 @@ function handle_eval_expression(line) {
     } else if (typeof val === 'string') {
         process_line(`"${val}"`);
     } else {
-        throw new utils.CompilerError(`Unsupported eval return type: ${typeof val}`);
+        throw new utils.CompilerError(`Unsupported eval type: ${typeof val}`);
     }
 }
 
@@ -695,7 +690,7 @@ function handle_call_command(line) {
     let cmd = line.substring(4).trim();
     let adr, tags;
     let parsedAddr = parseInt(cmd, 16);
-    if (!isNaN(parsedAddr) && /^[0-9a-fA-F]+$/.test(cmd)) {
+    if (!isNaN(parsedAddr) && /^(?:0x)?[0-9a-fA-F]+$/i.test(cmd)) {
         adr = parsedAddr;
         tags = [];
     } else {
@@ -730,7 +725,7 @@ function handle_call_command(line) {
 
 function handle_goto_command(line) {
     let parts = line.split(/\s+/, 2);
-    if (parts.length < 2) throw new utils.CompilerError(`Invalid goto syntax: ${line}`);
+    if (parts.length < 2) throw new utils.CompilerError(`Invalid goto syntax: ${line}. Expected 'goto <label>'`);
     let lbl = parts[1].toLowerCase();
     let reg = line.startsWith('goto_er6') ? 'er6' : 'er14';
     process_line(`${reg} = eval(adr("${lbl}") - 0x02);call sp=${reg},pop ${reg === 'er6' ? 'er8' : reg}`);
@@ -739,7 +734,7 @@ function handle_goto_command(line) {
 function handle_address_command(line) {
     let inner = line.trim().substring(4, line.trim().length - 1).trim();
     let parts = inner.split(',').map(p => p.trim());
-    if (parts.length === 0 || !parts[0] || parts.length > 3) throw new utils.CompilerError(`Invalid adr() syntax: ${line}`);
+    if (parts.length === 0 || !parts[0] || parts.length > 3) throw new utils.CompilerError(`Invalid adr syntax: ${line}. Expected 'adr(label, offset, base)'`);
 
     let expr = [`adr("${parts[0]}")`];
     if (parts.length > 1 && parts[1]) {
@@ -759,16 +754,15 @@ function handle_address_command(line) {
 }
 
 function handle_define_gadget_command(line) {
-    if (!line.includes(':')) throw new utils.CompilerError(`Invalid def syntax: ${line}`);
+    if (!line.includes(':')) throw new utils.CompilerError(`Invalid def syntax: ${line}. Expected 'def name: address'`);
     let parts = line.substring(3).trim().split(':');
     let cmd = utils.canonicalize(parts[0].trim()).toLowerCase();
     let addr_str = parts.slice(1).join(':').trim();
-    utils.check_keyword(cmd);
 
     let tags = [];
     while (cmd.startsWith('{')) {
         let end = cmd.indexOf('}');
-        if (end < 0) throw new utils.CompilerError("Unmatched parenthesis in inline def");
+        if (end < 0) throw new utils.CompilerError(`Unmatched "{" in inline def command: ${line}`);
         tags.push(cmd.substring(1, end));
         cmd = cmd.substring(end + 1).trim();
     }
@@ -777,7 +771,7 @@ function handle_define_gadget_command(line) {
     if (isNaN(addr)) throw new utils.CompilerError(`Invalid address in def: ${addr_str}`);
 
     loader.add_command(loader.commands, addr, cmd, tags, 'inline def');
-    utils.note(`note: gadget ${cmd} is ${addr_str}` + '\n');
+    utils.note(`Gadget ${cmd} is ${addr_str}\n`.trim() + "\n");
 }
 
 function handle_assignment_command(line, program_iter) {
@@ -788,7 +782,7 @@ function handle_assignment_command(line, program_iter) {
     let m_func = r.match(/^(\w+)\s*\(((?:[^()]+|\([^()]*\))*)\)$/);
     if (m_func && m_func[1] in loader.defined_functions) {
         let f = loader.defined_functions[m_func[1]];
-        if (!("return_expr" in f)) throw new utils.CompilerError(`Function ${m_func[1]} cannot be evaluated as an expression`);
+        if (!("return_expr" in f)) throw new utils.CompilerError(`Func ${m_func[1]} cannot be assigned (no return)`);
 
         let args = [];
         let regex = /("(?:[^"\\]|\\.)*"|[^,]+)/g;
@@ -798,7 +792,7 @@ function handle_assignment_command(line, program_iter) {
         }
         if (args.length === 1 && args[0] === '' && !m_func[2]) args = [];
 
-        if (args.length !== f.params.length) throw new utils.CompilerError(`Argument mismatch in ${r}`);
+        if (args.length !== f.params.length) throw new utils.CompilerError(`Args mismatch in ${r}`);
         r = f.return_expr;
         for (let i = 0; i < f.params.length; i++) {
             let p = f.params[i][0];
@@ -836,9 +830,8 @@ function handle_assignment_command(line, program_iter) {
 
     if (l.startsWith("var ")) {
         let var_name = l.substring(4).trim();
-        utils.check_keyword(var_name);
         loader.vars_dict[var_name] = r;
-        utils.note(`note: variable ${var_name} set to ${r}` + '\n');
+        utils.note(`Variable '${var_name}' set to ${r}\n`.trim() + "\n");
     } else if (l.startsWith("reg ") || /^(?:ea|lr|(?:r|er|xr|qr)\d+)\b/.test(l)) {
         let reg = l.startsWith("reg ") ? l.substring(4).trim() : l;
         let paren_balance = 0;
@@ -853,14 +846,14 @@ function handle_assignment_command(line, program_iter) {
         let l1 = loader.result.length;
         process_line(new_right.join(''));
         if (loader.result.length - l1 !== loader.sizeof_register(reg)) {
-            throw new utils.CompilerError(`Line ${line}: source/dest target error`);
+            throw new utils.CompilerError(`Line ${line} source/dest target mismatches`);
         }
     } else if (l.startsWith("lbl ")) {
         process_line(l);
         process_line(r);
     } else {
         loader.vars_dict[l] = r;
-        utils.note(`note: variable ${l} set to ${r}` + '\n');
+        utils.note(`Variable '${l}' set to ${r}\n`.trim() + "\n");
     }
 }
 
@@ -896,7 +889,7 @@ function handle_string_command(line) {
         for (let i = 0; i < replaced.length; i++) {
             let c = replaced[i];
             let hx = loader.char_to_hex[c];
-            if (!hx) throw new utils.CompilerError(`Character '${c}' not found in char_to_hex configuration`);
+            if (!hx) throw new utils.CompilerError(`Char '${c}' not found`);
             if (hx.length === 2) loader.result.push(parseInt(hx, 16));
             else {
                 loader.result.push(parseInt(hx.substring(0, 2), 16), parseInt(hx.substring(2), 16));
@@ -961,11 +954,85 @@ function handle_token_literal(line) {
     }
 }
 
+
+function handle_adr_of_hd_command(line) {
+    let m = line.trim().match(/^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$/);
+    if (!m) throw new utils.CompilerError(`Invalid adr_of syntax: ${line}. Expected 'adr_of [offset] [base] label'`);
+    let offset = m[1] ? m[1] : "+ 0";
+    let base = m[2];
+    let lbl = m[3];
+    process_line(`adr(${lbl}, ${offset.trim()}${base ? ", " + base : ""})`);
+}
+
+function handle_adr_arith_hd_command(line) {
+    let content = line.trim().substring(9).trim();
+    content = content.replace(/\b(?:adr_arith|adr_of|adr)\b/g, '').trim();
+
+    let pairs = [];
+    let pair_regex = /(?:\[([^\]]+)\])?\s*([a-zA-Z_]\w*)/g;
+    let match;
+    while ((match = pair_regex.exec(content)) !== null) {
+        pairs.push([match[1], match[2]]);
+    }
+
+    let ops = [];
+    let op_regex = /\]\s*([+-])\s*(?:\[|\w)|(?:\s|[a-zA-Z_]\w*)\s*([+-])\s*(?:\[|[a-zA-Z_]\w*)/g;
+    while ((match = op_regex.exec(content)) !== null) {
+        ops.push(match[1] || match[2]);
+    }
+
+    if (pairs.length === 0 || pairs.length - 1 !== ops.length) {
+        throw new utils.CompilerError(`Invalid adr_arith syntax: ${line}. Expected 'adr_arith [offset1] label1 + [offset2] label2'`);
+    }
+
+    let expr_parts = [];
+    for (let i = 0; i < pairs.length; i++) {
+        let off = pairs[i][0] ? pairs[i][0].trim() : null;
+        let lbl = pairs[i][1];
+        let op = i < ops.length ? ops[i] : '';
+
+        let sub = !off ? `adr("${lbl}")` : (off.startsWith('+') || off.startsWith('-') ? `adr("${lbl}") ${off[0]} ${off.substring(1).trim()}` : `adr("${lbl}") + ${off}`);
+        expr_parts.push(`(${sub}) ${op}`.trim());
+    }
+    let eval_str = expr_parts.join(' ').replace(/\s*[+-]\s*$/, '');
+    process_line(`eval(${eval_str})`);
+}
+
+function handle_str_hd_command(line) {
+    let content = line.trim().substring(3).trim();
+    let m_var_str = content.match(/^([a-zA-Z_]\w*)\s+"([^"]*)"$/);
+    if (m_var_str) {
+        loader.vars_dict[m_var_str[1]] = m_var_str[2];
+        return;
+    }
+
+    let val = null;
+    let m_quote = content.match(/^"([^"]*)"$/);
+    if (m_quote) {
+        val = m_quote[1];
+    } else {
+        let m_var = content.match(/^([a-zA-Z_]\w*)$/);
+        if (m_var && m_var[1] in loader.vars_dict) {
+            val = String(loader.vars_dict[m_var[1]]);
+        }
+    }
+
+    if (val === null) throw new utils.CompilerError(`Invalid str syntax: ${line}. Expected 'str "string"' or 'str var'`);
+
+    let replaced = val.replace(/\s/g, "~");
+    for (let i = 0; i < replaced.length; i++) {
+        let hx = loader.char_to_hex[replaced[i]];
+        if (!hx) throw new utils.CompilerError(`Char '${replaced[i]}' not found`);
+        if (hx.length === 2) loader.result.push(parseInt(hx, 16));
+        else loader.result.push(parseInt(hx.substring(0, 2), 16), parseInt(hx.substring(2), 16));
+    }
+}
+
 function dispatch_command_handler(line, program_iter = null) {
     let ls = line.trim();
     if (ls.startsWith('org')) {
         let new_home = parseInt(utils.safe_eval(ls.substring(3))) - loader.result.length;
-        if (loader.home !== null && loader.home !== new_home) throw new utils.CompilerError("Inconsistent value of home");
+        if (loader.home !== null && loader.home !== new_home) throw new utils.CompilerError(`Inconsistent value of \`home\``);
         loader.set_state('home', new_home);
     } else if (ls.startsWith('backup ')) {
         loader.set_state('backup_address', parseInt(utils.safe_eval(ls.substring(7))));
@@ -982,12 +1049,14 @@ function dispatch_command_handler(line, program_iter = null) {
         process_line('call ' + ls);
     } else if (ls.startsWith('call')) {
         handle_call_command(ls);
-    } else if (ls.startsWith('def ') || ls.startsWith('@def ')) {
+    } else if (ls.startsWith('def') || ls.startsWith('@def')) {
         handle_define_gadget_command(ls);
     } else if (ls.includes('=')) {
         handle_assignment_command(ls, program_iter);
     } else if (ls.startsWith('@python')) {
-        handle_python_block(ls, program_iter);
+        throw new utils.CompilerError('Feature not supported in safe mode: @python');
+    } else if (ls.startsWith('@build')) {
+        throw new utils.CompilerError('Feature not supported in safe mode: @build');
     } else if ((ls.toLowerCase().startsWith('lbl ') || ls.includes(":")) && !ls.includes('def')) {
         handle_label_definition(ls);
     } else if (ls.startsWith("func")) {
@@ -1015,8 +1084,17 @@ function dispatch_command_handler(line, program_iter = null) {
         let m = ls.match(/^sizeof\((.*?)\)$/);
         loader.sizeof_cmds.push([loader.result.length, m && m[1].trim() ? m[1].trim() : loader.current_section_name, { ...loader.current_exec_info }]);
         loader.result.push(0, 0);
+    } else if (ls.startsWith('adr_of')) {
+        handle_adr_of_hd_command(ls);
+    } else if (ls.startsWith('adr_arith')) {
+        handle_adr_arith_hd_command(ls);
+    } else if (ls.startsWith('str')) {
+        handle_str_hd_command(ls);
     } else if (ls.startsWith('[')) {
         handle_list_command(ls, program_iter);
+    } else {
+        utils.check_keyword(ls.split(/\s+/)[0]);
+        throw new utils.CompilerError(`Unrecognized command: ${ls.split(/\s+/)[0]}`);
     }
 }
 
