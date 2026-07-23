@@ -1053,11 +1053,7 @@ function dispatch_command_handler(line, program_iter = null) {
         handle_define_gadget_command(ls);
     } else if (ls.includes('=')) {
         handle_assignment_command(ls, program_iter);
-    } else if (ls.startsWith('@python')) {
-        throw new utils.CompilerError('Feature not supported in safe mode: @python');
-    } else if (ls.startsWith('@build')) {
-        throw new utils.CompilerError('Feature not supported in safe mode: @build');
-    } else if ((ls.toLowerCase().startsWith('lbl ') || ls.includes(":")) && !ls.includes('def')) {
+    } else if ((ls.toLowerCase().startsWith('lbl ') || ls.includes(":")) && !ls.includes('def') && !ls.includes('"')) {
         handle_label_definition(ls);
     } else if (ls.startsWith("func")) {
         handle_function_definition(ls, program_iter);
