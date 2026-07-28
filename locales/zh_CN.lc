@@ -92,7 +92,7 @@
     "warn_sizeof_overwrite": "[警告] {pos} 处的 sizeof 被覆盖",
     "warn_pr_org_overwrite": "[警告] {pos} 处的 pr_org 被覆盖",
     "warn_pr_backup_overwrite": "[警告] {pos} 处的 pr_backup 被覆盖",
-    "msg_section_info": "=== {start} -> {end}{backup} ===",
+    "msg_section_info": "=== {start} -> {end}{backup}{length} ===",
     "msg_section_name": "\n=== section @{name} ===",
     "web_ide_starting": "正在启动 RAC Compiler Web IDE...",
     "web_ide_safe_mode": "强制安全模式。",

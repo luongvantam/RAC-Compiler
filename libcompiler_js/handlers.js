@@ -845,9 +845,6 @@ function handle_assignment_command(line, program_iter) {
         process_line(`call pop ${reg}`);
         let l1 = loader.result.length;
         process_line(new_right.join(''));
-        if (loader.result.length - l1 !== loader.sizeof_register(reg)) {
-            throw new utils.CompilerError(`Line ${line} source/dest target mismatches`);
-        }
     } else if (l.startsWith("lbl ")) {
         process_line(l);
         process_line(r);
@@ -1049,7 +1046,7 @@ function dispatch_command_handler(line, program_iter = null) {
         process_line('call ' + ls);
     } else if (ls.startsWith('call')) {
         handle_call_command(ls);
-    } else if (ls.startsWith('def') || ls.startsWith('@def')) {
+    } else if (ls.startsWith('def')) {
         handle_define_gadget_command(ls);
     } else if (ls.includes('=')) {
         handle_assignment_command(ls, program_iter);

@@ -1,11 +1,9 @@
 {
     "name": "RSC Script (Casio Compiler)",
     "scopeName": "source.rsc",
-
     "fileTypes": [
         "rsc"
     ],
-
     "patterns": [
         {
             "include": "#comments"
@@ -47,9 +45,7 @@
             "include": "#punctuation"
         }
     ],
-
     "repository": {
-
         "comments": {
             "patterns": [
                 {
@@ -63,7 +59,6 @@
                 }
             ]
         },
-
         "strings": {
             "patterns": [
                 {
@@ -88,7 +83,6 @@
                 }
             ]
         },
-
         "memory": {
             "patterns": [
                 {
@@ -102,7 +96,6 @@
                         }
                     }
                 },
-
                 {
                     "match": "\\b(dist)(\\.)([A-Za-z_][A-Za-z0-9_]*)\\b",
                     "captures": {
@@ -119,7 +112,6 @@
                 }
             ]
         },
-
         "directives": {
             "patterns": [
                 {
@@ -150,7 +142,6 @@
                 }
             ]
         },
-
         "labels": {
             "patterns": [
                 {
@@ -167,7 +158,6 @@
                 }
             ]
         },
-
         "functions": {
             "patterns": [
                 {
@@ -176,7 +166,7 @@
                 },
                 {
                     "name": "entity.name.function.definition.rsc",
-                    "match": "(?<=\\b(func|def|@def)\\s)[A-Za-z_][A-Za-z0-9_]*"
+                    "match": "(?<=\\b(func|def)\\s)[A-Za-z_][A-Za-z0-9_]*"
                 },
                 {
                     "name": "entity.name.function.call.rsc",
@@ -188,7 +178,6 @@
                 }
             ]
         },
-
         "keywords": {
             "patterns": [
                 {
@@ -205,7 +194,6 @@
                 }
             ]
         },
-
         "registers": {
             "patterns": [
                 {
@@ -215,7 +203,6 @@
                 }
             ]
         },
-
         "hexstream": {
             "patterns": [
                 {
@@ -235,7 +222,6 @@
                 }
             ]
         },
-
         "numbers": {
             "patterns": [
                 {
@@ -248,7 +234,6 @@
                 }
             ]
         },
-
         "keys": {
             "patterns": [
                 {
@@ -257,7 +242,6 @@
                 }
             ]
         },
-
         "operators": {
             "patterns": [
                 {
@@ -266,7 +250,6 @@
                 }
             ]
         },
-
         "punctuation": {
             "patterns": [
                 {

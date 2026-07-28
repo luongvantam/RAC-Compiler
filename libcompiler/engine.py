@@ -349,7 +349,7 @@ def run_lines(args, program_lines, overflow_initial_sp):
     
     sys.stderr.write(utils.get_notes())
 
-    print(t("msg_section_info", start=f"{loader.home:#06x}", end=f"{loader.home + len(loader.result):#06x}", backup=f' ({loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x})' if loader.backup_address is not None else ''))
+    print(t("msg_section_info", start=f"{loader.home:#06x}", end=f"{loader.home + len(loader.result):#06x}", backup=f' ({loader.backup_address:#06x} -> {loader.backup_address + len(loader.result):#06x})' if loader.backup_address is not None else '', length=f" ({len(loader.result)} bytes)"))
     print(' '.join(f'{b:02x}' for b in loader.result))
     print('======')
     return loader.home, loader.result

@@ -2,7 +2,6 @@ org
 backup
 call
 def
-@def
 lbl
 func
 repeat

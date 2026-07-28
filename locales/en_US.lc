@@ -92,7 +92,7 @@
     "warn_sizeof_overwrite": "[WARN] sizeof overwrite at {pos}",
     "warn_pr_org_overwrite": "[WARN] pr_org overwrite at {pos}",
     "warn_pr_backup_overwrite": "[WARN] pr_backup overwrite at {pos}",
-    "msg_section_info": "=== {start} -> {end}{backup} ===",
+    "msg_section_info": "=== {start} -> {end}{backup}{length} ===",
     "msg_section_name": "\n=== section @{name} ===",
     "web_ide_starting": "Starting RAC Compiler Web IDE...",
     "web_ide_safe_mode": "Safe Mode is ENFORCED.",

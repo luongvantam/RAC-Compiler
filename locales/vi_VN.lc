@@ -92,7 +92,7 @@
     "warn_sizeof_overwrite": "[CẢNH BÁO] Ghi đè sizeof tại {pos}",
     "warn_pr_org_overwrite": "[CẢNH BÁO] Ghi đè pr_org tại {pos}",
     "warn_pr_backup_overwrite": "[CẢNH BÁO] Ghi đè pr_backup tại {pos}",
-    "msg_section_info": "=== {start} -> {end}{backup} ===",
+    "msg_section_info": "=== {start} -> {end}{backup}{length} ===",
     "msg_section_name": "\n=== section @{name} ===",
     "web_ide_starting": "Đang khởi động RAC Compiler Web IDE...",
     "web_ide_safe_mode": "Chế độ An Toàn (Safe Mode) đã ĐƯỢC BẬT.",

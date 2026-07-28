@@ -772,7 +772,7 @@ def dispatch_command_handler(line, program_iter=None, defined_functions=None):
     elif ls in loader.datalabels: process_line(f'0x{loader.datalabels[ls]:x}')
     elif ls in loader.commands: process_line('call ' + ls)
     elif ls.startswith('call'): handle_call_command(ls)
-    elif ls.startswith(('def ', '@def ')): handle_define_gadget_command(ls)
+    elif ls.startswith('def '): handle_define_gadget_command(ls)
     elif '=' in ls: handle_assignment_command(ls, program_iter)
     elif ls.startswith('@python'): handle_python_block(ls, program_iter)
     elif (ls.lower().startswith('lbl ') or ":" in ls) and 'def' not in ls: handle_label_definition(ls)
