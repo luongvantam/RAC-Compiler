@@ -126,6 +126,7 @@
     "note_warn_block_python_ignored_ea17": "[CẢNH BÁO] Khối @python bị bỏ qua do đang ở chế độ safe_mode\n",
     "err_error_executing_python_block_970c": "Lỗi khi thực thi khối @python: {var0}",
     "err_error_eval_repeat_count_3159": "Lỗi tính toán số lần lặp '{var0}': {var1}",
+    "err_repeat_items_too_large_1234": "Tổng số item output ({var0}) vượt quá giới hạn (tối đa: {var1})",
     "err_unsupported_eval_type_var0_4f9c": "Kiểu tính toán không được hỗ trợ: {var0}",
     "err_unmatched_in_inline_def_a329": "Thiếu ngoặc \"{\" trong lệnh def nội tuyến: {var0}",
     "err_invalid_address_in_def_ba26": "Địa chỉ không hợp lệ trong def: {var0}",

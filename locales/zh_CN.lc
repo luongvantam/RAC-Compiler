@@ -126,6 +126,7 @@
     "note_warn_block_python_ignored_ea17": "[警告] 由于处于安全模式，@python 块被忽略\n",
     "err_error_executing_python_block_970c": "执行 @python 块时出错: {var0}",
     "err_error_eval_repeat_count_3159": "计算重复次数 '{var0}' 时出错: {var1}",
+    "err_repeat_items_too_large_1234": "总输出项 ({var0}) 超过限制 (最大允许: {var1})",
     "err_unsupported_eval_type_var0_4f9c": "不支持的计算类型: {var0}",
     "err_unmatched_in_inline_def_a329": "内联 def 命令中缺少 \"{\": {var0}",
     "err_invalid_address_in_def_ba26": "def 中地址无效: {var0}",

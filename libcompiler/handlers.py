@@ -431,10 +431,10 @@ def handle_repeat_command(line, program_iter):
     if not m: raise utils.CompilerError(t("err_invalid_repeat_syntax_var0_a977", var0=line))
     try: count = int(utils.safe_eval(m.group(1).strip(), loader.vars_dict.copy()))
     except Exception as e: raise utils.CompilerError(t("err_error_eval_repeat_count_3159", var0=m.group(1), var1=e))
-        
     line_num = getattr(loader, 'current_exec_info', {}).get('num')
     body_items, _ = collect_block_body(line[m.end():].strip(), program_iter, line_num)
     
+    initial_len = len(loader.result)
     for _ in range(count):
         b_iter = iter(body_items)
         for item in b_iter:
@@ -446,6 +446,10 @@ def handle_repeat_command(line, program_iter):
                 process_line(item[1], b_iter)
             else:
                 process_line(str(item), b_iter)
+                
+        if len(loader.result) - initial_len > 1000:
+            raise utils.CompilerError(t("err_repeat_items_too_large_1234", var0=len(loader.result) - initial_len, var1=1000))
+
 
 def handle_eval_expression(line):
     expr = line[5:-1].strip()
@@ -744,7 +748,7 @@ def handle_adr_arith_hd_command(line):
         off = off.strip() if off else None
         sub = f'adr("{lbl}")' if not off else f'adr("{lbl}") {off[0]} {off[1:].strip()}' if off.startswith(('+','-')) else f'adr("{lbl}") + {off}'
         expr_parts.append(f'({sub}) {op}'.strip())
-    process_line(f"eval({' '.join(expr_parts)[:-2].strip() if not expr_parts[-1][-1].isalnum() else ' '.join(expr_parts)})")
+    process_line(f"eval({' '.join(expr_parts)})")
 
 def handle_str_hd_command(line):
     content = line.strip()[3:].strip()

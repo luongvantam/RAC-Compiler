@@ -1,5 +1,14 @@
-def sp = er4,sp += 32,pop xr4,pop qr8 : 1939e
+@section.main at 0xe9e0
 
-@section.main at 0xd730 backup 0xe9e0
+setlr_pc
+setsfr
+xr0 = hex 4f 0e 22 22
+call 08B2A
+xr0 = hex 50 0f 20 20
+call 08B2A
+render.ddd4
+brk
 
-sp = er4,sp += 32,pop xr4,pop qr8
+@section.launhcer at 0xd180
+
+hex fd 24 de e9 70 0d 32 30

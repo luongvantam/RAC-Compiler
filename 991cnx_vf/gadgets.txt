@@ -180,6 +180,7 @@
 1b878	er0 << 4,rt
 1b874	xr0 << 4,rt
 1b882	qr0 << 4,rt
+16104   r0 &= r5,pop r4, rt
 
 # Some CMP gadgets:
 0b61e	er0 - er2_gt,r0 = 0|r0 = 1,rt

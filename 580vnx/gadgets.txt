@@ -184,6 +184,7 @@
 20844	r1 |= r0,rt
 161fe	r0 |= r5,pop r4,rt
 1a5c2	qr0 |= qr8
+1620E   r0 &= r5,pop r4, rt
 
 # Some SLL/SRL gadgets:
 20830	r0 >> 4,rt
@@ -193,6 +194,7 @@
 1bb5a	er0 << 4,rt
 1bb56	xr0 << 4,rt
 1bb4e	qr0 << 4,rt
+161FC   r5 >> r4, r0 |= r5, pop r4, rt
 
 # Some CMP gadgets:
 0c790	er0 - er2_gt,r0 = 0|r0 = 1,rt

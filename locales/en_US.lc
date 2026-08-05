@@ -126,6 +126,7 @@
     "note_warn_block_python_ignored_ea17": "[WARN] Block @python ignored due to safe_mode\n",
     "err_error_executing_python_block_970c": "Error executing @python block: {var0}",
     "err_error_eval_repeat_count_3159": "Error eval repeat count '{var0}': {var1}",
+    "err_repeat_items_too_large_1234": "Total output items ({var0}) exceeds limit (max {var1})",
     "err_unsupported_eval_type_var0_4f9c": "Unsupported eval type: {var0}",
     "err_unmatched_in_inline_def_a329": "Unmatched \"{\" in inline def command: {var0}",
     "err_invalid_address_in_def_ba26": "Invalid address in def: {var0}",
