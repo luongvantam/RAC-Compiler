@@ -43,8 +43,7 @@ line_draw
 ---syntax---
 pop{reg}({value})
 ---output---
-pop {reg}
-{value}
+{reg}={value}
 ---
 
 ---syntax---

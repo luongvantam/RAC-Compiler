@@ -95,7 +95,7 @@ lbl program
                                 er2 = 0xd550
 
                         [er2]=r0,r2 = 0
-                        xr0 = eval(adr(pointer) + dist.main - 1), 0x0050
+                        xr0 = eval(adr(pointer) + dist.main + 4), 0x0050
                         [er0]=r2
         
     lbl loop

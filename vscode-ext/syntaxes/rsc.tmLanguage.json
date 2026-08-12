@@ -6,10 +6,10 @@
     ],
     "patterns": [
         {
-            "include": "#comments"
+            "include": "#strings"
         },
         {
-            "include": "#strings"
+            "include": "#comments"
         },
         {
             "include": "#memory"
@@ -72,7 +72,7 @@
                         },
                         {
                             "name": "variable.interpolation.rsc",
-                            "match": "\\{[A-Za-z_][A-Za-z0-9_]*\\}"
+                            "match": "\\{[^}]+\\}"
                         }
                     ]
                 },
@@ -166,7 +166,7 @@
                 },
                 {
                     "name": "entity.name.function.definition.rsc",
-                    "match": "(?<=\\b(func|def)\\s)[A-Za-z_][A-Za-z0-9_]*"
+                    "match": "(?<=\\b(func|def)\\s+(?:\\{[^}]+\\}\\s+)?)[A-Za-z_][A-Za-z0-9_]*"
                 },
                 {
                     "name": "entity.name.function.call.rsc",

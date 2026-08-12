@@ -154,8 +154,7 @@ def merge_lines(program_lines):
                 if py_depth > 0: in_python_block = True
             continue
             
-        comment_idx = raw_line.find('#')
-        content = raw_line[:comment_idx] if comment_idx != -1 else raw_line
+        content = utils.del_inline_comment(raw_line)
         
         # Merge trailing backslashes
         if content.rstrip().endswith('\\'):
@@ -201,7 +200,6 @@ def parse_sections(program_lines):
         else: current_lines.append((ln, raw))
     if current_name is not None or current_lines: sections.append((current_name, current_lines))
 
-    sections = [s for s in sections if s[0] is not None] + [s for s in sections if s[0] is None]
     return sections
 
 def process_line(line, program_iter=None):
@@ -236,21 +234,20 @@ def _eval_fill_args(expr1, expr2):
     eval_scope = {'pr_length': len(loader.result), **loader.vars_dict}
     
     for k in loader.labels:
-        if k not in eval_scope: eval_scope[k] = k
+        if k not in eval_scope: eval_scope[k] = (loader.home or 0) + loader.labels[k]
     if hasattr(loader, 'global_labels'):
-        for k in loader.global_labels:
-            if k not in eval_scope: eval_scope[k] = k
+        for k, v in loader.global_labels.items():
+            if k not in eval_scope: eval_scope[k] = v
 
     def pass1_adr(label, offset=0):
+        if isinstance(label, int): return utils.AdrInt(label + offset)
         if not isinstance(label, str): raise utils.CompilerError(t("err_label_must_be_str_c4b7", var0=type(label)))
+        if label == '$': return utils.AdrInt(len(loader.result) + (loader.home or 0) + offset)
         if label in loader.labels:
-            return (loader.home or 0) + loader.labels[label] + offset
+            return utils.AdrInt((loader.home or 0) + loader.labels[label] + offset)
         if hasattr(loader, 'global_labels') and label in loader.global_labels:
-            sec = getattr(loader, 'label_sections', {}).get(label)
-            sec_home = 0
-            if sec and hasattr(loader, 'section_addresses') and sec in loader.section_addresses:
-                sec_home = loader.section_addresses[sec].get('org', 0)
-            return sec_home + loader.global_labels[label] + offset
+            return utils.AdrInt(loader.global_labels[label] + offset)
+        if getattr(loader, 'is_pass1', False): return utils.AdrInt(0)
         raise utils.CompilerError(t("err_label_var0_not_found_45dc", var0=label))
         
     eval_scope['adr'] = pass1_adr
@@ -267,7 +264,9 @@ def _eval_fill_args(expr1, expr2):
     return val1, val2
 
 def _do_fill(count, value):
-    if count < 0: raise utils.CompilerError(t("err_padding_count_cannot_be_daab", var0=count))
+    if count < 0:
+        if getattr(loader, 'is_pass1', False): count = 0
+        else: raise utils.CompilerError(t("err_padding_count_cannot_be_daab", var0=count))
     if count == 0: return
     h = f"{value:x}"
     if len(h) % 2: h = '0' + h
@@ -464,6 +463,8 @@ def handle_eval_expression(line):
     expanded_expr = re.sub(r'\bsizeof\((.*?)\)', lambda m: f'sizeof("{m.group(1).strip()}")', expanded_expr)
     expanded_expr = re.sub(r'\bpr_org\((.*?)\)', lambda m: f'pr_org("{m.group(1).strip()}")', expanded_expr)
     expanded_expr = re.sub(r'\bpr_backup\((.*?)\)', lambda m: f'pr_backup("{m.group(1).strip()}")', expanded_expr)
+    expanded_expr = re.sub(r'\bhomeof\((.*?)\)', lambda m: f'homeof("{m.group(1).strip().strip("\'\"")}")', expanded_expr)
+    expanded_expr = re.sub(r'\badr\(\s*([a-zA-Z_]\w*)\s*\)', r'adr("\1")', expanded_expr)
 
     eval_scope = {'pr_length': len(loader.result), **loader.vars_dict}
 
@@ -480,9 +481,75 @@ def handle_eval_expression(line):
         
     expanded_expr = eval_nested(expanded_expr)
     
-    if 'adr(' in expanded_expr or 'sizeof(' in expanded_expr or 'dist.' in expanded_expr or 'pr_org(' in expanded_expr or 'pr_backup(' in expanded_expr:
-        max_len = max([4] + [(len(m) + len(m)%2) for m in re.findall(r'\b0x([0-9a-fA-F]+)\b', expanded_expr)])
-        max_bytes = max_len // 2
+    if 'adr(' in expanded_expr or 'sizeof(' in expanded_expr or 'dist(' in expanded_expr or 'dist.' in expanded_expr or 'pr_org(' in expanded_expr or 'pr_backup(' in expanded_expr or 'homeof(' in expanded_expr or any(k in expanded_expr for k in loader.labels) or (hasattr(loader, 'global_labels') and any(k in expanded_expr for k in loader.global_labels)):
+        def pass1_adr(label, offset=0):
+            if isinstance(label, int): return utils.AdrInt(label + offset)
+            if label == '$': return utils.AdrInt(len(loader.result) + (loader.home or 0) + offset)
+            if label in loader.labels: return utils.AdrInt((loader.home or 0) + loader.labels[label] + offset)
+            if hasattr(loader, 'global_labels') and label in loader.global_labels: return utils.AdrInt(loader.global_labels[label] + offset)
+            if getattr(loader, 'is_pass1', False): return utils.AdrInt(0)
+            raise Exception("Forward reference")
+        def pass1_sizeof(sec_name=""):
+            if not sec_name or sec_name == getattr(loader, 'current_section_name', None): return len(loader.result)
+            if hasattr(loader, 'section_addresses') and sec_name in loader.section_addresses: return loader.section_addresses[sec_name].get('length', 0)
+            if getattr(loader, 'is_pass1', False): return 0
+            raise Exception("Section not found")
+        def pass1_dist(sec_name):
+            sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
+            org, backup = sec.get('org'), sec.get('backup')
+            if sec_name == getattr(loader, 'current_section_name', None): org, backup = getattr(loader, 'home', None), getattr(loader, 'backup_address', None)
+            if org is not None and backup is not None: return abs(backup - org) & 0xFFFF
+            if getattr(loader, 'is_pass1', False): return 0
+            raise Exception("Section dist not found")
+        def pass1_homeof(label):
+            if isinstance(label, int): label = str(label)
+            if label in loader.labels: return loader.home or 0
+            if hasattr(loader, 'global_labels') and label in loader.global_labels:
+                sec = getattr(loader, 'label_sections', {}).get(label)
+                if sec and hasattr(loader, 'section_addresses') and sec in loader.section_addresses:
+                    return loader.section_addresses[sec].get('org', 0)
+                return 0
+            if getattr(loader, 'is_pass1', False): return 0
+            raise Exception("Label homeof not found")
+        def pass1_pr_org(sec_name=""):
+            sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
+            org = sec.get('org')
+            if not sec_name or sec_name == getattr(loader, 'current_section_name', None): org = getattr(loader, 'home', None)
+            if org is not None: return org & 0xFFFF
+            if getattr(loader, 'is_pass1', False): return 0
+            raise Exception("Section org not found")
+        def pass1_pr_backup(sec_name=""):
+            sec = loader.section_addresses.get(sec_name, {}) if hasattr(loader, 'section_addresses') else {}
+            backup = sec.get('backup')
+            if not sec_name or sec_name == getattr(loader, 'current_section_name', None): backup = getattr(loader, 'backup_address', None)
+            if backup is not None: return backup & 0xFFFF
+            if getattr(loader, 'is_pass1', False): return 0
+            raise Exception("Section backup not found")
+            
+        temp_eval_scope = eval_scope.copy()
+        temp_eval_scope.update({'adr': pass1_adr, 'sizeof': pass1_sizeof, 'dist': pass1_dist, 'homeof': pass1_homeof, 'pr_org': pass1_pr_org, 'pr_backup': pass1_pr_backup})
+        for k in loader.labels:
+            if k not in temp_eval_scope: temp_eval_scope[k] = (loader.home or 0) + loader.labels[k]
+        if hasattr(loader, 'global_labels'):
+            for k, v in loader.global_labels.items():
+                if k not in temp_eval_scope: temp_eval_scope[k] = v
+        
+        try:
+            val_est = utils.safe_eval(expanded_expr, temp_eval_scope)
+            if isinstance(val_est, int):
+                if val_est < 0:
+                    n_bytes = 1
+                    while val_est < -(1 << (n_bytes * 8 - 1)): n_bytes += 1
+                else:
+                    n_bytes = 1
+                    while val_est >= (1 << (n_bytes * 8)): n_bytes += 1
+                max_bytes = max(2, n_bytes)
+            else:
+                max_bytes = 2
+        except Exception:
+            max_len = max([4] + [(len(m) + len(m)%2) for m in re.findall(r'\b0x([0-9a-fA-F]+)\b', expanded_expr)])
+            max_bytes = max_len // 2
+
         loader.deferred_evals.append((len(loader.result), expanded_expr, getattr(loader, 'current_exec_info', {}), max_bytes))
         loader.result.extend([0] * max_bytes)
         return
@@ -490,9 +557,19 @@ def handle_eval_expression(line):
     val = utils.safe_eval(expanded_expr, eval_scope)
     
     if isinstance(val, (int, list)):
-        max_len = max([2] + [(len(m) + len(m)%2) for m in re.findall(r'\b0x([0-9a-fA-F]+)\b', expanded_expr)])
         for item in (val if isinstance(val, list) else [val]):
-            process_line(f'0x{item:0{max_len}x}' if isinstance(item, int) else f'"{item}"')
+            if isinstance(item, int):
+                if item < 0:
+                    n_bytes = 1
+                    while item < -(1 << (n_bytes * 8 - 1)): n_bytes += 1
+                else:
+                    n_bytes = 1
+                    while item >= (1 << (n_bytes * 8)): n_bytes += 1
+                item_len = n_bytes * 2
+                mask = (1 << (item_len * 4)) - 1
+                process_line(f'0x{item & mask:0{item_len}x}')
+            else:
+                process_line(f'"{item}"')
     elif isinstance(val, str):
         process_line(f'"{val}"')
     else: raise utils.CompilerError(t("err_unsupported_eval_type_var0_4f9c", var0=type(val)))
@@ -547,8 +624,8 @@ def handle_call_command(line):
             if matches: raise utils.CompilerError(t("err_call_target_not_found_a0d1", var0=cmd, var1=matches[0]))
             raise utils.CompilerError(t("err_call_target_not_found_1ae5", var0=cmd))
         adr, tags = loader.commands[cmd]
-        for t in tags: 
-            if t.startswith('warning'): utils.note(t + '\n')
+        for tag in tags: 
+            if tag.startswith('warning'): utils.note(tag + '\n')
             
     offset = 0
     if not getattr(loader, 'gadgets_offset_applied', False):
@@ -568,7 +645,14 @@ def handle_goto_command(line):
     process_line(f'{reg} = eval(adr("{lbl}") - 0x02);call sp={reg},pop {"er8" if reg=="er6" else reg}')
 
 def handle_address_command(line):
-    inner = line.strip()[4:-1].strip()
+    line_str = line.strip()
+    subscript = None
+    m_sub = re.match(r'^(adr\(.*\))\s*\[(.*)\]$', line_str)
+    if m_sub:
+        line_str = m_sub.group(1)
+        subscript = m_sub.group(2).strip()
+
+    inner = line_str[4:-1].strip()
     parts = [p.strip() for p in inner.split(',')]
     if not parts or not parts[0] or len(parts) > 3: raise utils.CompilerError(t("err_invalid_adr_syntax_var0_b779", var0=line))
     
@@ -579,10 +663,20 @@ def handle_address_command(line):
         base_val = parts[2].replace(" ","")
         expr.append(f'+ {base_val} - homeof("{parts[0]}")')
         
-    if len(expr) == 1:
-        loader.deferred_evals.append((len(loader.result), expr[0], getattr(loader, 'current_exec_info', {})))
-        loader.result.extend((0, 0))
-    else: process_line(f'eval({" ".join(expr)})')
+    full_expr = " ".join(expr)
+    if len(expr) > 1:
+        full_expr = f"({full_expr})"
+
+    if subscript is not None:
+        expr_with_subscript = f"({full_expr})[{subscript}]"
+        loader.deferred_evals.append((len(loader.result), expr_with_subscript, getattr(loader, 'current_exec_info', {}), 1))
+        loader.result.append(0)
+    else:
+        if len(expr) == 1:
+            loader.deferred_evals.append((len(loader.result), expr[0], getattr(loader, 'current_exec_info', {})))
+            loader.result.extend((0, 0))
+        else:
+            process_line(f'eval({full_expr})')
 
 def handle_define_gadget_command(line):
     if ':' not in line: raise utils.CompilerError(t("err_invalid_def_syntax_var0_8aa9", var0=line))

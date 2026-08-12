@@ -1,5 +1,4 @@
 @section.main at 0xd730
-def num_to_hex : 1ed58
 
 lbl main
     setlr_pc

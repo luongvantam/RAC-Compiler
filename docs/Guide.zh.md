@@ -99,6 +99,7 @@ tmp = 0x1200                             # 编译为: er0 = 0x12
     - `adr(<label>)`
     - `adr(<label>, <offset>)`
     - `adr(<label>, <offset>, <base_addr>)`
+    - `adr(<label>)[<index>]` (获取索引处的1个字节: [0] = 低字节, [1] = 高字节)
     - `adr($)` (获取本行的当前地址)
     - `adr_of <label>`
     - `adr_of [<offset>] <label>`

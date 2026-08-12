@@ -2,17 +2,14 @@
     "name": "rac-compiler",
     "displayName": "RAC Compiler",
     "description": "Language support, build, and run integration for RAC Compiler",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "publisher": "luongvantam",
-
     "engines": {
         "vscode": "^1.80.0"
     },
-
     "categories": [
         "Programming Languages"
     ],
-
     "contributes": {
         "languages": [
             {
@@ -26,20 +23,11 @@
                 ]
             }
         ],
-
         "grammars": [
             {
                 "language": "rsc",
                 "scopeName": "source.rsc",
                 "path": "./syntaxes/rsc.tmLanguage.json"
-            }
-        ],
-
-        "themes": [
-            {
-                "label": "RSC Theme",
-                "uiTheme": "vs-dark",
-                "path": "./themes/rsc-color-theme.json"
             }
         ],
         "commands": [
@@ -57,11 +45,26 @@
                 "title": "RSC: Select Mode"
             },
             {
+                "command": "rsc.setCompilerPath",
+                "title": "RSC: Set Compiler Path"
+            },
+            {
                 "command": "rsc.debug",
                 "title": "RSC: Run & Debug",
                 "icon": "$(debug-alt)"
             }
         ],
+        "configuration": {
+            "type": "object",
+            "title": "RAC Compiler",
+            "properties": {
+                "racCompiler.path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Absolute path to the RAC-Compiler directory (where rac.py is located). Leave empty to attempt auto-detection from workspace."
+                }
+            }
+        },
         "menus": {
             "editor/title/run": [
                 {

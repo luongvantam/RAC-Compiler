@@ -5,11 +5,10 @@ lbl memcpy
     hex 60 04
     0xe9d4
     0xd730
-
-lbl ac
-    eval(adr(keyread) - 0xC)
+    lbl ac
+        eval(adr(keyread) - 0xC)
     er0 = er8
-    call 0CD8A
+    call 0E1FE
 
 lbl init
     setlr_pc
@@ -23,15 +22,15 @@ lbl init
     xr0 = hex 06 00 34 f0
     [er2] = r0,r2 = 0
     xr0 = hex 4f 0e 22 22
-    call 08B2A
+    call 09836
     xr0 = hex 50 0f 20 20
-    call 08B2A
+    call 09836
 
 lbl keyread
     pop er0,pop er4
     adr(key)
-    adr(keyhandle, -0x3e)
-    call 2A9DA          # getscancode_nodelay
+    adr(keyhandle, -62)
+    getkey
     setlr_pc
     pop qr0
     lbl flushcounter
@@ -41,14 +40,14 @@ lbl keyread
     hex 66 87
     r0 &= r5, pop r4, rt
     hex 00 00
-    call 2642E
-    call 16CC0
-    call 08F5A
-    call 1DA70
+    r1 = 0,rt
+    r5 = 0,rt
+    er0+=er2,rt
+    call 1DD52
     er2 = hex 0c 00
     er0 *= r2,er2 = er0,er0 += er4,rt
-    call 14F02
-    call 0a054
+    er0+=er6,er10=er0,rt
+    call 0AED6
     setlr_pc
     pop xr0
     eval(adr(flushcounter) + dist.main)
@@ -56,17 +55,14 @@ lbl keyread
         hex 01 00
     er8 = er0
     [er8] += er2,pop xr8
-    hex 00 00 00 00
-
-lbl keyhandle
-    er6 = hex 01 00
-    pop ea,pop xr4
-    eval(adr(keytable) + dist.main)
+    lbl key
+        hex 11 45    
     hex 00 00
 
-lbl key
-    hex 11 45
-    er0 = er6,er2 = er12
+lbl keyhandle
+    pop ea
+    eval(adr(keytable) + dist.main)
+    er0 = er8
     ea_switchcase
     er6 = [ea+]
     xr0 = eval(adr(pos) + dist.main), hex 45 11
@@ -81,10 +77,10 @@ lbl key
     memzero
     setlr_pc
 
-    hex 38 1d
+    hex 74 1f
 
 lbl setflush
-    call 16132          # er14 = er0, pop xr0     chắc để lấy segment cho 361d ở trên
+    er14 = er0, pop xr0
     eval(adr(flushcounter) + dist.main)
     hex 00 00
     [er0] = er2,rt
@@ -96,22 +92,22 @@ lbl setflush
 lbl near1
     adr(memcpy, -2)
 
-    hex 36 1d
+    hex 72 1f
 
 lbl setpx
-    call 130e2      # pop qr0
+    call 130A2      # pop qr0
     lbl pos
         hex 60 1f
     hex 01 01
     hex 66 66
     adr(memcpy, -2)
-    call 08B2A
+    call 09836
 
-    hex 38 1d
+    hex 74 1f
 
 lbl mouse
-    call 16132          # er14 = er0, pop xr0
-    hex d4 e3
+    er14 = er0, pop xr0
+    0xe3d4
     hex 00 06
     memzero
     setlr_pc
@@ -123,37 +119,37 @@ lbl mouse
     [er2] = r0,r2 = 0
     er2 = eval(adr(pos) + dist.main)
     er0 = [er2],r2 = 9,rt
-    call 174F8
+    r2 = 0
     pixel_draw
     pop xr0
     hex 01 00
     hex 39 d1
     [er2] = r0,r2 = 0
 
-    hex 38 1d
+    hex 74 1f
 
 lbl funcplus
-    call 16132          # er14 = er0, pop xr0
+    er14 = er0, pop xr0
     adr(funcdata)
     lbl funcpos
         hex 00 00
-    call 13AA6
+    er0 += er2, er8 = [er0]
     pop er0
     lbl funcpointer
         hex 23 d2
     er0 += er8,rt
     er8 = er0
     r0 = [er0]
-    call 08FD4
+    r0+=1,rt
     er2 = er0,er0 += er4,rt
     er0 = er8
     [er0] = r2
-    call 23E7A          # er0 = er2 = 1, pop er8, rt
+    er0 = er2 = 1, pop er8, rt
     adr(funccounter)
     [er8] += er2,pop xr8
     adr(funcpos)
     hex 00 00
-    er2 = hex 02 00
+    r2 = 2
     [er8] += er2,pop xr8
 
 lbl braddrI
@@ -162,7 +158,7 @@ lbl braddrI
     er14 = adr(funcplus, -4)
 
 lbl funccounter
-    call 08B0E
+    call 0981A
     lbl braddrII
         adr(bitupdate, -2)
         adr(funcplus, -2)
@@ -172,7 +168,7 @@ lbl funccounter
     [er0] = r2
 
 lbl bitupdate
-    call 23E7A          # er0 = er2 = 1, pop er8, rt
+    er0 = er2 = 1, pop er8, rt
     adr(bit)
     [er8] += er2,pop xr8
     adr(funcpointer)
@@ -185,22 +181,22 @@ lbl bitupdate
     hex 00 00
     adr(bit)
     adr(braddrI)
-    hex cc 24           # [10000 - $bitend]
+    eval(0x10000 - adr(bitend))          # nó lên bố nó 3 số rồi compiler lỏ
     er0 = [er2],r2 = 9,rt
-    call 14F02
-    call 24A20
-    call 1763C
+    er0+=er6,er10=er0,rt
+    call 28FB2
+    r2 = 2
     er0 *= r2,er2 = er0,er0 += er4,rt
     er8 = er0
 
-    hex 36 1d
+    hex 72 1f
 
 lbl branchI
-    call 16132          # er14 = er0, pop xr0
+    er14 = er0, pop xr0
     adr(bit)
     adr(bitdata)
     [er0] = er2,rt
-    call 23E7A          # er0 = er2 = 1, pop er8, rt
+    er0 = er2 = 1, pop er8, rt
     adr(pointer)
     [er8] += er2,pop xr8
     adr(loopI)
@@ -212,8 +208,8 @@ lbl braddrIV
     adr(skipborder)
     adr(update, -2)
     ea_switchcase
-    call 19BF0
-    call 21d36
+    er8 = [ea+], rt
+    call 21f72              # đoạn này xem sau
 
 lbl branchIII
     pop qr0
@@ -222,11 +218,11 @@ lbl branchIII
     adr(braddrIV)
     hex 00 00
     er0 = [er2],r2 = 9,rt
-    call 0902E          # pop er2
-    hex ce 1d           # [10000 - e232]
-    call 08F5A
-    call 24A20
-    call 1763C
+    pop er2
+    eval(0x10000 - 0xe232)
+    er0+=er2,rt
+    call 28FB2
+    r2=2
     er0 *= r2,er2 = er0,er0 += er4,rt
     er8 = er0
     sp = [er8],pop er8
@@ -241,26 +237,21 @@ lbl skipborder
     hex 00 00
     er2 = hex 14 00
     [er8] += er2,pop xr8
-    hex 00 00 00 00
+    lbl 1
+        adr(branchIII, -2)
+    lbl 2
+        adr(calc, -2)
 
 lbl calc
-    pop qr0
+    pop xr0
     lbl bit
         adr(bitdata)
         adr(realbit)
-        hex 00 00
-        hex 01 00
-    pop ea,pop xr4
+    pop ea
     adr(loopI)
-
-lbl 1
-    adr(branchIII, -2)
-
-lbl 2
-    adr(calc, -2)
     r0 = [er0]
     [er2] = r0,r2 = 0
-    call 19168
+    pop er4
     hex 00
     lbl realbit
         hex 01
@@ -270,55 +261,48 @@ lbl 2
     r0 = [er0]
     r0 &= r5, pop r4, rt
     hex 00 00
-    call 18654
-    call 1DA70
-    call 1763C
-    call 19168
-    adr(braddrII)
-    er0 *= r2,er2 = er0,er0 += er4,rt
-    er8 = er0
-
-    hex 36 1d
+    call 1428C
+    call 1DD52
+    er2=adr(braddrII)
+    load_table
+    er14 = er0, pop xr0
+    hex 00 00 00 00
+    hex 60 0d
 
 lbl clear
-    call 130e2      # pop qr0
+    call 130A2      # pop qr0
     adr(ac)
     adr(init, -0xc)
     hex 11 45
     adr(memcpy, -2)
     [er0] = er2,rt
 
-    hex 38 1d
+    hex 74 1f
 
 lbl update
-    hex e2 30
-    hex 01 00
+    pop er0
 
 lbl updatepos
-    hex 23 d2 00 00 00 00 01 00
+    hex 23 d2
     r0 = [er0]
-    call 2642E
-    pop ea,pop xr4
+    r1 = 0,rt
+    pop ea
     adr(updata)
-    hex 00 00
-    hex 00 00
     ea_switchcase
     er6 = [ea+]
-    call 174F8
-    hex 38 1d 02 00
+    r2 = 0
+    sp=er6, pop er8
 
 lbl braddrV
-    call 1763C
+    r2 = 2
     pop er0
 
 lbl screenpos
     hex 50 0f
-    call 0850A
-    hex 00 00
-    hex 01 00
+    pixel_draw
 
 lbl returnloop
-    call 23E7A
+    er0 = er2 = 1, pop er8, rt
     adr(loopII)
     [er8] += er2,pop xr8
     adr(screenpos)
@@ -329,38 +313,32 @@ lbl returnloop
     hex 00 00
     er2 = 1,r0 = r2,rt
     [er8] += er2,pop xr8
-    hex 00 00
-    hex 00 00
-    pop ea,pop xr4
+    hex 00 00 00 00
+    pop ea
     adr(loopII)
-    hex 00 00
-    hex 00 00
     ea_switchcase
     er6 = [ea+]
-    hex 38 1d 02 00
+    call 21f74
 
 lbl loopreset
     pop xr0
     adr(loopII)
     hex e0 ff
     [er0] = er2,rt
-    call 23E7A
+    er0 = er2 = 1, pop er8, rt
     adr(loopII, +4)
     [er8] += er2,pop xr8
     adr(screenpos)
     hex 00 00
-    call 0902E
-    hex e0 00
+    er2 = hex e0 00
     [er8] += er2,pop xr8
     adr(updatepos)
     hex 00 00
-    call 0902E
-    hex 02 00
+    er2 = hex 02 00
     [er8] += er2,pop xr8
     adr(nearI)
-
-lbl nearI
-    adr(update, -2)
+    lbl nearI
+        adr(update, -2)
     sp = [er8],pop er8
 
 lbl loopI
@@ -446,4 +424,4 @@ lbl keytable
 @section.launcher at 0xd180
 hex fd 24
 0xe9d2
-sp = er14, pop er14
+sp=er14,pop er14

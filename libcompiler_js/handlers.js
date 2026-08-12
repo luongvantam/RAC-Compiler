@@ -181,8 +181,7 @@ function merge_lines(program_lines) {
         let line_num = Array.isArray(item) ? item[0] : idx + 1;
         let raw_line = Array.isArray(item) ? item[1] : item;
 
-        let comment_idx = raw_line.indexOf('#');
-        let content = comment_idx !== -1 ? raw_line.substring(0, comment_idx) : raw_line;
+        let content = utils.del_inline_comment(raw_line);
 
         if (content.trimEnd().endsWith('\\')) {
             current_line += content.substring(0, content.lastIndexOf('\\'));
@@ -296,28 +295,27 @@ function _parse_two_args(inner) {
 
 function _eval_fill_args(expr1, expr2) {
     let eval_scope = { pr_length: loader.result.length, ...loader.vars_dict };
-
+    
     for (let k in loader.labels) {
-        if (!(k in eval_scope)) eval_scope[k] = k; // treat as string
+        if (!(k in eval_scope)) eval_scope[k] = (loader.home || 0) + loader.labels[k];
     }
     for (let k in loader.global_labels) {
-        if (!(k in eval_scope)) eval_scope[k] = k;
+        if (!(k in eval_scope)) eval_scope[k] = loader.global_labels[k];
     }
 
     eval_scope['adr'] = function (label, offset = 0) {
+        if (typeof label === 'number') return utils.createAdrInt(label + offset);
         if (typeof label !== 'string') throw new utils.CompilerError(`Label must be str, got ${typeof label}`);
+        if (label === '$') return utils.createAdrInt(loader.result.length + (loader.home || 0) + offset);
         if (label in loader.labels) {
-            return (loader.home || 0) + loader.labels[label] + offset;
+            return utils.createAdrInt((loader.home || 0) + loader.labels[label] + offset);
+        } else if (label in loader.global_labels) {
+            return utils.createAdrInt(loader.global_labels[label] + offset);
+        } else if (loader.is_pass1) {
+            return utils.createAdrInt(0);
+        } else {
+            throw new utils.CompilerError(`Label '${label}' not found (padding requires previously defined labels)`);
         }
-        if (label in loader.global_labels) {
-            let sec = loader.label_sections[label];
-            let sec_home = 0;
-            if (sec && sec in loader.section_addresses) {
-                sec_home = loader.section_addresses[sec].org || 0;
-            }
-            return sec_home + loader.global_labels[label] + offset;
-        }
-        throw new utils.CompilerError(`Label '${label}' not found (padding requires previously defined labels)`);
     };
 
     function prepare_expr(expr) {
@@ -335,7 +333,10 @@ function _eval_fill_args(expr1, expr2) {
 }
 
 function _do_fill(count, value) {
-    if (count < 0) throw new utils.CompilerError(`Padding count cannot be negative: ${count}`);
+    if (count < 0) {
+        if (loader.is_pass1) count = 0;
+        else throw new utils.CompilerError(`Padding count cannot be negative: ${count}`);
+    }
     if (count === 0) return;
     let h = value.toString(16);
     if (h.length % 2 !== 0) h = '0' + h;
@@ -565,6 +566,8 @@ function handle_eval_expression(line) {
     expanded_expr = expanded_expr.replace(/\bsizeof\((.*?)\)/g, (m, p1) => `sizeof("${p1.trim()}")`);
     expanded_expr = expanded_expr.replace(/\bpr_org\((.*?)\)/g, (m, p1) => `pr_org("${p1.trim()}")`);
     expanded_expr = expanded_expr.replace(/\bpr_backup\((.*?)\)/g, (m, p1) => `pr_backup("${p1.trim()}")`);
+    expanded_expr = expanded_expr.replace(/\bhomeof\((.*?)\)/g, (m, p1) => `homeof("${p1.trim().replace(/^['"]|['"]$/g, '')}")`);
+    expanded_expr = expanded_expr.replace(/\badr\(\s*([a-zA-Z_]\w*)\s*\)/g, 'adr("$1")');
 
     let eval_scope = { pr_length: loader.result.length, ...loader.vars_dict };
 
@@ -592,7 +595,7 @@ function handle_eval_expression(line) {
 
     expanded_expr = eval_nested(expanded_expr);
 
-    if (expanded_expr.includes('adr(') || expanded_expr.includes('sizeof(') || expanded_expr.includes('dist.') || expanded_expr.includes('pr_org(') || expanded_expr.includes('pr_backup(')) {
+    if (expanded_expr.includes('adr(') || expanded_expr.includes('sizeof(') || expanded_expr.includes('dist(') || expanded_expr.includes('dist.') || expanded_expr.includes('pr_org(') || expanded_expr.includes('pr_backup(') || expanded_expr.includes('homeof(') || Object.keys(loader.labels).some(k => expanded_expr.includes(k)) || Object.keys(loader.global_labels).some(k => expanded_expr.includes(k))) {
         let hexMatches = [...expanded_expr.matchAll(/\b0x([0-9a-fA-F]+)\b/g)];
         let max_len = 4;
         for (let m of hexMatches) {
@@ -732,7 +735,15 @@ function handle_goto_command(line) {
 }
 
 function handle_address_command(line) {
-    let inner = line.trim().substring(4, line.trim().length - 1).trim();
+    let line_str = line.trim();
+    let subscript = null;
+    let m_sub = line_str.match(/^(adr\(.*\))\s*\[(.*)\]$/);
+    if (m_sub) {
+        line_str = m_sub[1];
+        subscript = m_sub[2].trim();
+    }
+
+    let inner = line_str.substring(4, line_str.length - 1).trim();
     let parts = inner.split(',').map(p => p.trim());
     if (parts.length === 0 || !parts[0] || parts.length > 3) throw new utils.CompilerError(`Invalid adr syntax: ${line}. Expected 'adr(label, offset, base)'`);
 
@@ -745,11 +756,22 @@ function handle_address_command(line) {
         expr.push(`+ ${base_val} - homeof("${parts[0]}")`);
     }
 
-    if (expr.length === 1) {
-        loader.deferred_evals.push([loader.result.length, expr[0], { ...loader.current_exec_info }]);
-        loader.result.push(0, 0);
+    let full_expr = expr.join(' ');
+    if (expr.length > 1) {
+        full_expr = `(${full_expr})`;
+    }
+
+    if (subscript !== null) {
+        let expr_with_subscript = `(${full_expr})[${subscript}]`;
+        loader.deferred_evals.push([loader.result.length, expr_with_subscript, { ...loader.current_exec_info }, 1]);
+        loader.result.push(0);
     } else {
-        process_line(`eval(${expr.join(' ')})`);
+        if (expr.length === 1) {
+            loader.deferred_evals.push([loader.result.length, expr[0], { ...loader.current_exec_info }]);
+            loader.result.push(0, 0);
+        } else {
+            process_line(`eval(${full_expr})`);
+        }
     }
 }
 

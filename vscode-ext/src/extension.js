@@ -27,13 +27,263 @@ function updateStatusBar(context) {
     statusBarItem.show();
 }
 
+async function ensureCompilerPath(context) {
+    let compilerPath = vscode.workspace.getConfiguration('racCompiler').get('path');
+    
+    if (!compilerPath || !fs.existsSync(path.join(compilerPath, 'rac.py'))) {
+        if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+            for (const folder of vscode.workspace.workspaceFolders) {
+                if (fs.existsSync(path.join(folder.uri.fsPath, 'rac.py'))) {
+                    compilerPath = folder.uri.fsPath;
+                    await vscode.workspace.getConfiguration('racCompiler').update('path', compilerPath, vscode.ConfigurationTarget.Global);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!compilerPath || !fs.existsSync(path.join(compilerPath, 'rac.py'))) {
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select RAC-Compiler Folder (contains rac.py)',
+            title: 'Select RAC-Compiler Directory'
+        });
+        
+        if (selected && selected[0]) {
+            compilerPath = selected[0].fsPath;
+            if (!fs.existsSync(path.join(compilerPath, 'rac.py'))) {
+                vscode.window.showErrorMessage("The selected directory does not contain rac.py!");
+                return undefined;
+            }
+            await vscode.workspace.getConfiguration('racCompiler').update('path', compilerPath, vscode.ConfigurationTarget.Global);
+        } else {
+            return undefined;
+        }
+    }
+    return compilerPath;
+}
+
 async function ensureModel(context) {
     let model = getModel(context);
     if (!model) {
         model = await vscode.commands.executeCommand('rsc.selectModel');
+        if (!model) {
+            return undefined;
+        }
     }
-    return model || '580vnx';
+    return model;
 }
+
+
+let diagnosticCollection;
+let diagnosticTimeout = null;
+const cachedModelSymbols = new Map();
+
+const KEYWORDS = [
+    'org', 'backup', 'var', 'reg', 'fill', 'align', 'pad', 'pad_abs', 
+    'eval', 'calc', 'goto', 'call', 'lbl', 'def', 'repeat', 'loop', 'func', 
+    'pr_length', 'pr_org', 'pr_backup', 'dist', 'sizeof', 'adr', 'hex', 'str'
+];
+
+const keywordItems = KEYWORDS.map(kw => {
+    const item = new vscode.CompletionItem(kw, vscode.CompletionItemKind.Keyword);
+    item.detail = 'RAC Compiler Keyword';
+    return item;
+});
+
+const sectionItems = [
+    new vscode.CompletionItem('@section.', vscode.CompletionItemKind.Module),
+    new vscode.CompletionItem('@set.', vscode.CompletionItemKind.Module),
+    new vscode.CompletionItem('@build', vscode.CompletionItemKind.Struct)
+];
+
+function getModelSymbols(compilerPath, model) {
+    const key = `${compilerPath}:${model}`;
+    if (cachedModelSymbols.has(key)) return cachedModelSymbols.get(key);
+
+    const items = [];
+    if (!compilerPath || !model) return items;
+
+    const modelDir = path.join(compilerPath, model);
+    
+    // Load gadgets.txt
+    const gadgetsPath = path.join(modelDir, 'gadgets.txt');
+    if (fs.existsSync(gadgetsPath)) {
+        try {
+            const content = fs.readFileSync(gadgetsPath, 'utf8');
+            for (const line of content.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                const parts = trimmed.split(/\s+/);
+                if (parts.length >= 2) {
+                    const addr = parts[0];
+                    const name = parts.slice(1).join(' ');
+                    const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
+                    item.detail = `Gadget (0x${addr})`;
+                    item.documentation = new vscode.MarkdownString(`Gadget \`${name}\` defined at address \`0x${addr}\` for model \`${model}\`.`);
+                    items.push(item);
+                }
+            }
+        } catch (e) {}
+    }
+
+    // Load labels.txt
+    const labelsPath = path.join(modelDir, 'labels.txt');
+    if (fs.existsSync(labelsPath)) {
+        try {
+            const content = fs.readFileSync(labelsPath, 'utf8');
+            for (const line of content.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                const parts = trimmed.split(/\s+/);
+                if (parts.length >= 2) {
+                    const addr = parts[0];
+                    const namesStr = parts.slice(1).join(' ');
+                    const names = namesStr.split(';').map(n => n.trim()).filter(Boolean);
+                    for (const name of names) {
+                        const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Reference);
+                        item.detail = `Model Label (0x${addr})`;
+                        item.documentation = new vscode.MarkdownString(`Label \`${name}\` at address \`0x${addr}\` for model \`${model}\`.`);
+                        items.push(item);
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    cachedModelSymbols.set(key, items);
+    return items;
+}
+
+function getLocalDocumentSymbols(document) {
+    const items = [];
+    const text = document.getText();
+    const lines = text.split('\n');
+    const seen = new Set();
+    const reservedWords = new Set(['var', 'reg', 'def', 'func', 'lbl', 'org', 'backup', 'repeat', 'loop', 'goto', 'call', 'hex', 'str', 'eval', 'calc']);
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || line.startsWith('#') || line.startsWith('/*')) continue;
+
+        let match = /^lbl\s+([a-zA-Z0-9_]+)/.exec(line) || /^([a-zA-Z0-9_]+)\s*:/.exec(line);
+        if (match) {
+            const name = match[1];
+            if (!seen.has(name) && !reservedWords.has(name)) {
+                seen.add(name);
+                const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Label);
+                item.detail = `Local Label (line ${i + 1})`;
+                items.push(item);
+            }
+            continue;
+        }
+
+        match = /^(?:func|def)\s+(?:\{[^}]+\}\s+)?([a-zA-Z0-9_]+)/.exec(line);
+        if (match) {
+            const name = match[1];
+            if (!seen.has(name) && !reservedWords.has(name)) {
+                seen.add(name);
+                const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
+                item.detail = `Function/Macro Def (line ${i + 1})`;
+                items.push(item);
+            }
+            continue;
+        }
+
+        match = /^(?:var|reg)\s+([a-zA-Z0-9_]+)/.exec(line) || /^([a-zA-Z0-9_]+)\s*=/.exec(line);
+        if (match) {
+            const name = match[1];
+            if (!seen.has(name) && !reservedWords.has(name)) {
+                seen.add(name);
+                const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable);
+                item.detail = `Variable (line ${i + 1})`;
+                items.push(item);
+            }
+            continue;
+        }
+
+        match = /as\s+([a-zA-Z0-9_]+)$/.exec(line);
+        if (match) {
+            const name = match[1];
+            if (!seen.has(name) && !reservedWords.has(name)) {
+                seen.add(name);
+                const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable);
+                item.detail = `Alias (line ${i + 1})`;
+                items.push(item);
+            }
+            continue;
+        }
+    }
+    return items;
+}
+
+function triggerDiagnostics(document, context) {
+    if (!document || document.languageId !== 'rsc') return;
+    if (diagnosticTimeout) clearTimeout(diagnosticTimeout);
+
+    diagnosticTimeout = setTimeout(() => {
+        runDiagnostics(document, context);
+    }, 400);
+}
+
+async function runDiagnostics(document, context) {
+    if (!document || document.languageId !== 'rsc') return;
+
+    let compilerPath = vscode.workspace.getConfiguration('racCompiler').get('path');
+    if (!compilerPath || !fs.existsSync(path.join(compilerPath, 'rac.py'))) {
+        if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+            for (const folder of vscode.workspace.workspaceFolders) {
+                if (fs.existsSync(path.join(folder.uri.fsPath, 'rac.py'))) {
+                    compilerPath = folder.uri.fsPath;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!compilerPath || !fs.existsSync(path.join(compilerPath, 'rac.py'))) {
+        return;
+    }
+
+    const model = getModel(context) || '580vnx';
+    const filePath = document.uri.fsPath;
+
+    const command = `"${pythonCommand}" "${path.join(compilerPath, 'rac.py')}" "${model}" "${filePath}"`;
+    exec(command, { cwd: compilerPath }, (error, stdout, stderr) => {
+        const diagnostics = [];
+        const output = (stderr || '') + '\n' + (stdout || '');
+
+        const errorRegex = /error:\s*([^\n]+)\n\s*-->\s*([^\n]+):(\d+)\n\s*\|\n\d+\s*\|\s*([^\n]+)\n\s*\|\s*(\s*)(\^+)/g;
+        let match;
+        while ((match = errorRegex.exec(output)) !== null) {
+            const message = match[1].trim();
+            const line = parseInt(match[3], 10) - 1;
+            const paddingStr = match[5];
+            const caretCount = match[6].length;
+            const startCol = paddingStr.length;
+            const endCol = startCol + caretCount;
+
+            const range = new vscode.Range(
+                new vscode.Position(line, startCol),
+                new vscode.Position(line, endCol)
+            );
+            const diag = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+            diagnostics.push(diag);
+        }
+
+        if (diagnostics.length === 0 && error && output.includes('error:')) {
+            const generalMatch = /error:\s*([^\n]+)/.exec(output);
+            const msg = generalMatch ? generalMatch[1].trim() : "Compilation error";
+            const range = new vscode.Range(0, 0, 0, 100);
+            diagnostics.push(new vscode.Diagnostic(range, msg, vscode.DiagnosticSeverity.Error));
+        }
+
+        diagnosticCollection.set(document.uri, diagnostics);
+    });
+}
+
 
 function activate(context) {
     console.log("RSC Extension is activating!");
@@ -41,8 +291,42 @@ function activate(context) {
     statusBarItem.command = 'rsc.selectModel';
 
     context.subscriptions.push(statusBarItem);
-
     updateStatusBar(context);
+
+    diagnosticCollection = vscode.languages.createDiagnosticCollection('rsc');
+    context.subscriptions.push(diagnosticCollection);
+
+    // Register Auto-Completion Provider
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider('rsc', {
+            provideCompletionItems(document, position, token, contextProvider) {
+                const compilerPath = vscode.workspace.getConfiguration('racCompiler').get('path');
+                const model = getModel(context) || '580vnx';
+
+                const modelItems = getModelSymbols(compilerPath, model);
+                const localItems = getLocalDocumentSymbols(document);
+
+                return [...keywordItems, ...sectionItems, ...modelItems, ...localItems];
+            }
+        }, '@', '.')
+    );
+
+    // Real-time diagnostics listeners
+    if (vscode.window.activeTextEditor) {
+        triggerDiagnostics(vscode.window.activeTextEditor.document, context);
+    }
+
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (editor) triggerDiagnostics(editor.document, context);
+        }),
+        vscode.workspace.onDidChangeTextDocument(e => {
+            triggerDiagnostics(e.document, context);
+        }),
+        vscode.workspace.onDidSaveTextDocument(doc => {
+            triggerDiagnostics(doc, context);
+        })
+    );
 
     context.subscriptions.push(vscode.commands.registerCommand('rsc.selectModel', async () => {
         const currentModel = getModel(context) || '580vnx';
@@ -69,6 +353,25 @@ function activate(context) {
         }
     }));
 
+    context.subscriptions.push(vscode.commands.registerCommand('rsc.setCompilerPath', async () => {
+        const selected = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Select RAC-Compiler Folder',
+            title: 'Select RAC-Compiler Directory'
+        });
+        if (selected && selected[0]) {
+            const compilerPath = selected[0].fsPath;
+            if (!fs.existsSync(path.join(compilerPath, 'rac.py'))) {
+                vscode.window.showErrorMessage("The selected directory does not contain rac.py!");
+                return;
+            }
+            await vscode.workspace.getConfiguration('racCompiler').update('path', compilerPath, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(`RAC Compiler path set to: ${compilerPath}`);
+        }
+    }));
+
     context.subscriptions.push(vscode.commands.registerCommand('rsc.run', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
@@ -81,16 +384,13 @@ function activate(context) {
         }
 
         const model = await ensureModel(context);
+        if (!model) return;
+        
+        const compilerPath = await ensureCompilerPath(context);
+        if (!compilerPath) return;
+        
         const mode = getMode(context);
-        
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-        const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : path.dirname(document.uri.fsPath);
-        
-        const racPy = path.join(cwd, 'rac.py');
-        if (!fs.existsSync(racPy)) {
-            vscode.window.showErrorMessage("rac.py not found in workspace root!");
-            return;
-        }
+        const racPy = path.join(compilerPath, 'rac.py');
 
         let flags = '';
         if (mode === 'Safe Mode') {
@@ -99,7 +399,7 @@ function activate(context) {
 
         let terminal = vscode.window.terminals.find(t => t.name === 'RAC Compiler');
         if (!terminal) {
-            terminal = vscode.window.createTerminal({ name: 'RAC Compiler', cwd: cwd });
+            terminal = vscode.window.createTerminal({ name: 'RAC Compiler', cwd: compilerPath });
         }
         
         terminal.show();
@@ -251,17 +551,27 @@ class RscDebugAdapter {
         }
 
         const model = await ensureModel(this.context);
-        const mode = getMode(this.context);
+        if (!model) {
+            this.sendEvent('exited', { exitCode: 1 });
+            this.sendEvent('terminated');
+            return;
+        }
         
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(programPath));
-        const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : path.dirname(programPath);
-        const racPy = path.join(cwd, 'rac.py');
+        const compilerPath = await ensureCompilerPath(this.context);
+        if (!compilerPath) {
+            this.sendEvent('exited', { exitCode: 1 });
+            this.sendEvent('terminated');
+            return;
+        }
+        
+        const mode = getMode(this.context);
+        const racPy = path.join(compilerPath, 'rac.py');
         
         let flags = mode === 'Safe Mode' ? '--safe' : '';
         
         let terminal = vscode.window.terminals.find(t => t.name === 'RAC Compiler');
         if (!terminal) {
-            terminal = vscode.window.createTerminal({ name: 'RAC Compiler', cwd: cwd });
+            terminal = vscode.window.createTerminal({ name: 'RAC Compiler', cwd: compilerPath });
         }
         
         terminal.show();
@@ -286,24 +596,34 @@ class RscDebugAdapter {
         }
         
         const model = await ensureModel(this.context);
+        if (!model) {
+            this.sendEvent('exited', { exitCode: 1 });
+            this.sendEvent('terminated');
+            return;
+        }
+
+        const compilerPath = await ensureCompilerPath(this.context);
+        if (!compilerPath) {
+            this.sendEvent('exited', { exitCode: 1 });
+            this.sendEvent('terminated');
+            return;
+        }
+
         const mode = getMode(this.context);
-        
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(programPath));
-        const cwd = workspaceFolder ? workspaceFolder.uri.fsPath : path.dirname(programPath);
-        const racPy = path.join(cwd, 'rac.py');
+        const racPy = path.join(compilerPath, 'rac.py');
         
         let flags = mode === 'Safe Mode' ? '--safe' : '';
         const args = `"${racPy}" "${model}" "${programPath}" ${flags}`;
         
         let terminal = vscode.window.terminals.find(t => t.name === 'RAC Compiler');
         if (!terminal) {
-            terminal = vscode.window.createTerminal({ name: 'RAC Compiler', cwd: cwd });
+            terminal = vscode.window.createTerminal({ name: 'RAC Compiler', cwd: compilerPath });
         }
         setTimeout(() => terminal.show(false), 500);
         terminal.sendText('clear');
         terminal.sendText(`${pythonCommand} "${racPy}" "${model}" "${programPath}" ${flags}`);
 
-        exec(`"${pythonCommand}" ${args}`, { cwd }, (error, stdout, stderr) => {
+        exec(`"${pythonCommand}" ${args}`, { cwd: compilerPath }, (error, stdout, stderr) => {
             if (error && stderr) {
                 const errorRegex = /error:\s*([^\n]+)\n\s*-->\s*([^\n]+):(\d+)\n\s*\|\n\d+\s*\|\s*([^\n]+)\n\s*\|\s*(\s*)(\^+)/;
                 const match = errorRegex.exec(stderr);

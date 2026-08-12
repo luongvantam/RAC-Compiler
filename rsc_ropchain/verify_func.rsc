@@ -1,7 +1,5 @@
 org 0xe9e0
 
-def verify_func : 0x13344
-
 lbl main
     setlr
     setsfr

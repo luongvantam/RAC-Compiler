@@ -118,8 +118,36 @@ function canonicalize(st) {
     return parts.join('');
 }
 
+export function createAdrInt(val) {
+    let num = new Number(val);
+    for (let i = 0; i < 8; i++) {
+        num[i] = (val >> (i * 8)) & 0xFF;
+    }
+    return num;
+}
+
 function del_inline_comment(line) {
-    return line.split('#')[0].trimEnd();
+    let in_quote = null;
+    let escaped = false;
+    for (let i = 0; i < line.length; i++) {
+        let char = line[i];
+        if (in_quote) {
+            if (escaped) {
+                escaped = false;
+            } else if (char === '\\') {
+                escaped = true;
+            } else if (char === in_quote) {
+                in_quote = null;
+            }
+        } else {
+            if (char === '"' || char === "'") {
+                in_quote = char;
+            } else if (char === '#') {
+                return line.substring(0, i).trimEnd();
+            }
+        }
+    }
+    return line;
 }
 
 // Tokenizer for safe_eval
@@ -284,6 +312,20 @@ function parseAndEval(tokens, scope) {
 
         while (true) {
             let t = peek();
+            if (t && t.type === 'OP' && t.value === '[') {
+                consume('OP', '[');
+                let idx = parseExpression(0);
+                expect('OP', ']');
+                if (left !== null && left !== undefined && left[idx] !== undefined) {
+                    left = left[idx];
+                } else if (typeof left === 'number') {
+                    left = (left >> (idx * 8)) & 0xFF;
+                } else {
+                    left = 0;
+                }
+                continue;
+            }
+
             if (!t || t.type !== 'OP' || !(t.value in precedence) || precedence[t.value] < minPrec) {
                 break;
             }

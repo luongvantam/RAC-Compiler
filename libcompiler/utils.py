@@ -160,8 +160,45 @@ def canonicalize(st: str) -> str:
                    for i, p in enumerate(re.split(r'(".*?")', st.strip())))
 
 def del_inline_comment(line: str) -> str:
-    """Strips inline comments starting with '#' from a line."""
-    return line.split('#')[0].rstrip()
+    """Strips inline comments starting with '#' from a line, preserving '#' within string literals."""
+    in_quote = None
+    escaped = False
+    for i, char in enumerate(line):
+        if in_quote:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == in_quote:
+                in_quote = None
+        else:
+            if char in ('"', "'"):
+                in_quote = char
+            elif char == '#':
+                return line[:i].rstrip()
+    return line
+
+class AdrInt(int):
+    """Integer wrapper representing a memory address that supports byte indexing via [idx]."""
+    def __getitem__(self, idx: Any) -> int:
+        if not isinstance(idx, int):
+            try: idx = int(idx)
+            except Exception: raise TypeError("Address index must be an integer")
+        if idx < 0: raise IndexError("Address index must be non-negative")
+        return (int(self) >> (idx * 8)) & 0xFF
+
+    def __add__(self, other: Any) -> Any:
+        res = super().__add__(other)
+        return AdrInt(res) if isinstance(res, int) and not isinstance(res, bool) else res
+    def __radd__(self, other: Any) -> Any:
+        res = super().__radd__(other)
+        return AdrInt(res) if isinstance(res, int) and not isinstance(res, bool) else res
+    def __sub__(self, other: Any) -> Any:
+        res = super().__sub__(other)
+        return AdrInt(res) if isinstance(res, int) and not isinstance(res, bool) else res
+    def __rsub__(self, other: Any) -> Any:
+        res = super().__rsub__(other)
+        return AdrInt(res) if isinstance(res, int) and not isinstance(res, bool) else res
 
 _OPS: Dict[type, Callable] = {
     ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
@@ -190,6 +227,10 @@ def safe_eval(expr_str: str, scope: Optional[Dict[str, Any]] = None) -> Any:
             return _OPS[type(node.op)](_eval(node.operand))
         elif isinstance(node, (ast.List, ast.Tuple)): 
             return [_eval(x) for x in node.elts]
+        elif isinstance(node, ast.Subscript):
+            val = _eval(node.value)
+            slice_val = _eval(node.slice)
+            return val[slice_val]
         elif isinstance(node, ast.Call):
             func = _eval(node.func)
             if not callable(func): 

@@ -1,0 +1,48 @@
+---syntax---
+PRINT {x} {y} {str}
+---output---
+pop xr0
+{x:hex}
+{y:hex}
+eval(adr({str:safe}_text_{id}) + dist.main)
+line_print
+---data---
+lbl {str:safe}_text_{id}
+"{str:raw}"
+hex 00
+===
+
+---syntax---
+CLEAR
+---output---
+buffer_clear
+===
+
+---syntax---
+CLS
+---output---
+buffer_clear
+render.ddd4
+===
+
+---syntax---
+RENDER {mode}
+---output---
+render.{mode:lower}
+===
+
+---syntax---
+DELAY {time}
+---output---
+pop er0
+{time:hex}
+delay
+===
+
+---syntax---
+GOTO <label>
+---output---
+pop er14
+adr(<label>, -2)
+sp = er14, pop er14
+===

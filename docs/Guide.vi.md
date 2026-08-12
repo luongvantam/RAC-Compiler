@@ -99,6 +99,7 @@ tmp = 0x12000                            # Dịch thành: er0 = 0x12
     - `adr(<label>)`
     - `adr(<label>, <offset>)`
     - `adr(<label>, <offset>, <base_addr>)`
+    - `adr(<label>)[<index>]` (lấy 1 byte tại vị trí index: [0] = byte thấp, [1] = byte cao)
     - `adr($)` (địa chỉ hiện tại của dòng này)
     - `adr_of <label>`
     - `adr_of [<offset>] <label>`

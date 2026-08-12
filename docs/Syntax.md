@@ -146,6 +146,7 @@ lbl <label> at <address>
 adr(<label>)
 adr(<label>, <offset>)
 adr(<label>, <offset>, <base_addr>)
+adr(<label>)[<index>]   # get byte at index (0 = lower byte, 1 = upper byte)
 adr($)      # current address of this line
 pr_org()    # origin address of the current section
 pr_org(<section>)

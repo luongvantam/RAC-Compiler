@@ -178,6 +178,8 @@ function parse_disassembly(disasm_content) {
     }
 }
 
+let subscript_deps = [];
+
 function sizeof_register(reg_name) {
     const map = {
         'r': 2,
@@ -200,13 +202,14 @@ function set_state(key, value) {
     if (key === 'current_line_num') current_line_num = value;
     if (key === 'backup_address') backup_address = value;
     if (key === 'aliases_pattern') aliases_pattern = value;
+    if (key === 'subscript_deps') subscript_deps = value;
 }
 
 export {
     set_state,
     commands, datalabels, labels, vars_dict, disasm, char_to_hex, token_to_hex,
     home, current_section_name, in_comment, is_pass1, current_exec_info, current_pos, current_line_num,
-    result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals, pr_org_cmds, pr_backup_cmds, dist_cmds, backup_address,
+    result, address_requests, relocation_expressions, sizeof_cmds, deferred_evals, pr_org_cmds, pr_backup_cmds, dist_cmds, subscript_deps, backup_address,
     global_labels, section_addresses, label_sections, aliases, aliases_pattern, defined_functions, dynamic_macros, gadgets_offset_applied,
     add_command, parse_commands, parse_disassembly, sizeof_register
 };

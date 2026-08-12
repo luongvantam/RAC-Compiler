@@ -353,4 +353,4 @@ qr8 = hex 31 05 e0 e9 30 d7 24 d7
 er0=er8
 call 0E1FE          # src=0xe9e0, dest=0xd730, length=0x531, sp=er6+0xc=0xd724+0xc=0xd730
 lbl calc_random
-    'Ran'
+    'Ran#'

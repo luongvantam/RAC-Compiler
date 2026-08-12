@@ -8,17 +8,16 @@ from libcompiler.i18n import t
 
 def build_env():
     env = {k: int.from_bytes(bytes(v), 'little') if isinstance(v, list) else v for k, v in loader.vars_dict.items()}
-    env.update({k: k for k in loader.labels if k not in env})
-    if hasattr(loader, 'global_labels'):
-        env.update({k: k for k in loader.global_labels if k not in env})
 
     def adr_eval(label, offset=0):
+        if isinstance(label, int): return utils.AdrInt(label + offset)
         if not isinstance(label, str): raise utils.CompilerError(t("err_label_must_be_str_c4b7", var0=type(label)))
-        if label == '$': return getattr(loader, 'current_pos', 0) + offset
-        if label in loader.labels: return loader.labels[label] + offset
-        if hasattr(loader, 'global_labels') and label in loader.global_labels: return loader.global_labels[label] + offset
-        if getattr(loader, 'is_pass1', False): return 0
-        raise utils.CompilerError(t("err_label_not_found_var0_d66a", var0=label))
+        if label == '$': val = getattr(loader, 'current_pos', 0) + (loader.home or 0) + offset
+        elif label in loader.labels: val = (loader.home or 0) + loader.labels[label] + offset
+        elif hasattr(loader, 'global_labels') and label in loader.global_labels: val = loader.global_labels[label] + offset
+        elif getattr(loader, 'is_pass1', False): val = 0
+        else: raise utils.CompilerError(t("err_label_not_found_var0_d66a", var0=label))
+        return utils.AdrInt(val)
 
     def sizeof_eval(sec_name=""):
         if not sec_name or sec_name == getattr(loader, 'current_section_name', None): return len(loader.result)
@@ -35,6 +34,7 @@ def build_env():
         raise utils.CompilerError(t("err_section_var0_dist_information_52b8", var0=sec_name))
 
     def homeof_eval(label):
+        if isinstance(label, int): label = str(label)
         if label in loader.labels: return loader.home or 0
         if hasattr(loader, 'global_labels') and label in loader.global_labels:
             sec = getattr(loader, 'label_sections', {}).get(label)
@@ -60,6 +60,12 @@ def build_env():
         if getattr(loader, 'is_pass1', False): return 0
         raise utils.CompilerError(t("err_section_var0_backup_information_e61e", var0=sec_name))
 
+    for k in loader.labels:
+        if k not in env: env[k] = adr_eval(k)
+    if hasattr(loader, 'global_labels'):
+        for k, addr in loader.global_labels.items():
+            if k not in env: env[k] = utils.AdrInt(addr)
+
     env.update({'adr': adr_eval, 'sizeof': sizeof_eval, 'dist': dist_eval, 'homeof': homeof_eval, 'pr_org': pr_org_eval, 'pr_backup': pr_backup_eval})
     return env
 
@@ -67,6 +73,7 @@ def eval_all():
     env, home_deps = build_env(), []
     temp_deferred = list(loader.deferred_evals)
     loader.deferred_evals.clear()
+    loader.subscript_deps = []
 
     for req in temp_deferred:
         if len(req) == 4:
@@ -80,14 +87,21 @@ def eval_all():
         try:
             val = utils.safe_eval(expr, env)
             
-            env_1m = build_env()
-            o_adr, o_pr_org, o_homeof = env_1m['adr'], env_1m['pr_org'], env_1m['homeof']
-            env_1m['adr'] = lambda l, o=0: o_adr(l, o) + (1000000 if l == '$' or l in loader.labels else 0)
-            env_1m['pr_org'] = lambda s="": o_pr_org(s) + (1000000 if not s or s == getattr(loader, 'current_section_name', None) else 0)
-            env_1m['homeof'] = lambda l: o_homeof(l) + (1000000 if l in loader.labels else 0)
-            
-            val_1m = utils.safe_eval(expr, env_1m)
-            mult = (val_1m - val) // 1000000
+            if '[' in expr:
+                mult = 0
+                if loader.home is None:
+                    loader.subscript_deps.append((pos, expr, exec_info, max_bytes))
+            elif loader.home is not None:
+                mult = 0
+            else:
+                env_1m = build_env()
+                o_adr, o_pr_org, o_homeof = env_1m['adr'], env_1m['pr_org'], env_1m['homeof']
+                env_1m['adr'] = lambda l, o=0: o_adr(l, o) + (1000000 if l == '$' or l in loader.labels or (isinstance(l, str) and hasattr(loader, 'global_labels') and l in loader.global_labels) else 0)
+                env_1m['pr_org'] = lambda s="": o_pr_org(s) + (1000000 if not s or s == getattr(loader, 'current_section_name', None) else 0)
+                env_1m['homeof'] = lambda l: o_homeof(l) + (1000000 if l in loader.labels or (isinstance(l, str) and hasattr(loader, 'global_labels') and l in loader.global_labels) else 0)
+                
+                val_1m = utils.safe_eval(expr, env_1m)
+                mult = (val_1m - val) // 1000000
         except Exception:
             try:
                 temp_env = {k: utils.safe_eval(v[5:-1], env) if isinstance(v, str) and v.startswith("eval(") else v for k, v in env.items()}
@@ -120,6 +134,20 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
             current_size = len(loader.result)
             if current_size > max_size:
                 utils.note(t("note_warn_total_length_after_36ac", var0=current_size, var1=max_size))
+
+    if getattr(loader, 'subscript_deps', None):
+        env_now = build_env()
+        for pos, expr, exec_info, max_bytes in loader.subscript_deps:
+            loader.current_pos = pos
+            loader.current_exec_info = exec_info
+            try:
+                val = utils.safe_eval(expr, env_now)
+                val &= (1 << (max_bytes * 8)) - 1
+                for i in range(max_bytes):
+                    loader.result[pos + i] = (val >> (8 * i)) & 0xFF
+            except Exception:
+                pass
+        loader.subscript_deps.clear()
 
     is_final_pass = not getattr(loader, 'is_pass1', False)
     
@@ -186,10 +214,14 @@ def configure_memory_layout(base_sp, addr_resolution_list, dependencies):
 
 def finish_math():
     for pos, l_off, l_lbl, r_off, r_lbl, op in loader.relocation_expressions:
-        if l_lbl not in loader.labels or r_lbl not in loader.labels:
+        l_valid = l_lbl in loader.labels or (hasattr(loader, 'global_labels') and l_lbl in loader.global_labels)
+        r_valid = r_lbl in loader.labels or (hasattr(loader, 'global_labels') and r_lbl in loader.global_labels)
+        if not l_valid or not r_valid:
             if getattr(loader, 'is_pass1', False): continue
             raise utils.CompilerError(t("err_label_not_found_in_ee33", var0=l_lbl, var1=r_lbl))
-        res = (loader.labels[l_lbl] + l_off + loader.labels[r_lbl] + r_off) if op == '+' else (loader.labels[l_lbl] + l_off - loader.labels[r_lbl] - r_off)
+        l_addr = (loader.home or 0) + loader.labels[l_lbl] if l_lbl in loader.labels else loader.global_labels[l_lbl]
+        r_addr = (loader.home or 0) + loader.labels[r_lbl] if r_lbl in loader.labels else loader.global_labels[r_lbl]
+        res = (l_addr + l_off + r_addr + r_off) if op == '+' else (l_addr + l_off - r_addr - r_off)
         res &= 0xFFFF
         if not getattr(loader, 'is_pass1', False) and any(loader.result[pos:pos+2]):
 

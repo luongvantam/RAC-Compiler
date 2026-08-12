@@ -99,6 +99,7 @@ tmp = 0x1200                             # Compiles to: er0 = 0x12
     - `adr(<label>)`
     - `adr(<label>, <offset>)`
     - `adr(<label>, <offset>, <base_addr>)`
+    - `adr(<label>)[<index>]` (get 1 byte at index: [0] = lower byte, [1] = upper byte)
     - `adr($)` (gets the current address of this line)
     - `adr_of <label>`
     - `adr_of [<offset>] <label>`

@@ -1,0 +1,14 @@
+@PROGRAM test_prog
+ORG 0x1000
+BACKUP 0x2000
+192 -> my_x
+10 -> my_y
+"Hello World" -> my_str
+1000 -> my_delay
+
+CLEAR
+CLS
+RENDER E3D4
+DELAY 500
+DELAY my_delay
+PRINT my_x my_y my_str

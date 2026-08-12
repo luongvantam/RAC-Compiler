@@ -50,7 +50,6 @@ loop 4 {
 }
 
 lbl idk
-    delay(0x0101)
     goto restore
 
 lbl text

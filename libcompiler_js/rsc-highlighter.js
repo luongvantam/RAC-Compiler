@@ -25,15 +25,11 @@
     document.head.appendChild(style);
 
 
-    window.initRscHighlighter = function(syntaxData) {
+    window.initRscHighlighter = function (syntaxData) {
         if (typeof Prism === "undefined") return;
 
         let rsc = {
             // Static rules (not in syntax.json since they use specific Prism features like inside/greedy)
-            comment: [
-                { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
-                { pattern: /#.*/, greedy: true }
-            ],
             string: [
                 {
                     pattern: /"(?:\\.|[^"\\])*"/,
@@ -44,6 +40,10 @@
                     }
                 },
                 { pattern: /'(?:\\.|[^'\\])*'/, greedy: true }
+            ],
+            comment: [
+                { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+                { pattern: /#.*/, greedy: true }
             ]
         };
 
@@ -72,7 +72,7 @@
             let obj = { pattern: new RegExp(regexStr, flags) };
             if (rule.group === 2) obj.lookbehind = true;
             if (ALIAS_MAP[id]) obj.alias = ALIAS_MAP[id];
-            
+
             tempRules[id] = obj;
         }
 

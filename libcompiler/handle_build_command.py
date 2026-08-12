@@ -1,9 +1,11 @@
 from libcompiler.i18n import t
 import os, re
 
+from libcompiler import utils
+
 def _parse_config_lines(lines, cfg):
     for part in lines:
-        if not (part := part.split("#")[0].strip()) or "=" not in part: continue
+        if not (part := utils.del_inline_comment(part).strip()) or "=" not in part: continue
         k, v = [x.strip() for x in part.split("=", 1)]
         if v in ("true", "false"): v = v == "true"
         elif v.startswith(('"','\'')) and v.endswith(('"','\'')): v = v[1:-1]

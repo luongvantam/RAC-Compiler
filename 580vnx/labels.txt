@@ -61,7 +61,7 @@
 2641A		diag_contrast
 2C58A		diag_8_keytest
 1F24C		getscancode
-2F5E8		getkey
+2F5E8		getkey; getscancode_nodelay
 25C1A		getkeycode
 29892		cvt_keycode
 2F5F0       getkey_er8

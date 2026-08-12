@@ -9,9 +9,7 @@ lbl main
     hex 05 00
     hex 02 00
     er0 - er2_eq,r0 = 1|r0 = 0,rt
-    er2 = er0,er0 = er2,pop er8,rt
-    hex 00 00
-    er0 += er2,rt                               # tương đương er0 += er0 hay er0*=2
+    r0+=carry,rt                    # r0*=2
     xr12 = adr(table), eval(adr(true) - 0x2)
     BL [er12+=r0]                               
     # nếu r0 = 0 thì gadget 11976 này sẽ trở thành 10742 ngược lại r0 = 1 sẽ trở thành 10740

@@ -30,10 +30,6 @@
 
         let rsc = {
             // Static rules (not in syntax.json since they use specific Prism features like inside/greedy)
-            comment: [
-                { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
-                { pattern: /#.*/, greedy: true }
-            ],
             string: [
                 {
                     pattern: /"(?:\\.|[^"\\])*"/,
@@ -44,6 +40,10 @@
                     }
                 },
                 { pattern: /'(?:\\.|[^'\\])*'/, greedy: true }
+            ],
+            comment: [
+                { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+                { pattern: /#.*/, greedy: true }
             ]
         };
 

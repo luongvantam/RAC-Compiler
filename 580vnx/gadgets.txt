@@ -80,6 +80,7 @@
 2f786	er0 = er8,pop er8,rt
 15386	er0 = er8
 28c86	er2 = er0,r0 = r4,r1 = 0,pop xr4,rt
+2840C   er0 = er2 = 1, pop er8, rt
 2ffc0	r0 = r5,pop er4
 1abb0	r0 = r2 = 0
 1abb2	r0 = r2
@@ -87,6 +88,9 @@
 164e4	r2 = r0,pop r6,pop er12
 2122c	r2 = r0,pop xr8
 177b4	r2 = 0,r7 = 4
+17636   r2 = 0
+171E8   r2 = 2
+16060   r0=8
 1ca8a	r0 = 0
 17e7c	r11 = 0
 1DD54	r0 = 0,rt
@@ -169,6 +173,8 @@
 0E254   [er8+5]+=1,pop er8
 2EB7C   [er8+5]-=1,pop er8
 0A186   r0+=carry,rt
+13B68   er0+=er2,er8=[er0]
+14FCC   er0+=er6,er10=er0,rt
 
 # Some SUB gadgets:
 09e8a	er0 -= er2,rt
@@ -179,6 +185,7 @@
 
 # Some bitwise gadgets:
 1c6b4	r0 &= 0FH
+1D94C   r0 &= F0H,rt
 122d4	r0 |= r1
 0e1e0	r0 |= r1,rt
 20844	r1 |= r0,rt

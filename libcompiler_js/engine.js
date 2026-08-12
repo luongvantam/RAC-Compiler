@@ -7,20 +7,17 @@ function build_env() {
     for (let [k, v] of Object.entries(loader.vars_dict)) {
         env[k] = Array.isArray(v) ? (v[0] | (v[1] << 8)) : v; // Simplified array to int conversion for little endian
     }
-    for (let k in loader.labels) {
-        if (!(k in env)) env[k] = k;
-    }
-    for (let k in loader.global_labels) {
-        if (!(k in env)) env[k] = k;
-    }
 
     function adr_eval(label, offset = 0) {
+        if (typeof label === 'number') return utils.createAdrInt(label + offset);
         if (typeof label !== 'string') throw new utils.CompilerError(`Label must be str, got ${typeof label}`);
-        if (label === '$') return (loader.current_pos || 0) + offset;
-        if (label in loader.labels) return loader.labels[label] + offset;
-        if (label in loader.global_labels) return loader.global_labels[label] + offset;
-        if (loader.is_pass1) return 0;
-        throw new utils.CompilerError(`Label not found: ${label}`);
+        let val;
+        if (label === '$') val = (loader.current_pos || 0) + (loader.home || 0) + offset;
+        else if (label in loader.labels) val = (loader.home || 0) + loader.labels[label] + offset;
+        else if (label in loader.global_labels) val = loader.global_labels[label] + offset;
+        else if (loader.is_pass1) val = 0;
+        else throw new utils.CompilerError(`Label not found: ${label}`);
+        return utils.createAdrInt(val);
     }
 
     function sizeof_eval(sec_name = "") {
@@ -46,6 +43,7 @@ function build_env() {
     }
 
     function homeof_eval(label) {
+        if (typeof label === 'number') label = String(label);
         if (label in loader.labels) return loader.home || 0;
         if (label in loader.global_labels) {
             let sec = loader.label_sections[label];
@@ -76,6 +74,13 @@ function build_env() {
         throw new utils.CompilerError(`Section '${sec_name}' backup information missing`);
     }
 
+    for (let k in loader.labels) {
+        if (!(k in env)) env[k] = adr_eval(k);
+    }
+    for (let k in loader.global_labels) {
+        if (!(k in env)) env[k] = utils.createAdrInt(loader.global_labels[k]);
+    }
+
     env['adr'] = adr_eval;
     env['sizeof'] = sizeof_eval;
     env['dist'] = dist_eval;
@@ -91,6 +96,7 @@ function eval_all() {
     let home_deps = [];
     let temp_deferred = [...loader.deferred_evals];
     loader.deferred_evals.length = 0;
+    loader.subscript_deps.length = 0;
 
     for (let req of temp_deferred) {
         let pos = req[0], expr = req[1], exec_info = req[2], max_bytes = 2;
@@ -103,15 +109,22 @@ function eval_all() {
         try {
             val = utils.safe_eval(expr, env);
 
-            let env_1m = build_env();
-            let o_adr = env_1m['adr'], o_pr_org = env_1m['pr_org'], o_homeof = env_1m['homeof'];
+            if (expr.includes('[') || loader.home !== null) {
+                mult = 0;
+                if (loader.home === null) {
+                    loader.subscript_deps.push([pos, expr, exec_info, max_bytes]);
+                }
+            } else {
+                let env_1m = build_env();
+                let o_adr = env_1m['adr'], o_pr_org = env_1m['pr_org'], o_homeof = env_1m['homeof'];
 
-            env_1m['adr'] = (l, o = 0) => o_adr(l, o) + ((l === '$' || l in loader.labels) ? 1000000 : 0);
-            env_1m['pr_org'] = (s = "") => o_pr_org(s) + ((!s || s === loader.current_section_name) ? 1000000 : 0);
-            env_1m['homeof'] = (l) => o_homeof(l) + ((l in loader.labels) ? 1000000 : 0);
+                env_1m['adr'] = (l, o = 0) => o_adr(l, o) + ((l === '$' || l in loader.labels || (typeof l === 'string' && l in loader.global_labels)) ? 1000000 : 0);
+                env_1m['pr_org'] = (s = "") => o_pr_org(s) + ((!s || s === loader.current_section_name) ? 1000000 : 0);
+                env_1m['homeof'] = (l) => o_homeof(l) + ((l in loader.labels || (typeof l === 'string' && l in loader.global_labels)) ? 1000000 : 0);
 
-            let val_1m = utils.safe_eval(expr, env_1m);
-            mult = Math.floor((val_1m - val) / 1000000);
+                let val_1m = utils.safe_eval(expr, env_1m);
+                mult = Math.floor((val_1m - val) / 1000000);
+            }
         } catch (e) {
             try {
                 let temp_env = {};
@@ -158,6 +171,22 @@ function configure_memory_layout(base_sp, addr_resolution_list, dependencies) {
                 utils.note(`[WARN] Total length after home = ${current_size} bytes > ${max_size} bytes\n`.trim() + '\n');
             }
         }
+    }
+
+    if (loader.subscript_deps && loader.subscript_deps.length > 0) {
+        let env_now = build_env();
+        for (let [pos, expr, exec_info, max_bytes] of loader.subscript_deps) {
+            loader.set_state('current_pos', pos);
+            loader.set_state('current_exec_info', exec_info);
+            try {
+                let val = utils.safe_eval(expr, env_now);
+                val &= (1 << (max_bytes * 8)) - 1;
+                for (let i = 0; i < max_bytes; i++) {
+                    loader.result[pos + i] = (val >> (8 * i)) & 0xFF;
+                }
+            } catch (e) { }
+        }
+        loader.subscript_deps.length = 0;
     }
 
     let is_final_pass = !loader.is_pass1;
@@ -230,13 +259,17 @@ function configure_memory_layout(base_sp, addr_resolution_list, dependencies) {
 function finish_math() {
     for (let req of loader.relocation_expressions) {
         let pos = req[0], l_off = req[1], l_lbl = req[2], r_off = req[3], r_lbl = req[4], op = req[5];
-        if (!(l_lbl in loader.labels) || !(r_lbl in loader.labels)) {
+        let l_valid = (l_lbl in loader.labels) || (l_lbl in loader.global_labels);
+        let r_valid = (r_lbl in loader.labels) || (r_lbl in loader.global_labels);
+        if (!l_valid || !r_valid) {
             if (loader.is_pass1) continue;
             throw new utils.CompilerError(`Label not found in adr: ${l_lbl}, ${r_lbl}`);
         }
+        let l_addr = (l_lbl in loader.labels) ? (loader.home || 0) + loader.labels[l_lbl] : loader.global_labels[l_lbl];
+        let r_addr = (r_lbl in loader.labels) ? (loader.home || 0) + loader.labels[r_lbl] : loader.global_labels[r_lbl];
         let res = (op === '+')
-            ? (loader.labels[l_lbl] + l_off + loader.labels[r_lbl] + r_off)
-            : (loader.labels[l_lbl] + l_off - loader.labels[r_lbl] - r_off);
+            ? (l_addr + l_off + r_addr + r_off)
+            : (l_addr + l_off - r_addr - r_off);
         res &= 0xFFFF;
         if (!loader.is_pass1 && (loader.result[pos] !== 0 || loader.result[pos + 1] !== 0)) {
             utils.note(`[WARN] adr overwrite at ${"0x" + pos.toString(16).padStart(4, "0").toUpperCase()}` + '\n');
@@ -308,6 +341,7 @@ function run_lines(program_lines, overflow_initial_sp) {
     loader.dist_cmds.length = 0;
     loader.pr_org_cmds.length = 0;
     loader.pr_backup_cmds.length = 0;
+    if (loader.subscript_deps) loader.subscript_deps.length = 0;
     loader.set_state('home', null);
     loader.set_state('backup_address', null);
     loader.set_state('in_comment', false);

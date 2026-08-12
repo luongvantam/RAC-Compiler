@@ -1,0 +1,21 @@
+@section.test_prog at 0x1000 backup 0x2000
+buffer_clear
+buffer_clear
+render.ddd4
+render.e3d4
+pop er0
+0x1f4
+delay
+pop er0
+0x3e8
+delay
+pop xr0
+0xc0
+0xa
+eval(adr(Hello_World_text_6) + dist.main)
+line_print
+brk
+lbl Hello_World_text_6
+"Hello World"
+hex 00
+
