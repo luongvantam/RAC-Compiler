@@ -1,8 +1,11 @@
-org 0xe9e0
+@section.main at 0xd730
 
-lbl hello
-    adr(hello)[1]
-    adr(hello)[0]
+pop lr
+xr0 = 0xd400, 0x0000
+call 24672
+hex 01 00 00 00
 
-lbl bbbb
-    adr(bbbb)[0]
+@section.launcher at 0xd180
+
+hex fd 24 2e d7
+sp = er14, pop er14
