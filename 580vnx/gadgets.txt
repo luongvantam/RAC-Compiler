@@ -165,13 +165,13 @@
 21bae	er2 += er8,rt
 09CA2	er2 += er10,[er8] = er2,pop xr8
 2fa0c	er0 += er2,rt
-16078	er0 += 1,rt
-09ce4	r0 += 1,rt
+16078	er0 += 1,rt; er0++,rt
+09ce4	r0 += 1,rt; r0++,rt
 19850	r0 += r4,rt
-1332a	[er4] += 1,rt
-13336	[er4] -= 1,rt
-0E254   [er8+5]+=1,pop er8
-2EB7C   [er8+5]-=1,pop er8
+1332a	[er4] += 1,rt; [er4]++,rt
+13336	[er4] -= 1,rt; [er4]--,rt
+0E254   [er8+5]+=1,pop er8; [er8+5]++,pop er8
+2EB7C   [er8+5]-=1,pop er8; [er8+5]--,pop er8
 0A186   r0+=carry,rt
 13B68   er0+=er2,er8=[er0]
 14FCC   er0+=er6,er10=er0,rt
@@ -179,7 +179,7 @@
 # Some SUB gadgets:
 09e8a	er0 -= er2,rt
 29a40	er0 -= er12,pop er8,pop er12,rt
-09e98	r0 -= 1,rt
+09e98	r0 -= 1,rt; r0--,rt
 0ac5a	r0 -= r8,pop er8,rt
 0ac54	r0 -= r2,pop er8,rt
 
@@ -227,8 +227,8 @@
 33030	brk
 
 # Some other gadgets:
-0d71c	[ea] += 1,r0 = 3
-2c81e	[ea] -= 1,pop xr4
+0d71c	[ea] += 1,r0 = 3; [ea]++,r0 = 3
+2c81e	[ea] -= 1,pop xr4; [ea]--,pop xr4
 24836	B LEAVE
 
 # BL gadgets:

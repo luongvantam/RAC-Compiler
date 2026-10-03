@@ -119,11 +119,7 @@ function canonicalize(st) {
 }
 
 export function createAdrInt(val) {
-    let num = new Number(val);
-    for (let i = 0; i < 8; i++) {
-        num[i] = (val >> (i * 8)) & 0xFF;
-    }
-    return num;
+    return Number(val);
 }
 
 function del_inline_comment(line) {

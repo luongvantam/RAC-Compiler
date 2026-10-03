@@ -609,6 +609,7 @@ function handle_eval_expression(line) {
     }
 
     let val = utils.safe_eval(expanded_expr, eval_scope);
+    if (val instanceof Number) val = val.valueOf();
 
     if (typeof val === 'number' || Array.isArray(val)) {
         let hexMatches = [...expanded_expr.matchAll(/\b0x([0-9a-fA-F]+)\b/g)];
@@ -635,14 +636,22 @@ function handle_eval_expression(line) {
 }
 
 function handle_list_command(line, program_iter) {
+    let bracket_depth = 1;
     let content = line.substring(1);
-    if (content.includes(']')) {
-        let inner = content.substring(0, content.indexOf(']'));
-        if (inner.trim()) process_line(inner);
-        return;
+    let parts = [];
+
+    for (let i = 0; i < content.length; i++) {
+        if (content[i] === '[') bracket_depth++;
+        else if (content[i] === ']') {
+            bracket_depth--;
+            if (bracket_depth === 0) {
+                let inner = content.substring(0, i);
+                if (inner.trim()) process_line(inner);
+                return;
+            }
+        }
     }
 
-    let parts = [];
     if (content.trim()) parts.push(content.trim());
 
     if (program_iter) {
@@ -654,12 +663,21 @@ function handle_list_command(line, program_iter) {
                 next = program_iter.next();
                 continue;
             }
-            if (s.includes(']')) {
-                let before = s.substring(0, s.indexOf(']')).trim();
-                while (before.endsWith(';')) before = before.substring(0, before.length - 1);
-                if (before) parts.push(before);
-                break;
+            let line_closed = false;
+            for (let i = 0; i < s.length; i++) {
+                if (s[i] === '[') bracket_depth++;
+                else if (s[i] === ']') {
+                    bracket_depth--;
+                    if (bracket_depth === 0) {
+                        let before = s.substring(0, i).trim();
+                        while (before.endsWith(';')) before = before.substring(0, before.length - 1);
+                        if (before) parts.push(before);
+                        line_closed = true;
+                        break;
+                    }
+                }
             }
+            if (line_closed) break;
             while (s.endsWith(';')) s = s.substring(0, s.length - 1);
             parts.push(s);
             next = program_iter.next();
@@ -828,26 +846,47 @@ function handle_assignment_command(line, program_iter) {
     }
 
     if (r.startsWith('[')) {
-        if (r.substring(1).includes(']')) {
-            r = r.substring(1).split(']')[0];
-        } else {
-            let r_parts = [r.substring(1)];
+        let bracket_depth = 0;
+        let found_close = false;
+        let r_parts = [];
+        for (let i = 0; i < r.length; i++) {
+            if (r[i] === '[') bracket_depth++;
+            else if (r[i] === ']') {
+                bracket_depth--;
+                if (bracket_depth === 0) {
+                    r_parts.push(r.substring(1, i));
+                    found_close = true;
+                    break;
+                }
+            }
+        }
+        if (!found_close) {
+            r_parts.push(r.substring(1));
             if (program_iter) {
                 let next = program_iter.next();
                 while (!next.done) {
                     let i = next.value;
                     let s = Array.isArray(i) ? i[1] : (i.exec || String(i));
                     if (!s) { next = program_iter.next(); continue; }
-                    if (s.includes(']')) {
-                        r_parts.push(s.split(']')[0]);
-                        break;
+                    let s_closed = false;
+                    for (let j = 0; j < s.length; j++) {
+                        if (s[j] === '[') bracket_depth++;
+                        else if (s[j] === ']') {
+                            bracket_depth--;
+                            if (bracket_depth === 0) {
+                                r_parts.push(s.substring(0, j));
+                                s_closed = true;
+                                break;
+                            }
+                        }
                     }
+                    if (s_closed) break;
                     r_parts.push(s);
                     next = program_iter.next();
                 }
             }
-            r = r_parts.join(';');
         }
+        r = r_parts.join(';');
     }
 
     if (l.startsWith("var ")) {
@@ -975,7 +1014,7 @@ function handle_token_literal(line) {
 
 
 function handle_adr_of_hd_command(line) {
-    let m = line.trim().match(/^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$/);
+    let m = line.trim().match(/^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?([a-zA-Z_]\w*|\$)$/);
     if (!m) throw new utils.CompilerError(`Invalid adr_of syntax: ${line}. Expected 'adr_of [offset] [base] label'`);
     let offset = m[1] ? m[1] : "+ 0";
     let base = m[2];

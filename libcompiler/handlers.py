@@ -576,13 +576,18 @@ def handle_eval_expression(line):
 
 def handle_list_command(line, program_iter):
     content = line[1:]
-
-    if ']' in content:
-        inner = content[:content.index(']')]
-        process_line(inner) if inner.strip() else None
-        return
-
+    bracket_depth = 1
     parts = []
+
+    for i, c in enumerate(content):
+        if c == '[': bracket_depth += 1
+        elif c == ']':
+            bracket_depth -= 1
+            if bracket_depth == 0:
+                inner = content[:i]
+                if inner.strip(): process_line(inner)
+                return
+
     if content.strip():
         parts.append(content.strip())
 
@@ -592,11 +597,19 @@ def handle_list_command(line, program_iter):
              else str(item).strip())
         if not s:
             continue
-        if ']' in s:
-            before = s[:s.index(']')].strip().rstrip(';')
-            if before:
-                parts.append(before)
-            break  # stop here — do NOT consume past ']'
+        line_closed = False
+        for i, c in enumerate(s):
+            if c == '[': bracket_depth += 1
+            elif c == ']':
+                bracket_depth -= 1
+                if bracket_depth == 0:
+                    before = s[:i].strip().rstrip(';')
+                    if before:
+                        parts.append(before)
+                    line_closed = True
+                    break
+        if line_closed:
+            break
         parts.append(s.rstrip(';'))
 
     cleaned = [p for p in parts if p]
@@ -714,19 +727,35 @@ def handle_assignment_command(line, program_iter):
             r = ''.join(parts)
 
     if r.startswith('['):
-        if ']' in r[1:]:
-            parts = [r[1:].split(']')[0]]
-        else:
-            parts = [r[1:]]
+        bracket_depth = 0
+        found_close = False
+        r_parts = []
+        for i, c in enumerate(r):
+            if c == '[': bracket_depth += 1
+            elif c == ']':
+                bracket_depth -= 1
+                if bracket_depth == 0:
+                    r_parts.append(r[1:i])
+                    found_close = True
+                    break
+        if not found_close:
+            r_parts.append(r[1:])
             if program_iter:
                 for i in program_iter:
                     s = i[1] if isinstance(i, tuple) else i.get("exec", "") if isinstance(i, dict) else str(i)
                     if not s: continue
-                    if ']' in s:
-                        parts.append(s.split(']')[0])
-                        break
-                    parts.append(s)
-        r = ";".join(parts)
+                    s_closed = False
+                    for j, c in enumerate(s):
+                        if c == '[': bracket_depth += 1
+                        elif c == ']':
+                            bracket_depth -= 1
+                            if bracket_depth == 0:
+                                r_parts.append(s[:j])
+                                s_closed = True
+                                break
+                    if s_closed: break
+                    r_parts.append(s)
+        r = ";".join(r_parts)
 
     if l.startswith("var "):
         var_name = l[4:].strip()
@@ -826,7 +855,7 @@ def handle_token_literal(line):
             i += 1
 
 def handle_adr_of_hd_command(line):
-    m = re.match(r'^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?(\S+)$', line.strip())
+    m = re.match(r'^adr_of\s*(?:\[(.*?)\]\s*)?(?:\[(.*?)\]\s*)?([a-zA-Z_]\w*|\$)$', line.strip())
     if not m: raise utils.CompilerError(t("err_invalid_adrof_syntax_var0_a410", var0=line))
     offset, base, lbl = m.group(1) or "+ 0", m.group(2), m.group(3)
     process_line(f'adr({lbl}, {offset.strip()}{f", {base}" if base else ""})')

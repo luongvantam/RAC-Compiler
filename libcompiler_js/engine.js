@@ -142,6 +142,7 @@ function eval_all() {
             }
         }
 
+        if (val instanceof Number) val = val.valueOf();
         if (typeof val !== 'number') throw new utils.CompilerError(`Eval ${expr} not integer`);
 
         if (mult === 0) {

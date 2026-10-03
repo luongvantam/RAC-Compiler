@@ -1,6 +1,7 @@
 # RAC COMPILER
 
-*阅读其他语言版本: [English](README.md), [Tiếng Việt](README.vi.md).*
+_阅读其他语言版本: [English](README.md), [Tiếng Việt](README.vi.md)._
+_Go to [RAC++ Compiler](https://github.com/luongvantam/RACPP-Compiler)_
 
 ---
 
@@ -12,8 +13,9 @@
 
 从官方 GitHub 仓库获取最新的源代码和发布版本：
 
-* **仓库链接:** [https://github.com/luongvantam/RAC-Compiler](https://github.com/luongvantam/RAC-Compiler)
-* **方法:** 点击 **Code** 按钮 -> **Download ZIP** 并解压，或者通过 Git 终端克隆：
+- **仓库链接:** [https://github.com/luongvantam/RAC-Compiler](https://github.com/luongvantam/RAC-Compiler)
+- **方法:** 点击 **Code** 按钮 -> **Download ZIP** 并解压，或者通过 Git 终端克隆：
+
 ```bash
 git clone https://github.com/luongvantam/RAC-Compiler.git
 ```
@@ -31,14 +33,15 @@ git clone https://github.com/luongvantam/RAC-Compiler.git
 
 根据您的主机操作系统平台，启动位于编译器目录下的专用自动脚本文件：
 
-* **在 Windows 平台上:** 双击 `run.bat`（或通过 PowerShell/CMD 环境执行）。
-* **在 Linux / macOS 环境下:** 在根目录路径下启动终端并执行 `run.sh`：
+- **在 Windows 平台上:** 双击 `run.bat`（或通过 PowerShell/CMD 环境执行）。
+- **在 Linux / macOS 环境下:** 在根目录路径下启动终端并执行 `run.sh`：
+
 ```bash
 chmod +x run.sh
 ./run.sh
 ```
 
-* **编译过程:** 
+- **编译过程:**
   1. 首次运行时，会提示您输入目标计算器型号（例如 `580vnx`，`880btg`）。
   2. 在主提示符下，输入要编译的确切源文件名或完整路径，然后按 `Enter`。
   3. 您可以使用以下交互式命令：
@@ -50,14 +53,14 @@ chmod +x run.sh
 
 该项目现在包含 2 个集成开发环境 (IDE)：
 
-* **TUI IDE (终端用户界面):**
-  * 在 Windows 上运行 `IDE.bat` 或在 Linux/macOS 上运行 `./IDE.sh`。
-  * 直接在您的终端中提供语法高亮功能。
-  * 需要 `textual` Python 模块（通过脚本自动安装）。
+- **TUI IDE (终端用户界面):**
+  - 在 Windows 上运行 `IDE.bat` 或在 Linux/macOS 上运行 `./IDE.sh`。
+  - 直接在您的终端中提供语法高亮功能。
+  - 需要 `textual` Python 模块（通过脚本自动安装）。
 
-* **Web IDE (浏览器用户界面):**
-  * 在 Windows 上运行 `web.bat` 或在 Linux/macOS 上运行 `./web.sh`。
-  * 打开浏览器并导航到终端中显示的地址（通常是 `http://localhost:8000`）。
+- **Web IDE (浏览器用户界面):**
+  - 在 Windows 上运行 `web.bat` 或在 Linux/macOS 上运行 `./web.sh`。
+  - 打开浏览器并导航到终端中显示的地址（通常是 `http://localhost:8000`）。
 
 ---
 
